@@ -1,0 +1,95 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      tag:
+        description: 'Git tag to rollback to (e.g., deploy-20260109-143022)'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    name: Rollback to Previous Version
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code at tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        working-directory: ./hub
+        run: bun install --frozen-lockfile
+
+      # Deploy Hub (Rollback)
+      - name: Deploy Hub to Railway (Rollback)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli
+          cd hub
+          railway up --service hub --environment ${{ inputs.environment }}
+
+      # Deploy Apps (Rollback)
+      - name: Deploy Command Center (Rollback)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_COMMAND_CENTER }}
+        working-directory: ./apps/command-center
+        run: |
+          npm install -g vercel
+          bun install --frozen-lockfile
+          vercel pull --yes --environment=${{ inputs.environment == 'production' && 'production' || 'preview' }} --token=$VERCEL_TOKEN
+          vercel build ${{ inputs.environment == 'production' && '--prod' || '' }} --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt ${{ inputs.environment == 'production' && '--prod' || '' }} --token=$VERCEL_TOKEN
+
+      - name: Deploy Tasks (Rollback)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TASKS }}
+        working-directory: ./apps/tasks
+        run: |
+          bun install --frozen-lockfile
+          vercel pull --yes --environment=${{ inputs.environment == 'production' && 'production' || 'preview' }} --token=$VERCEL_TOKEN
+          vercel build ${{ inputs.environment == 'production' && '--prod' || '' }} --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt ${{ inputs.environment == 'production' && '--prod' || '' }} --token=$VERCEL_TOKEN
+
+      - name: Deploy Vault (Rollback)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_VAULT }}
+        working-directory: ./apps/vault
+        run: |
+          bun install --frozen-lockfile
+          vercel pull --yes --environment=${{ inputs.environment == 'production' && 'production' || 'preview' }} --token=$VERCEL_TOKEN
+          vercel build ${{ inputs.environment == 'production' && '--prod' || '' }} --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt ${{ inputs.environment == 'production' && '--prod' || '' }} --token=$VERCEL_TOKEN
+
+      # Verify Rollback
+      - name: Verify Rollback
+        run: |
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            curl -f ${{ secrets.PRODUCTION_API_URL }}/api/health
+          else
+            curl -f ${{ secrets.STAGING_API_URL }}/api/health
+          fi
+
+      - name: Notify Rollback Complete
+        run: echo "Rolled back ${{ inputs.environment }} to ${{ inputs.tag }}"

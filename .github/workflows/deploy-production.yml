@@ -1,0 +1,161 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+# Only one deployment at a time
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  # Require manual approval for production
+  approve:
+    name: Require Manual Approval
+    runs-on: ubuntu-latest
+    environment:
+      name: production-approval
+    steps:
+      - name: Manual approval checkpoint
+        run: echo "Deployment approved, proceeding..."
+
+  # Run critical tests before deploying
+  pre-deploy-tests:
+    name: Pre-Deploy Critical Tests
+    runs-on: ubuntu-latest
+    needs: approve
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:test@localhost:5432/jd_agent_test
+      DATABASE_SSL: false
+      TEST_RETRIES: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: jd_agent_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        working-directory: ./hub
+        run: bun install --frozen-lockfile
+
+      - name: Run database migrations
+        working-directory: ./hub
+        run: bunx drizzle-kit push --force
+
+      - name: Run critical path tests 10x
+        working-directory: ./hub
+        run: bun run test:critical
+
+  deploy:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    needs: pre-deploy-tests
+    environment:
+      name: production
+      url: https://app.jdagent.app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        working-directory: ./hub
+        run: bun install --frozen-lockfile
+
+      # Run database migrations on production
+      - name: Run database migrations
+        working-directory: ./hub
+        run: bun run db:migrate:prod
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      # Deploy Hub to Railway
+      - name: Deploy Hub to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli
+          cd hub
+          railway up --service hub --environment production
+
+      # Deploy Command Center to Vercel
+      - name: Deploy Command Center to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_COMMAND_CENTER }}
+        working-directory: ./apps/command-center
+        run: |
+          npm install -g vercel
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+      # Deploy Tasks to Vercel
+      - name: Deploy Tasks to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TASKS }}
+        working-directory: ./apps/tasks
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+      # Deploy Vault to Vercel
+      - name: Deploy Vault to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_VAULT }}
+        working-directory: ./apps/vault
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+      # Run smoke tests
+      - name: Run Production Smoke Tests
+        run: |
+          sleep 60  # Wait for deployments
+          curl -f ${{ secrets.PRODUCTION_API_URL }}/api/health || exit 1
+          curl -f ${{ secrets.PRODUCTION_APP_URL }} || exit 1
+
+      # Create deployment tag
+      - name: Create Git Tag
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a "deploy-$(date +'%Y%m%d-%H%M%S')" -m "Production deployment"
+          git push origin --tags
+
+      # Notify deployment
+      - name: Notify Success
+        if: success()
+        run: echo "Production deployment successful"
+
+      - name: Notify Failure
+        if: failure()
+        run: echo "Production deployment failed"
