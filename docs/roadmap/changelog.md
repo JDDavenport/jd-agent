@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.3] - 2026-01-09
+
+### Added
+
+#### Remarkable Integration
+- Complete handwritten notes pipeline for MBA class notes
+- Naming convention parser: `MBA/[Semester]/[ClassCode]/[YYYY-MM-DD]`
+- Auto-classification into class notes vs general inbox
+- Google Cloud Vision OCR with confidence scoring
+- PDF text extraction via pdf-parse
+- Content merging: Remarkable OCR + Plaud transcripts + typed notes
+- Combined markdown generation (`_combined.md`)
+- Vault structure auto-creation: `vault/academic/mba/{semester}/{class}/days/{date}/`
+- General inbox for non-class notes: `vault/remarkable/inbox/`
+- Background job processing (sync, OCR, merge)
+- 18 new API endpoints for full CRUD operations
+- Database tables: `remarkable_notes`, `remarkable_sync_state`
+
+#### Daily Journal App
+- New standalone app at `/apps/daily-journal` (port 5178)
+- 7-step evening review workflow:
+  1. Habits Review - view and toggle daily habit completions
+  2. Goals Review - reflect on goals by life area
+  3. Journal Entry - rich text editor with auto-save
+  4. Tasks Review - review completed tasks with reflection notes
+  5. Classes Review - review class notes (conditional)
+  6. Tomorrow Preview - preview tomorrow's schedule
+  7. Complete Review - select mood, add tags, save to vault
+- Auto-save every 30 seconds with debouncing
+- Mood tracking (5 levels: great, good, okay, difficult, terrible)
+- Tag system for categorizing reviews
+- History view with search and filtering
+- Vault integration for permanent records
+- Progress indicator showing step completion
+- Mobile responsive design
+
+#### Command Center v2.0 Phase 3
+- Canvas Hub widget with today's classes and upcoming assignments
+- Fitness widget with Whoop integration (recovery, sleep, workouts)
+- System Monitor widget for integration health status
+- AI Insights widget with pattern detection and recommendations
+- New dashboard layout with 5 rows
+
+### Database
+- Extended `dailyReviews` table with 15+ new columns:
+  - `journalText`, `wordCount` for journal content
+  - `tasksReviewed`, `classesReviewed` JSONB arrays
+  - `habitsCompletedCount`, `habitsTotalCount`, `goalsReviewedCount`
+  - `tomorrowEventsCount`, `tomorrowTasksCount`
+  - `tags` text array, `mood` enum
+  - `currentStep`, `reviewCompleted`, `reviewDurationSeconds`
+  - `vaultPageId`, `startedAt`, `completedAt`
+- Added `ai_insights` table for AI-generated insights
+- Added `system_health_logs` table for integration health tracking
+
+---
+
 ## [Unreleased]
 
 ### Added

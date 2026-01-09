@@ -21,13 +21,13 @@ JD Agent integrates with many external services to centralize your productivity 
 | [Apple Notes](./apple-notes.md) | Active | Batch import |
 | [Whoop](./whoop.md) | Active | Health metrics |
 | [Todoist](./todoist.md) | Migration | Task import |
+| [Remarkable](./remarkable.md) | Active | Handwriting OCR, class notes pipeline |
 
 ### Partial / In Progress
 
 | Service | Status | Notes |
 |---------|--------|-------|
-| ReMarkable | 10% | Handwriting pipeline in progress |
-| Plaud | 10% | Recording pipeline in progress |
+| Plaud | 80% | VIP pipeline + voice profiles |
 | Voyage AI | Schema ready | Semantic search wiring needed |
 
 ---
@@ -169,6 +169,7 @@ To request a new integration:
 - [Google Services](./google.md) - Calendar, Drive, Gmail setup
 - [Telegram](./telegram.md) - Bot setup and usage
 - [Canvas LMS](./canvas.md) - Academic integration
+- [Remarkable](./remarkable.md) - Handwriting OCR and class notes
 - [Whoop](./whoop.md) - Health data
 - [Apple Notes](./apple-notes.md) - Import process
 - [Notion](./notion.md) - Page import
@@ -176,4 +177,4 @@ To request a new integration:
 
 ---
 
-*Last updated: January 8, 2026*
+*Last updated: January 9, 2026*

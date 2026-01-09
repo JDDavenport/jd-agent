@@ -2,7 +2,7 @@
 
 > Known issues, planned enhancements, and feature requests
 
-**Last Updated:** January 8, 2026
+**Last Updated:** January 9, 2026
 
 ---
 
@@ -31,7 +31,7 @@ This backlog provides transparency into:
 
 | ID | Description | Severity | Status | Notes |
 |----|-------------|----------|--------|-------|
-| BUG-001 | ReMarkable sync pipeline incomplete | 🟡 Medium | In Progress | 10% complete |
+| BUG-001 | ReMarkable sync pipeline incomplete | 🟢 Low | Resolved | Complete - Jan 9, 2026 |
 | BUG-002 | Plaud recording pipeline incomplete | 🟡 Medium | In Progress | 10% complete |
 | BUG-003 | Semantic search not wired to search API | 🟡 Medium | In Progress | Schema ready, wiring needed |
 | BUG-004 | Canvas token expiration not auto-refreshed | 🟢 Low | Open | Manual re-auth required |
@@ -98,6 +98,7 @@ Items recently moved from backlog to done.
 
 | ID | Description | Completed | Notes |
 |----|-------------|-----------|-------|
+| BUG-001 | Remarkable Integration | Jan 9, 2026 | Full MBA class notes pipeline, OCR, content merging |
 | FEAT-T01 | AI Testing Agent | Jan 7, 2026 | Vision-based QA testing |
 | FEAT-T02 | Job Hunting Agent | Jan 7, 2026 | Full job application pipeline |
 | FEAT-T03 | Canvas Integrity Agent | Jan 7, 2026 | Assignment verification |

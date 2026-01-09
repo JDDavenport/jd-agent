@@ -2,13 +2,35 @@
 
 > See what we're building, what's next, and share your feedback
 
-**Last Updated:** January 8, 2026 | **Version:** 0.3.1
+**Last Updated:** January 9, 2026 | **Version:** 0.3.3
 
 ---
 
 ## Shipped
 
 Recently released features and improvements.
+
+### Remarkable Integration
+- **Category:** Integrations
+- **Released:** January 2026
+- MBA class notes naming convention parser
+- Google Cloud Vision OCR for handwriting
+- Content merging with Plaud transcripts
+- Vault structure auto-creation
+- General inbox for non-class notes
+- 18 API endpoints for full management
+
+### Daily Journal App
+- **Category:** Productivity
+- **Released:** January 2026
+- 7-step evening review workflow
+- Habits review with completion toggle
+- Goals review by life area
+- Rich text journal with auto-save
+- Tomorrow preview and preparation
+- Mood and tag tracking
+- Vault integration for permanent records
+- History view with search
 
 ### Documentation System
 - **Category:** Platform
@@ -102,13 +124,6 @@ Actively being built right now.
 ## Planned
 
 Committed for the near term.
-
-### ReMarkable Integration
-- **Category:** Integrations
-- **Priority:** High
-- Handwriting to text pipeline
-- Auto-import annotated PDFs
-- Sync highlights and notes
 
 ### Plaud Recording Pipeline
 - **Category:** Integrations
@@ -259,6 +274,8 @@ See the [Changelog](./changelog.md) for detailed release notes.
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.3.3 | Jan 9, 2026 | Daily Journal App, Command Center v2.0 Phase 3 |
+| 0.3.2 | Jan 8, 2026 | VIP Pipeline, Multi-Provider LLM, Smart Data Recovery |
 | 0.3.1 | Jan 8, 2026 | Goals & Habits Tracking, Documentation System |
 | 0.3.0 | Jan 7, 2026 | Testing Agent, Job Agent, Canvas Integrity |
 | 0.2.0 | Jan 2026 | Vault, Ceremonies, Calendar sync |
