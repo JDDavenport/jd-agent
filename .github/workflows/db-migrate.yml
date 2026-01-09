@@ -1,0 +1,73 @@
+name: Database Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to migrate'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      dry_run:
+        description: 'Dry run (show changes without applying)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  migrate:
+    name: Run Database Migration
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}-db
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        working-directory: ./hub
+        run: bun install --frozen-lockfile
+
+      - name: Show migration plan (dry run)
+        if: inputs.dry_run
+        working-directory: ./hub
+        run: |
+          echo "Migration plan for ${{ inputs.environment }}:"
+          bunx drizzle-kit push --dry-run
+        env:
+          DATABASE_URL: ${{ inputs.environment == 'production' && secrets.PRODUCTION_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+
+      - name: Run migrations
+        if: ${{ !inputs.dry_run }}
+        working-directory: ./hub
+        run: |
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            echo "Running production migration..."
+            bun run db:migrate:prod
+          else
+            echo "Running staging migration..."
+            bun run db:migrate:staging
+          fi
+        env:
+          DATABASE_URL: ${{ inputs.environment == 'production' && secrets.PRODUCTION_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+
+      - name: Verify migration
+        if: ${{ !inputs.dry_run }}
+        working-directory: ./hub
+        run: bun run db:verify ${{ inputs.environment }}
+        env:
+          DATABASE_URL: ${{ inputs.environment == 'production' && secrets.PRODUCTION_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+
+      - name: Notify Success
+        if: success()
+        run: echo "Database migration completed for ${{ inputs.environment }}"
+
+      - name: Notify Failure
+        if: failure()
+        run: echo "Database migration FAILED for ${{ inputs.environment }}"

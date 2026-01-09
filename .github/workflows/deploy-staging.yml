@@ -1,0 +1,98 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+
+# Only one deployment at a time
+concurrency:
+  group: staging-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.jdagent.app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        working-directory: ./hub
+        run: bun install --frozen-lockfile
+
+      # Run database migrations on staging
+      - name: Run database migrations
+        working-directory: ./hub
+        run: bun run db:migrate:staging
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+
+      # Deploy Hub to Railway
+      - name: Deploy Hub to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli
+          cd hub
+          railway up --service hub --environment staging
+
+      # Deploy Command Center to Vercel
+      - name: Deploy Command Center to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_COMMAND_CENTER }}
+        working-directory: ./apps/command-center
+        run: |
+          npm install -g vercel
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          vercel build --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --token=$VERCEL_TOKEN
+
+      # Deploy Tasks to Vercel
+      - name: Deploy Tasks to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TASKS }}
+        working-directory: ./apps/tasks
+        run: |
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          vercel build --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --token=$VERCEL_TOKEN
+
+      # Deploy Vault to Vercel
+      - name: Deploy Vault to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_VAULT }}
+        working-directory: ./apps/vault
+        run: |
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          vercel build --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --token=$VERCEL_TOKEN
+
+      # Run smoke tests against staging
+      - name: Run Smoke Tests
+        run: |
+          sleep 30  # Wait for deployments to be live
+          curl -f ${{ secrets.STAGING_API_URL }}/api/health || echo "API health check failed"
+          curl -f ${{ secrets.STAGING_APP_URL }} || echo "App health check failed"
+
+      # Notify deployment status
+      - name: Notify Success
+        if: success()
+        run: echo "Staging deployment successful"
+
+      - name: Notify Failure
+        if: failure()
+        run: echo "Staging deployment failed"

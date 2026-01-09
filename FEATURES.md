@@ -1596,6 +1596,18 @@ See `CLAUDE.md` for full documentation requirements.
 - **React Query Hooks**: `useVaultPages.ts`, `useVaultBlocks.ts` for data management
 - **Types Package Updated**: VaultPage, VaultBlock, VaultBlockType, all block content interfaces
 
+### January 9, 2026 - CI/CD Pipeline with GitHub Actions
+- **CI Workflow** (`.github/workflows/ci.yml`): Automated testing on every PR
+  - Type checking, unit tests, E2E tests with Playwright
+  - Critical path tests (10x) before deployment
+  - Build verification for all apps
+  - Security audit for leaked secrets
+- **Deploy Staging** (`.github/workflows/deploy-staging.yml`): Auto-deploy on merge to develop
+- **Deploy Production** (`.github/workflows/deploy-production.yml`): Manual approval required, deploy on merge to main
+- **Rollback** (`.github/workflows/rollback.yml`): Emergency rollback to any deployment tag
+- **Database Migrations** (`.github/workflows/db-migrate.yml`): Safe migrations with dry-run option
+- **Documentation**: Full CI/CD guide at `/docs/operations/CICD.md`
+
 ### January 9, 2026 - Multi-Environment Database Setup
 - **Environment Configuration**: New `/hub/src/config/env.ts` with Zod validation for all environment variables
 - **Three Environments**: Development (local), Staging (Neon branch), Production (Neon main)
