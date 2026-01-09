@@ -37,9 +37,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       })
     : [];
 
-  const handleComplete = (id: string) => {
+  const handleComplete = (_id: string) => {
     // TODO: Implement complete
-    console.log('Complete:', id);
   };
 
   return (

@@ -20,6 +20,7 @@ import {
   useVaultBreadcrumb,
   useVaultChildren,
   useMoveVaultEntry,
+  useUpdateVaultEntry,
 } from './hooks/useVault';
 import {
   useVaultPageTree,
@@ -85,6 +86,7 @@ function VaultApp() {
   const { data: breadcrumb } = useVaultBreadcrumb(selectedEntryId);
   const { data: entryChildren = [] } = useVaultChildren(selectedEntryId);
   const moveEntry = useMoveVaultEntry();
+  const updateEntry = useUpdateVaultEntry();
 
   // Notion mode handlers
   const handleSelectPage = useCallback((pageId: string) => {
@@ -143,6 +145,17 @@ function VaultApp() {
       }
     },
     [moveEntry]
+  );
+
+  const handleUpdateEntry = useCallback(
+    async (id: string, data: Partial<{ title: string; content: string }>) => {
+      try {
+        await updateEntry.mutateAsync({ id, input: data });
+      } catch (error) {
+        console.error('Failed to update entry:', error);
+      }
+    },
+    [updateEntry]
   );
 
   const handleNewEntry = (parentId?: string) => {
@@ -333,9 +346,7 @@ function VaultApp() {
             <PageView
               entry={selectedEntry}
               children={entryChildren}
-              onUpdate={(id, data) => {
-                console.log('Update entry:', id, data);
-              }}
+              onUpdate={handleUpdateEntry}
               onLinkClick={(title) => {
                 const linked = allEntries?.find((e) => e.title === title);
                 if (linked) {
@@ -368,9 +379,7 @@ function VaultApp() {
       case 'journal':
         return (
           <JournalView
-            onSave={(entry) => {
-              console.log('Save journal entry:', entry);
-            }}
+            onSave={() => {}}
           />
         );
 
@@ -378,7 +387,7 @@ function VaultApp() {
         return (
           <ArchiveView
             tasks={[]}
-            onTaskClick={(task) => console.log('Task clicked:', task)}
+            onTaskClick={() => {}}
           />
         );
 
@@ -448,7 +457,6 @@ function VaultApp() {
         onSelectPage={handleSelectPage}
         onSelectLegacyEntry={handleSelectEntry}
         onCreatePage={handleCreatePage}
-        legacyEntries={allEntries}
       />
 
       {/* Legacy New Entry Modal */}
