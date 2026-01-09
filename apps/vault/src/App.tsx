@@ -424,7 +424,7 @@ function VaultApp() {
   };
 
   return (
-    <div className="flex h-screen bg-white">
+    <div data-testid="vault-app" className="flex h-screen bg-white">
       {/* Notion-style Sidebar */}
       <NotionSidebar
         isCollapsed={sidebarCollapsed}
@@ -448,7 +448,7 @@ function VaultApp() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">{renderMainContent()}</main>
+      <main data-testid="vault-main" className="flex-1 flex flex-col overflow-hidden">{renderMainContent()}</main>
 
       {/* Command Palette */}
       <CommandPalette
@@ -476,6 +476,7 @@ function VaultApp() {
 
       {/* Chat Toggle Button (bottom-right) */}
       <button
+        data-testid="vault-chat-toggle"
         onClick={() => setShowChat(true)}
         className={`fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all hover:scale-105 ${
           showChat ? 'opacity-0 pointer-events-none' : 'opacity-100'

@@ -48,21 +48,21 @@ function Goals() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div data-testid="goals-page" className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent">
+          <h1 data-testid="goals-title" className="text-3xl font-bold bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent">
             Goals
           </h1>
           <p className="text-text-muted mt-1">Track your goals across all life areas</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>+ New Goal</Button>
+        <Button data-testid="goals-create-button" onClick={() => setShowCreateModal(true)}>+ New Goal</Button>
       </div>
 
       {/* Alerts */}
       {alertGoals && alertGoals.length > 0 && (
-        <Card className="border-warning/50 bg-warning/10">
+        <Card data-testid="goals-alerts" className="border-warning/50 bg-warning/10">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-warning text-lg">⚠️</span>
             <h3 className="font-semibold text-warning">Goals Needing Attention</h3>
@@ -86,8 +86,9 @@ function Goals() {
       )}
 
       {/* Life Area Tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div data-testid="goals-area-tabs" className="flex gap-2 flex-wrap">
         <button
+          data-testid="goals-area-tab-all"
           onClick={() => setSelectedArea(undefined)}
           className={`px-4 py-2 rounded-lg transition-all ${
             !selectedArea ? 'bg-accent text-white' : 'bg-dark-card hover:bg-dark-card-hover text-text-muted'
@@ -98,6 +99,7 @@ function Goals() {
         {Object.values(LIFE_AREAS).map(area => (
           <button
             key={area.key}
+            data-testid={`goals-area-tab-${area.key}`}
             onClick={() => setSelectedArea(area.key)}
             className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
               selectedArea === area.key
@@ -116,10 +118,11 @@ function Goals() {
       </div>
 
       {/* Status Filter */}
-      <div className="flex gap-2">
+      <div data-testid="goals-status-filter" className="flex gap-2">
         {(['active', 'paused', 'completed', 'abandoned'] as GoalStatus[]).map(status => (
           <button
             key={status}
+            data-testid={`goals-status-${status}`}
             onClick={() => setSelectedStatus(status === selectedStatus ? undefined : status)}
             className={`px-3 py-1 rounded-full text-sm transition-all ${
               selectedStatus === status
@@ -135,19 +138,20 @@ function Goals() {
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Goals List */}
-        <div className="lg:col-span-2 space-y-4">
+        <div data-testid="goals-list" className="lg:col-span-2 space-y-4">
           {!goals || goals.length === 0 ? (
             <EmptyState
               icon="🎯"
               title="No goals yet"
               description="Create your first goal to start tracking your progress"
-              action={<Button onClick={() => setShowCreateModal(true)}>Create Goal</Button>}
+              action={<Button data-testid="goals-empty-create-button" onClick={() => setShowCreateModal(true)}>Create Goal</Button>}
             />
           ) : (
-            goals.map(goal => (
+            goals.map((goal, index) => (
               <GoalCard
                 key={goal.id}
                 goal={goal}
+                index={index}
                 isSelected={goal.id === selectedGoalId}
                 onClick={() => setSelectedGoalId(goal.id === selectedGoalId ? undefined : goal.id)}
               />
@@ -156,11 +160,11 @@ function Goals() {
         </div>
 
         {/* Goal Detail Panel */}
-        <div className="space-y-4">
+        <div data-testid="goals-detail-panel" className="space-y-4">
           {selectedGoal ? (
             <GoalDetailPanel goalId={selectedGoal.id} onClose={() => setSelectedGoalId(undefined)} />
           ) : (
-            <Card className="text-center py-8">
+            <Card data-testid="goals-detail-empty" className="text-center py-8">
               <p className="text-text-muted">Select a goal to see details</p>
             </Card>
           )}
@@ -174,11 +178,12 @@ function Goals() {
 }
 
 // Goal Card Component
-function GoalCard({ goal, isSelected, onClick }: { goal: Goal; isSelected: boolean; onClick: () => void }) {
+function GoalCard({ goal, index, isSelected, onClick }: { goal: Goal; index: number; isSelected: boolean; onClick: () => void }) {
   const area = goal.lifeArea ? LIFE_AREAS[goal.lifeArea] : { icon: '📌', color: '#6B7280', name: 'General' };
 
   return (
     <Card
+      data-testid={`goal-card-${index}`}
       className={`cursor-pointer transition-all ${isSelected ? 'ring-2 ring-accent' : ''}`}
       onClick={onClick}
     >
@@ -740,15 +745,16 @@ function CreateGoalModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div data-testid="modal-create-goal" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-dark-card border border-dark-border rounded-xl max-w-lg w-full p-6 animate-slide-up">
-        <h2 className="text-xl font-bold mb-4">Create New Goal</h2>
+        <h2 data-testid="modal-create-goal-title" className="text-xl font-bold mb-4">Create New Goal</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form data-testid="goal-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-text-muted mb-1">Title</label>
             <input
               type="text"
+              data-testid="goal-input-title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -781,6 +787,7 @@ function CreateGoalModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="block text-sm text-text-muted mb-1">Description (optional)</label>
             <textarea
+              data-testid="goal-input-description"
               value={formData.description || ''}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 min-h-[80px]"
@@ -791,6 +798,7 @@ function CreateGoalModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="block text-sm text-text-muted mb-1">Motivation (optional)</label>
             <textarea
+              data-testid="goal-input-motivation"
               value={formData.motivation || ''}
               onChange={(e) => setFormData({ ...formData, motivation: e.target.value })}
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -802,6 +810,7 @@ function CreateGoalModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm text-text-muted mb-1">Target Date (optional)</label>
             <input
               type="date"
+              data-testid="goal-input-target-date"
               value={formData.targetDate || ''}
               onChange={(e) => setFormData({ ...formData, targetDate: e.target.value })}
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -809,10 +818,10 @@ function CreateGoalModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="submit" disabled={createGoal.isPending || !formData.title.trim()}>
+            <Button data-testid="goal-submit" type="submit" disabled={createGoal.isPending || !formData.title.trim()}>
               {createGoal.isPending ? 'Creating...' : 'Create Goal'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
+            <Button data-testid="goal-cancel" type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
           </div>

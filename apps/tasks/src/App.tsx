@@ -129,7 +129,7 @@ function TasksApp() {
   }));
 
   return (
-    <div className="flex h-screen bg-white">
+    <div data-testid="tasks-app" className="flex h-screen bg-white">
       {/* Sidebar */}
       <Sidebar
         selectedView={selectedView}
@@ -141,13 +141,13 @@ function TasksApp() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main data-testid="tasks-main" className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <header data-testid="tasks-header" className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{getViewTitle()}</h1>
+            <h1 data-testid="tasks-view-title" className="text-2xl font-bold text-gray-900">{getViewTitle()}</h1>
             {viewType === 'today' && (
-              <p className="text-sm text-gray-500">
+              <p data-testid="tasks-date" className="text-sm text-gray-500">
                 {new Date().toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'long',
@@ -159,6 +159,7 @@ function TasksApp() {
 
           <div className="flex items-center gap-2">
             <button
+              data-testid="tasks-search-button"
               onClick={() => setIsSearchOpen(true)}
               className="flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
@@ -167,6 +168,7 @@ function TasksApp() {
               <kbd className="hidden sm:inline px-1.5 py-0.5 text-xs bg-gray-100 rounded">⌘K</kbd>
             </button>
             <button
+              data-testid="tasks-add-button"
               onClick={() => setIsQuickAddOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
@@ -177,7 +179,7 @@ function TasksApp() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">{renderMainContent()}</div>
+        <div data-testid="tasks-content" className="flex-1 overflow-y-auto">{renderMainContent()}</div>
       </main>
 
       {/* Modals */}

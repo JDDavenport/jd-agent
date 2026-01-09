@@ -177,17 +177,18 @@ export function CommandPalette({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
+    <div data-testid="command-palette" className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div data-testid="command-palette-backdrop" className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Palette */}
-      <div className="relative w-full max-w-xl bg-white rounded-xl shadow-2xl overflow-hidden">
+      <div data-testid="command-palette-panel" className="relative w-full max-w-xl bg-white rounded-xl shadow-2xl overflow-hidden">
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <input
             ref={inputRef}
+            data-testid="command-palette-input"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -201,7 +202,7 @@ export function CommandPalette({
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-80 overflow-y-auto py-2">
+        <div ref={listRef} data-testid="command-palette-results" className="max-h-80 overflow-y-auto py-2">
           {items.length === 0 && query && !isLoading && (
             <div className="px-4 py-8 text-center text-gray-500">
               <p>No results found for "{query}"</p>
