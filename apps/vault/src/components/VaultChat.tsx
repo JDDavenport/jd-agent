@@ -134,7 +134,8 @@ export function VaultChat({ isOpen, onClose, onNavigateToPage }: VaultChatProps)
 
   const handleClearHistory = async () => {
     try {
-      await fetch('/api/chat/clear', { method: 'POST' });
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      await fetch(`${baseUrl}/api/chat/clear`, { method: 'POST' });
       setMessages([]);
     } catch (error) {
       console.error('Failed to clear history:', error);

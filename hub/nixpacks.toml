@@ -1,0 +1,17 @@
+# Railway Nixpacks Configuration for Bun
+# https://nixpacks.com/docs/configuration/file
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "bun"]
+
+[phases.install]
+cmds = ["bun install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["echo 'Build phase - Bun handles runtime compilation'"]
+
+[start]
+cmd = "bun run start"
+
+[variables]
+NODE_ENV = "production"
