@@ -77,6 +77,178 @@ After implementing changes:
 2. Verify the health endpoint: `curl http://localhost:3000/api/health`
 3. Test your changes manually via the relevant API endpoints or UI
 
+## Implementation Workflow
+
+### Required Workflow Steps
+
+When implementing features, follow this strict order:
+
+1. **Read Context**
+   - Read FEATURES.md
+   - Read relevant docs in /docs/public/features/
+   - Understand existing patterns
+
+2. **Plan**
+   - Outline implementation steps
+   - Identify affected files
+   - Consider edge cases
+
+3. **Implement**
+   - Follow existing patterns
+   - Write TypeScript strict mode
+   - Add proper error handling
+   - Use Zod for validation
+
+4. **Test**
+   - Write unit tests for services
+   - Write integration tests for APIs
+   - Test manually via UI or API
+   - Run critical paths 10x: `cd hub && bun run test:critical`
+
+5. **Document**
+   - Update inline code comments
+   - Update FEATURES.md
+   - Update /docs/public/features/ if user-facing
+   - Add changelog entry
+
+6. **Verify**
+   - Run full test suite: `cd hub && bun run test`
+   - Check health endpoint works
+   - Verify no TypeScript errors
+   - Review changes
+
+7. **Commit**
+   - Write clear commit message
+   - Reference issue number if applicable
+
+8. **Demo**
+   - Show what was built
+   - Provide test results
+   - Give demo commands
+
+### Critical Rules
+
+- **Test everything** - Run verification after each task
+- **Fix before moving on** - If something breaks, fix immediately
+- **Do NOT skip checkpoints** - Every step must complete
+- **Do NOT proceed if tests fail** - Testing agent must pass
+- **Ask if stuck** - If you hit a blocker, ask the user rather than guessing
+
+### If Something Breaks
+
+1. Stop immediately
+2. Identify the root cause
+3. Fix it
+4. Re-run tests
+5. Verify the fix didn't break anything else
+6. Only then continue
+
+### Demo Format
+
+After completing work, provide:
+
+1. **What Was Built**: Brief description
+2. **Test Results**: Pass/fail status
+3. **Demo Commands**: How to verify
+
+Example:
+```
+## What Was Built
+- Added useSystemHealth hook to Header component
+- Polls /api/health every 30 seconds
+
+## Test Results
+✓ All tests pass
+✓ Health check works when hub running
+✓ Health check shows offline when hub stopped
+
+## Demo Commands
+cd hub && bun run dev
+cd apps/command-center && bun run dev
+# Open http://localhost:5173
+# Green dot appears in header
+# Stop hub, red dot appears within 30s
+```
+
+## Planning Document Rules
+
+### Roadmap Management
+
+1. **Roadmap is authoritative** - `/docs/roadmap/index.md` is single source of truth
+2. **Plans link to roadmap** - Every implementation plan must reference its roadmap item
+3. **Update on completion** - Mark roadmap items as shipped immediately
+4. **Archive completed plans** - Move to `/docs/plans/archive/` when done
+
+### Implementation Plans
+
+Location: `/docs/plans/`
+
+Every plan should have context about:
+- What roadmap item it relates to
+- Related backlog items (bugs, enhancements)
+- Current status (In Progress, Ready, Blocked)
+- Last update date
+
+### Backlog Management
+
+Location: `/docs/roadmap/backlog.md`
+
+Use for:
+- Known bugs
+- Enhancement requests
+- Feature requests
+
+NOT for:
+- High-level roadmap items (use roadmap/index.md)
+- Detailed implementations (use /docs/plans/)
+
+## Testing Requirements
+
+### Test Coverage Goals
+
+- Services: 60%+ coverage
+- Integrations: 40%+ coverage
+- Critical paths: 80%+ coverage
+
+### Critical Path Testing
+
+Before deployment or major changes, run:
+```bash
+cd hub
+bun run test:critical
+```
+
+This runs critical paths 10 times each. Deployment is BLOCKED if any run fails.
+
+Critical paths defined in: `/hub/src/test/critical-paths.ts`
+
+### Writing Tests
+
+Pattern:
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+describe('ServiceName', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('methodName', () => {
+    it('should do expected behavior', () => {
+      // Arrange: Set up test data
+      const input = { foo: 'bar' };
+
+      // Act: Call method
+      const result = service.methodName(input);
+
+      // Assert: Verify results
+      expect(result).toBeDefined();
+      expect(result.foo).toBe('bar');
+    });
+  });
+});
+```
+
 ## Documentation Requirements
 
 **CRITICAL RULE:** After implementing ANY feature, enhancement, or fix, you MUST update the documentation system. This is not optional.
@@ -246,3 +418,11 @@ The documentation frontend at `/apps/docs-frontend/` automatically discovers and
 3. The frontend will automatically include it in navigation and search
 
 No manual navigation updates are required - the system dynamically loads all feature documentation.
+
+## Related Documentation
+
+- [FEATURES.md](/FEATURES.md) - Current system capabilities and feature inventory
+- [IMPLEMENTATION_GUIDE.md](/IMPLEMENTATION_GUIDE.md) - Detailed workflow for complex multi-phase features
+- [Roadmap](/docs/roadmap/index.md) - Product roadmap and status
+- [Backlog](/docs/roadmap/backlog.md) - Known issues and requests
+- [Feature Docs](/docs/public/features/) - User-facing documentation

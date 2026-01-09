@@ -1,20 +1,17 @@
-# JD Agent - Claude Code Implementation Prompt
+# Implementation Guide
 
-> **UPDATED:** Use `jd-agent-roadmap-v3.md` - the current roadmap.
+> **Note:** This is an optional reference guide for complex multi-phase implementations.
+> For required rules and workflow, see [CLAUDE.md](/CLAUDE.md).
 
-## Your Mission
+This guide provides detailed steps and checkpoints for implementing complex features.
+Use this when working on multi-day, multi-phase implementations that require careful
+coordination of database, service, API, and frontend changes.
 
-You are implementing the JD Agent system based on the comprehensive roadmap in `jd-agent-roadmap-v3.md`. Read that file completely before starting.
+For simple features, the workflow in CLAUDE.md is sufficient.
 
-## Critical Rules
+---
 
-1. **Test everything** - After each task, run the verification script. Do not proceed if tests fail.
-2. **Fix before moving on** - If something breaks, fix it immediately. No skipping.
-3. **Demo to user** - After completing each section, provide a demo with exact commands the user can run to verify.
-4. **Be thorough** - Check edge cases. Handle errors gracefully. Log useful information.
-5. **Ask if stuck** - If you hit a blocker you can't resolve, ask the user rather than guessing.
-
-## Implementation Order
+## Implementation Phases
 
 Follow this exact order:
 
@@ -108,48 +105,6 @@ bun run scripts/test-all.ts
 
 All tests must pass before proceeding to next step.
 
-## Demo Format
-
-After each checkpoint, provide:
-
-```markdown
-## Checkpoint X Complete
-
-### What Was Built
-- Feature 1: Description
-- Feature 2: Description
-
-### Test Results
-- Total tests: X
-- Passed: X
-- Failed: X
-
-### Demo Commands
-
-To verify this yourself, run:
-
-1. [Command 1]
-   Expected output: [description]
-
-2. [Command 2]
-   Expected output: [description]
-
-### Screenshots/Output
-[Paste actual output from your testing]
-
-### Ready for Next Step?
-Confirm you've tested the above and it works before I proceed.
-```
-
-## If Something Breaks
-
-1. Stop immediately
-2. Identify the root cause
-3. Fix it
-4. Re-run tests
-5. Verify the fix didn't break anything else
-6. Only then continue
-
 ## Environment Setup
 
 Before starting, verify:
@@ -167,11 +122,19 @@ curl http://localhost:3000/api/health
 
 If any are missing, ask the user to provide them.
 
-## Start Now
+## Getting Started
 
-1. Read `jd-agent-roadmap-v2.md` completely
-2. Run the existing code to see current state
-3. Begin with Step 1: Critical Fixes
-4. Report back with Checkpoint 1 results
+1. Read [CLAUDE.md](/CLAUDE.md) for required rules and workflow
+2. Read [FEATURES.md](/FEATURES.md) for current system state
+3. Run the existing code to understand current state
+4. Begin with the relevant implementation phase
+5. Report back with checkpoint results
 
-Go.
+---
+
+## Related Documentation
+
+- [CLAUDE.md](/CLAUDE.md) - **READ THIS FIRST** - Required rules and workflow
+- [FEATURES.md](/FEATURES.md) - Current system features
+- [Roadmap](/docs/roadmap/index.md) - What's planned
+- [Backlog](/docs/roadmap/backlog.md) - Known issues and requests
