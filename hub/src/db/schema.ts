@@ -1786,3 +1786,91 @@ export const systemHealthLogs = pgTable(
     index('system_health_created_idx').on(table.createdAt),
   ]
 );
+
+// ============================================
+// REMARKABLE NOTES (Handwritten Notes Integration)
+// ============================================
+// Tracks handwritten notes from Remarkable tablet with:
+// - Automatic class assignment via naming convention
+// - OCR processing for searchability
+// - Content merging with Plaud transcripts
+
+export const remarkableNotes = pgTable(
+  'remarkable_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Remarkable file tracking
+    remarkableFileId: text('remarkable_file_id').unique().notNull(), // Unique ID from Remarkable Cloud or hash
+    originalFilename: text('original_filename').notNull(),
+    uploadTimestamp: timestamp('upload_timestamp', { withTimezone: true }).notNull(),
+
+    // Classification
+    classificationType: text('classification_type').notNull(), // 'class_note' or 'general'
+
+    // For class notes (parsed from naming convention: MBA/[Semester]/[ClassCode]/[YYYY-MM-DD])
+    semester: text('semester'), // e.g., 'Spring2026', 'Fall2025'
+    classCode: text('class_code'), // e.g., 'MGMT501', 'ACCT600'
+    noteDate: date('note_date'),
+
+    // File storage
+    pdfPath: text('pdf_path').notNull(), // Path to stored PDF (local or R2)
+    ocrText: text('ocr_text'), // Extracted text from OCR
+    ocrConfidence: real('ocr_confidence'), // 0-100 confidence score
+
+    // Relationships
+    pageId: uuid('page_id').references(() => vaultPages.id, { onDelete: 'set null' }), // Links to class day page
+    vaultEntryId: uuid('vault_entry_id').references(() => vaultEntries.id, { onDelete: 'set null' }), // Legacy vault entry
+
+    // Processing status
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+    syncStatus: text('sync_status').default('pending').notNull(), // 'pending', 'processing', 'complete', 'failed', 'needs_review'
+    errorMessage: text('error_message'),
+
+    // Metadata
+    fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+    pageCount: integer('page_count'),
+    hasMergedContent: boolean('has_merged_content').default(false).notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('remarkable_notes_class_date_idx').on(table.classCode, table.noteDate),
+    index('remarkable_notes_sync_status_idx').on(table.syncStatus),
+    index('remarkable_notes_classification_idx').on(table.classificationType),
+    index('remarkable_notes_semester_idx').on(table.semester),
+    index('remarkable_notes_page_idx').on(table.pageId),
+    index('remarkable_notes_remarkable_id_idx').on(table.remarkableFileId),
+  ]
+);
+
+// ============================================
+// REMARKABLE SYNC STATE (For daily sync tracking)
+// ============================================
+
+export const remarkableSyncState = pgTable('remarkable_sync_state', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Sync metadata
+  lastSyncAt: timestamp('last_sync_at', { withTimezone: true }).notNull(),
+  lastSyncWindowStart: timestamp('last_sync_window_start', { withTimezone: true }),
+  lastSyncWindowEnd: timestamp('last_sync_window_end', { withTimezone: true }),
+
+  // Sync results
+  itemsProcessed: integer('items_processed').default(0).notNull(),
+  itemsAdded: integer('items_added').default(0).notNull(),
+  itemsSkipped: integer('items_skipped').default(0).notNull(),
+  itemsFailed: integer('items_failed').default(0).notNull(),
+
+  // Status
+  status: text('status').default('idle').notNull(), // 'idle', 'running', 'completed', 'failed'
+  errorMessage: text('error_message'),
+
+  // OCR stats
+  ocrSuccessCount: integer('ocr_success_count').default(0).notNull(),
+  ocrFailureCount: integer('ocr_failure_count').default(0).notNull(),
+  averageOcrConfidence: real('average_ocr_confidence'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

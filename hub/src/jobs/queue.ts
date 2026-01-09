@@ -32,7 +32,11 @@ export type JobType =
   | 'vip-extraction'
   | 'vip-vault-writer'
   | 'vip-notification'
-  | 'vip-speaker-embedding';
+  | 'vip-speaker-embedding'
+  // Remarkable Pipeline jobs
+  | 'remarkable-sync'
+  | 'remarkable-ocr'
+  | 'remarkable-merge';
 
 export interface TranscriptionJobData {
   recordingId: string;
@@ -120,6 +124,24 @@ export interface VipSpeakerEmbeddingJobData {
   recordingId: string;
 }
 
+// Remarkable Pipeline Job Data
+export interface RemarkableSyncJobData {
+  syncPath?: string; // Optional override for sync path
+  forceReprocess?: boolean; // Re-process already synced files
+}
+
+export interface RemarkableOcrJobData {
+  remarkableNoteId: string;
+  filePath: string;
+  fileType: 'pdf' | 'png' | 'svg';
+}
+
+export interface RemarkableMergeJobData {
+  classCode: string;
+  noteDate: string;
+  remarkableNoteId?: string;
+}
+
 export type JobData =
   | TranscriptionJobData
   | SummarizationJobData
@@ -135,7 +157,10 @@ export type JobData =
   | VipExtractionJobData
   | VipVaultWriterJobData
   | VipNotificationJobData
-  | VipSpeakerEmbeddingJobData;
+  | VipSpeakerEmbeddingJobData
+  | RemarkableSyncJobData
+  | RemarkableOcrJobData
+  | RemarkableMergeJobData;
 
 // ============================================
 // Redis Connection Options
@@ -314,6 +339,34 @@ export async function addVipSpeakerEmbeddingJob(data: VipSpeakerEmbeddingJobData
   const queue = getQueue();
   return queue.add('vip-speaker-embedding', data, {
     priority: 3, // Same priority as extraction
+  });
+}
+
+// ============================================
+// Remarkable Pipeline Jobs
+// ============================================
+
+export async function addRemarkableSyncJob(data: RemarkableSyncJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('remarkable-sync', data, {
+    priority: 2,
+    jobId: `remarkable-sync-${Date.now()}`, // Ensure unique job for each sync
+  });
+}
+
+export async function addRemarkableOcrJob(data: RemarkableOcrJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('remarkable-ocr', data, {
+    priority: 2,
+    jobId: `remarkable-ocr-${data.remarkableNoteId}`,
+  });
+}
+
+export async function addRemarkableMergeJob(data: RemarkableMergeJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('remarkable-merge', data, {
+    priority: 3,
+    jobId: `remarkable-merge-${data.classCode}-${data.noteDate}`,
   });
 }
 

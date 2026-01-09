@@ -328,8 +328,8 @@ ingestionRouter.get('/canvas/course/:id/deep-scan', async (c) => {
  * Get Remarkable integration status
  */
 ingestionRouter.get('/remarkable/status', async (c) => {
-  const status = remarkableIntegration.getStatus();
-  
+  const status = await remarkableIntegration.getStatus();
+
   return c.json({
     success: true,
     data: status,
@@ -422,6 +422,356 @@ ingestionRouter.post('/remarkable/watch/stop', async (c) => {
     success: true,
     message: 'Stopped watching',
   });
+});
+
+/**
+ * GET /api/ingestion/remarkable/stats
+ * Get comprehensive sync statistics
+ */
+ingestionRouter.get('/remarkable/stats', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+
+  try {
+    const stats = await remarkableService.getSyncStats();
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'STATS_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/remarkable/classes
+ * Get class summaries with note counts
+ */
+ingestionRouter.get('/remarkable/classes', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+
+  try {
+    const summaries = await remarkableService.getClassSummaries();
+    return c.json({
+      success: true,
+      data: summaries,
+      count: summaries.length,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'QUERY_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/remarkable/notes/:classCode
+ * Get notes for a specific class
+ */
+ingestionRouter.get('/remarkable/notes/:classCode', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+  const classCode = c.req.param('classCode');
+
+  try {
+    const notes = await remarkableService.getNotesByClass(classCode.toUpperCase());
+    return c.json({
+      success: true,
+      data: notes,
+      count: notes.length,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'QUERY_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/remarkable/inbox
+ * Get general inbox notes (non-class notes)
+ */
+ingestionRouter.get('/remarkable/inbox', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+
+  try {
+    const notes = await remarkableService.getInboxNotes();
+    return c.json({
+      success: true,
+      data: notes,
+      count: notes.length,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'QUERY_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/remarkable/review
+ * Get notes needing manual review (low OCR confidence)
+ */
+ingestionRouter.get('/remarkable/review', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+
+  try {
+    const notes = await remarkableService.getNotesNeedingReview();
+    return c.json({
+      success: true,
+      data: notes,
+      count: notes.length,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'QUERY_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/merge/:classCode/:noteDate
+ * Generate combined markdown for a class day
+ */
+ingestionRouter.post('/remarkable/merge/:classCode/:noteDate', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+  const classCode = c.req.param('classCode');
+  const noteDate = c.req.param('noteDate');
+
+  try {
+    const result = await remarkableService.generateCombinedMarkdown(
+      classCode.toUpperCase(),
+      noteDate
+    );
+
+    if (result.success) {
+      return c.json({
+        success: true,
+        data: {
+          vaultPageId: result.vaultPageId,
+          combinedFilePath: result.combinedFilePath,
+        },
+        message: `Combined markdown generated for ${classCode}/${noteDate}`,
+      });
+    }
+
+    return c.json({
+      success: false,
+      error: { code: 'MERGE_ERROR', message: result.error },
+    }, 400);
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'MERGE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/merge-all
+ * Merge all pending class notes
+ */
+ingestionRouter.post('/remarkable/merge-all', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+
+  try {
+    const result = await remarkableService.mergeAllPendingClassNotes();
+    return c.json({
+      success: true,
+      data: {
+        merged: result.merged,
+        errors: result.errors,
+      },
+      message: `Merged ${result.merged} class notes`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'MERGE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * PATCH /api/ingestion/remarkable/notes/:noteId/ocr
+ * Update OCR text for a note (manual correction)
+ */
+ingestionRouter.patch('/remarkable/notes/:noteId/ocr', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+  const noteId = c.req.param('noteId');
+
+  try {
+    const body = await c.req.json();
+    const { ocrText } = body;
+
+    if (!ocrText) {
+      return c.json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'ocrText is required' },
+      }, 400);
+    }
+
+    await remarkableService.updateOcrText(noteId, ocrText);
+    return c.json({
+      success: true,
+      message: 'OCR text updated',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * PATCH /api/ingestion/remarkable/notes/:noteId/reclassify
+ * Re-classify a note (move from inbox to class note or vice versa)
+ */
+ingestionRouter.patch('/remarkable/notes/:noteId/reclassify', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+  const noteId = c.req.param('noteId');
+
+  try {
+    const body = await c.req.json();
+    const { type, semester, classCode, noteDate } = body;
+
+    if (!type || !['class_note', 'general'].includes(type)) {
+      return c.json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'type must be "class_note" or "general"' },
+      }, 400);
+    }
+
+    if (type === 'class_note' && (!semester || !classCode || !noteDate)) {
+      return c.json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'semester, classCode, and noteDate are required for class notes' },
+      }, 400);
+    }
+
+    await remarkableService.reclassifyNote(noteId, { type, semester, classCode, noteDate });
+    return c.json({
+      success: true,
+      message: `Note reclassified as ${type}`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/notes/:noteId/reviewed
+ * Mark a note as reviewed (clear needs_review status)
+ */
+ingestionRouter.post('/remarkable/notes/:noteId/reviewed', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+  const noteId = c.req.param('noteId');
+
+  try {
+    await remarkableService.markAsReviewed(noteId);
+    return c.json({
+      success: true,
+      message: 'Note marked as reviewed',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * DELETE /api/ingestion/remarkable/notes/:noteId
+ * Delete a remarkable note
+ */
+ingestionRouter.delete('/remarkable/notes/:noteId', async (c) => {
+  const { remarkableService } = await import('../../services/remarkable-service');
+  const noteId = c.req.param('noteId');
+
+  try {
+    await remarkableService.deleteNote(noteId);
+    return c.json({
+      success: true,
+      message: 'Note deleted',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'DELETE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/jobs/sync
+ * Queue a background sync job
+ */
+ingestionRouter.post('/remarkable/jobs/sync', async (c) => {
+  const { addRemarkableSyncJob } = await import('../../jobs/queue');
+
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const job = await addRemarkableSyncJob({
+      forceReprocess: body.forceReprocess || false,
+    });
+
+    return c.json({
+      success: true,
+      data: { jobId: job.id },
+      message: 'Sync job queued',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'JOB_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/jobs/merge
+ * Queue a background merge job for a class day
+ */
+ingestionRouter.post('/remarkable/jobs/merge', async (c) => {
+  const { addRemarkableMergeJob } = await import('../../jobs/queue');
+
+  try {
+    const body = await c.req.json();
+    const { classCode, noteDate } = body;
+
+    if (!classCode || !noteDate) {
+      return c.json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'classCode and noteDate are required' },
+      }, 400);
+    }
+
+    const job = await addRemarkableMergeJob({
+      classCode: classCode.toUpperCase(),
+      noteDate,
+    });
+
+    return c.json({
+      success: true,
+      data: { jobId: job.id },
+      message: `Merge job queued for ${classCode}/${noteDate}`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'JOB_ERROR', message: String(error) },
+    }, 500);
+  }
 });
 
 // ============================================
