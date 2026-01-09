@@ -4,7 +4,9 @@
 > **Version:** 0.3.4
 > **Phase:** Phase 3 - Verify & Coach
 
-This document is the single source of truth for all current features and capabilities of the JD Agent system. **All agents working on this codebase must consult this document before making changes and update it after implementing new features.**
+> **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
+
+This document is the single source of truth for all current features and capabilities of the JD Agent system.
 
 ---
 
@@ -1209,6 +1211,15 @@ bun run scheduler        # Start cron scheduler
 4. Update backlog in `/docs/roadmap/backlog.md`
 
 See `CLAUDE.md` for full documentation requirements.
+
+---
+
+## Related Documentation
+
+- [CLAUDE.md](/CLAUDE.md) - Development contract and rules
+- [Feature Docs](/docs/public/features/) - User-facing documentation
+- [Roadmap](/docs/roadmap/index.md) - What's planned
+- [Backlog](/docs/roadmap/backlog.md) - Known issues and requests
 
 ---
 
