@@ -96,18 +96,19 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-start justify-center pt-20 px-4">
-        <Dialog.Panel className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-          <form onSubmit={handleSubmit}>
+        <Dialog.Panel data-testid="quick-add-modal" className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <form data-testid="quick-add-form" onSubmit={handleSubmit}>
             <div className="p-4">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                   <PlusIcon className="w-5 h-5 text-blue-600" />
                 </div>
-                <Dialog.Title className="text-lg font-semibold">
+                <Dialog.Title data-testid="quick-add-title" className="text-lg font-semibold">
                   Quick Add Task
                 </Dialog.Title>
                 <button
                   type="button"
+                  data-testid="quick-add-close"
                   onClick={onClose}
                   className="ml-auto p-1 hover:bg-gray-100 rounded"
                 >
@@ -117,6 +118,7 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
 
               <input
                 ref={inputRef}
+                data-testid="quick-add-input"
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -238,6 +240,7 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
             <div className="bg-gray-50 px-4 py-3 flex justify-end gap-2">
               <button
                 type="button"
+                data-testid="quick-add-cancel"
                 onClick={onClose}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
@@ -245,6 +248,7 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
               </button>
               <button
                 type="submit"
+                data-testid="quick-add-submit"
                 disabled={!parsed.title.trim() || createTask.isPending}
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >

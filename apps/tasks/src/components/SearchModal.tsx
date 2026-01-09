@@ -46,12 +46,13 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-start justify-center pt-[15vh] px-4">
-        <Dialog.Panel className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
+        <Dialog.Panel data-testid="search-modal" className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
           {/* Search Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
             <input
               ref={inputRef}
+              data-testid="search-input"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -60,6 +61,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             />
             {query && (
               <button
+                data-testid="search-clear"
                 onClick={() => setQuery('')}
                 className="p-1 hover:bg-gray-100 rounded"
               >
@@ -70,7 +72,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           </div>
 
           {/* Results */}
-          <div className="max-h-[50vh] overflow-y-auto">
+          <div data-testid="search-results" className="max-h-[50vh] overflow-y-auto">
             {!query ? (
               <div className="px-4 py-8 text-center text-gray-500">
                 <p className="text-sm">Start typing to search tasks</p>
@@ -115,7 +117,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               <span><kbd className="px-1.5 py-0.5 bg-white border rounded">↑↓</kbd> Navigate</span>
               <span><kbd className="px-1.5 py-0.5 bg-white border rounded">↵</kbd> Open</span>
             </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <button data-testid="search-close" onClick={onClose} className="text-gray-500 hover:text-gray-700">
               Close
             </button>
           </div>

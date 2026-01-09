@@ -90,21 +90,22 @@ export function Sidebar({
   ];
 
   return (
-    <aside className="w-64 bg-gray-50 border-r border-gray-200 h-screen flex flex-col">
+    <aside data-testid="tasks-sidebar" className="w-64 bg-gray-50 border-r border-gray-200 h-screen flex flex-col">
       {/* Logo */}
       <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 data-testid="tasks-sidebar-logo" className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <Squares2X2Icon className="w-6 h-6 text-blue-500" />
           JD Tasks
         </h1>
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2">
+      <nav data-testid="tasks-sidebar-nav" className="flex-1 overflow-y-auto p-2">
         <div className="space-y-1">
           {mainNav.map((item) => (
             <button
               key={item.id}
+              data-testid={`tasks-nav-${item.id}`}
               onClick={() => onSelectView(item.id, item.type)}
               className={clsx(
                 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -132,8 +133,9 @@ export function Sidebar({
         </div>
 
         {/* Projects Section */}
-        <div className="mt-6">
+        <div data-testid="tasks-projects-section" className="mt-6">
           <button
+            data-testid="tasks-projects-toggle"
             onClick={() => setProjectsExpanded(!projectsExpanded)}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700"
           >
@@ -261,8 +263,9 @@ export function Sidebar({
         </div>
 
         {/* Filters Section */}
-        <div className="mt-6">
+        <div data-testid="tasks-filters-section" className="mt-6">
           <button
+            data-testid="tasks-filters-toggle"
             onClick={() => setFiltersExpanded(!filtersExpanded)}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700"
           >

@@ -236,13 +236,14 @@ const navItems: NavItem[] = [
 
 function Sidebar() {
   return (
-    <aside className="fixed left-0 top-[73px] h-[calc(100vh-73px)] w-64 bg-dark-card border-r border-dark-border overflow-y-auto">
-      <nav className="p-4 space-y-2">
+    <aside data-testid="sidebar" className="fixed left-0 top-[73px] h-[calc(100vh-73px)] w-64 bg-dark-card border-r border-dark-border overflow-y-auto">
+      <nav data-testid="sidebar-nav" className="p-4 space-y-2">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
+            data-testid={`nav-link-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
             className={({ isActive }) =>
               `flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
                 isActive
@@ -258,7 +259,7 @@ function Sidebar() {
       </nav>
 
       {/* External Apps */}
-      <div className="px-4 mt-4 pt-4 border-t border-dark-border">
+      <div data-testid="sidebar-external-apps" className="px-4 mt-4 pt-4 border-t border-dark-border">
         <p className="text-xs text-text-muted uppercase tracking-wider mb-2 px-4">Apps</p>
         <div className="space-y-2">
           {externalApps.map((app) => (
@@ -267,6 +268,7 @@ function Sidebar() {
               href={app.url}
               target="_blank"
               rel="noopener noreferrer"
+              data-testid={`external-app-${app.name.toLowerCase().replace(/\s+/g, '-')}`}
               className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-all text-text-muted hover:bg-dark-card-hover hover:text-text"
             >
               {app.icon}
