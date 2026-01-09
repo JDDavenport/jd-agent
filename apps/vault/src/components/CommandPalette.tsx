@@ -6,6 +6,7 @@ import {
   StarIcon,
 } from '@heroicons/react/24/outline';
 import { useVaultPageQuickFind } from '../hooks/useVaultPages';
+import { useVaultSearch } from '../hooks/useVault';
 import type { VaultEntry, VaultPage } from '@jd-agent/types';
 
 interface CommandPaletteProps {
@@ -14,7 +15,6 @@ interface CommandPaletteProps {
   onSelectPage: (pageId: string) => void;
   onSelectLegacyEntry: (entry: VaultEntry) => void;
   onCreatePage: () => void;
-  legacyEntries?: VaultEntry[];
 }
 
 interface CommandItem {
@@ -33,15 +33,22 @@ export function CommandPalette({
   onSelectPage,
   onSelectLegacyEntry,
   onCreatePage,
-  legacyEntries = [],
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Search vault pages
-  const { data: searchResults = [], isLoading } = useVaultPageQuickFind(query);
+  // Search vault pages (Notion-style)
+  const { data: pageSearchResults = [], isLoading: isLoadingPages } = useVaultPageQuickFind(query);
+
+  // Search vault entries (Legacy) - searches title AND content
+  const { data: entrySearchResults = [], isLoading: isLoadingEntries } = useVaultSearch({
+    query,
+    limit: 10
+  });
+
+  const isLoading = isLoadingPages || isLoadingEntries;
 
   // Build command items
   const items = useMemo(() => {
@@ -62,7 +69,7 @@ export function CommandPalette({
     }
 
     // Add page search results
-    searchResults.forEach((page: VaultPage) => {
+    pageSearchResults.forEach((page: VaultPage) => {
       results.push({
         id: page.id,
         type: 'page',
@@ -72,28 +79,26 @@ export function CommandPalette({
       });
     });
 
-    // Add matching legacy entries if searching
-    if (query) {
-      const matchingLegacy = legacyEntries
-        .filter(
-          (entry) =>
-            entry.title.toLowerCase().includes(query.toLowerCase()) ||
-            entry.tags?.some((tag) => tag.toLowerCase().includes(query.toLowerCase()))
-        )
-        .slice(0, 5);
+    // Add legacy entry search results (from API - searches title + content)
+    if (query && entrySearchResults.length > 0) {
+      entrySearchResults.forEach((entry) => {
+        // Check if content contains the query (for subtitle hint)
+        const contentMatch = entry.content?.toLowerCase().includes(query.toLowerCase());
+        const subtitle = contentMatch
+          ? `${entry.contentType} • Match in content`
+          : entry.contentType;
 
-      matchingLegacy.forEach((entry) => {
         results.push({
           id: `legacy-${entry.id}`,
           type: 'legacy',
           title: entry.title,
-          subtitle: `Legacy: ${entry.contentType}`,
+          subtitle,
         });
       });
     }
 
     return results;
-  }, [query, searchResults, legacyEntries, onCreatePage, onClose]);
+  }, [query, pageSearchResults, entrySearchResults, onCreatePage, onClose]);
 
   // Focus input when opened
   useEffect(() => {
@@ -155,7 +160,7 @@ export function CommandPalette({
           break;
         case 'legacy':
           const entryId = item.id.replace('legacy-', '');
-          const entry = legacyEntries.find((e) => e.id === entryId);
+          const entry = entrySearchResults.find((e) => e.id === entryId);
           if (entry) {
             onSelectLegacyEntry(entry);
             onClose();
@@ -166,7 +171,7 @@ export function CommandPalette({
           break;
       }
     },
-    [onSelectPage, onSelectLegacyEntry, onClose, legacyEntries]
+    [onSelectPage, onSelectLegacyEntry, onClose, entrySearchResults]
   );
 
   if (!isOpen) return null;

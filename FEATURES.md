@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
 > **Last Updated:** January 8, 2026
-> **Version:** 0.3.3
+> **Version:** 0.3.4
 > **Phase:** Phase 3 - Verify & Coach
 
 This document is the single source of truth for all current features and capabilities of the JD Agent system. **All agents working on this codebase must consult this document before making changes and update it after implementing new features.**
@@ -13,11 +13,10 @@ This document is the single source of truth for all current features and capabil
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | Hub (Backend API) | `/hub` | Central API server - single source of truth |
-| Command Center | `/apps/command-center` | Main React web dashboard |
+| Command Center | `/apps/command-center` | Main React web dashboard (includes Journal) |
 | Tasks App | `/apps/tasks` | Focused task management interface |
 | Vault App | `/apps/vault` | Knowledge base (Notion-like) |
 | Jobs App | `/apps/jobs` | Job hunting agent interface |
-| Daily Journal App | `/apps/daily-journal` | Evening review and journaling workflow |
 | Shared Types | `/packages/types` | TypeScript type definitions |
 | API Client | `/packages/api-client` | Typed API client library |
 
@@ -589,29 +588,29 @@ POST   /api/goal-vault/note                       # Create goal note
 - `goal_tasks` - Links tasks to goals/milestones
 - `habit_tasks` - Links tasks to habits
 
-### 12. Daily Journal & Review App
+### 12. Daily Journal & Review (Command Center Integration)
 
-**Purpose:** Evening review workflow to reflect on the day, track habits, review goals, and prepare for tomorrow.
+**Purpose:** Evening review workflow to reflect on the day, track habits, review goals, and prepare for tomorrow. **Now integrated into Command Center** at `/journal` route.
 
 **7-Step Review Workflow:**
 1. **Habits Review** - View daily habits with completion status and streaks, toggle completions
-2. **Goals Review** - Review active goals grouped by life area (read-only reflection)
-3. **Journal Entry** - Rich text editor (TipTap) with markdown support and auto-save
-4. **Tasks Review** - Review completed tasks with optional reflection notes
-5. **Classes Review** - Review class notes taken today with key takeaways (conditional)
-6. **Tomorrow Preview** - Preview tomorrow's events, tasks, and habits
-7. **Complete Review** - Select mood, add tags, view summary, save to vault
+2. **Goals Review** - Review active goals grouped by life area with progress bars
+3. **Journal Entry** - Free-form text entry with word count
+4. **Tasks Review** - Review completed tasks with optional reflection notes per task
+5. **Classes Review** - Review class notes taken today with key takeaways (conditional - only shows if class notes exist)
+6. **Tomorrow Preview** - 3-column grid showing tomorrow's events, tasks, and habits
+7. **Complete Review** - Select mood (5 levels), add tags, view summary, save to vault
 
 **Features:**
-- Auto-save every 30 seconds with debouncing
+- Auto-save every 30 seconds
 - Mood selector with 5 levels (great, good, okay, difficult, terrible)
-- Tag input with suggested tags
-- Habit completion toggle during review
-- Progress indicator showing step completion
-- Keyboard navigation between steps
-- Mobile-responsive design
-- Review history with search
-- Vault integration for completed reviews
+- Tag input with add/remove functionality
+- Habit completion toggle during review (with streak display)
+- Visual progress bar showing step completion
+- Click-to-navigate step icons
+- Review history view with past reviews
+- Completed review summary with vault integration
+- Dark theme matching Command Center styling
 
 **Review Data Captured:**
 - Journal text with word count
@@ -633,33 +632,24 @@ POST   /api/journal/daily-review/complete  # Complete review + save to vault
 GET    /api/journal/daily-review/history   # Paginated history
 GET    /api/journal/daily-review/search    # Full-text search
 POST   /api/journal/habits/:habitId/toggle # Toggle habit completion
+POST   /api/journal/daily-review/:id/update-metrics # Update review metrics
 ```
 
-**Frontend Structure:**
+**Command Center Integration:**
 ```
-/apps/daily-journal/
-├── src/
-│   ├── App.tsx                 # Router setup
-│   ├── api.ts                  # API client instance
-│   ├── hooks/
-│   │   ├── useDailyReview.ts   # Main review data hook
-│   │   └── useAutoSave.ts      # Debounced auto-save
-│   ├── components/
-│   │   ├── ReviewWorkflow.tsx  # Main orchestrator
-│   │   ├── ProgressIndicator.tsx
-│   │   ├── StepNavigation.tsx
-│   │   ├── MoodSelector.tsx
-│   │   └── LoadingSpinner.tsx
-│   ├── steps/
-│   │   ├── HabitsReview.tsx    # Step 1
-│   │   ├── GoalsReview.tsx     # Step 2
-│   │   ├── JournalEditor.tsx   # Step 3 (TipTap)
-│   │   ├── TasksReview.tsx     # Step 4
-│   │   ├── ClassesReview.tsx   # Step 5
-│   │   ├── TomorrowPreview.tsx # Step 6
-│   │   └── ReviewComplete.tsx  # Step 7
-│   └── views/
-│       └── HistoryView.tsx     # Browse past reviews
+/apps/command-center/src/
+├── api/journal.ts              # Journal API client with types
+├── hooks/useJournal.ts         # React Query hooks
+└── pages/Journal.tsx           # Full 7-step review page
+    ├── HabitsStep              # Step 1: Toggle habits, view streaks
+    ├── GoalsStep               # Step 2: Goals by life area
+    ├── JournalStep             # Step 3: Free-form writing
+    ├── TasksStep               # Step 4: Completed tasks + reflections
+    ├── ClassesStep             # Step 5: Class notes (conditional)
+    ├── TomorrowStep            # Step 6: Preview grid
+    ├── CompleteStep            # Step 7: Mood, tags, complete
+    ├── CompletedView           # Post-completion summary
+    └── HistoryView             # Browse past reviews
 ```
 
 **Database Schema Extensions:**
@@ -674,15 +664,10 @@ Extended `dailyReviews` table with:
 - `vaultPageId` - Link to vault page on completion
 - `startedAt`, `completedAt` - Timestamps
 
-**Usage:**
-```bash
-# Start the app
-bun run daily-journal  # Port 5178
-
-# API calls
-curl http://localhost:3000/api/journal/daily-review
-curl http://localhost:3000/api/journal/daily-review/history
-```
+**Navigation:**
+- Accessible via sidebar under "Journal" (between Habits and Vault)
+- Route: `/journal` in Command Center
+- Keyboard shortcut: `g j` (go to journal) *planned*
 
 ---
 
@@ -993,6 +978,7 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - Dashboard: Today's view with enhanced metric cards
 - Goals: Goal management with life area breakdown
 - Habits: Habit tracking with streak visualization
+- Journal: 7-step daily review workflow (integrated from standalone app)
 - Vault Explorer: Knowledge base browsing and search
 - System Health: Backend health, integrity checks, services status
 - Personal Health: Whoop fitness metrics, recovery scores, sleep data
@@ -1175,8 +1161,7 @@ bun run dev              # Start hub dev server
 bun run hub              # Start hub with hot reload
 bun run tasks            # Start tasks app
 bun run vault            # Start vault app
-bun run command-center   # Start command-center app
-bun run daily-journal    # Start daily journal app (port 5175)
+bun run command-center   # Start command-center app (includes Journal)
 bun run test             # Run test suite
 bun run test:ai          # Run AI testing agent (smoke)
 bun run test:ai:full     # Run AI testing agent (full)
@@ -1228,6 +1213,29 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 8, 2026 - Journal Integration into Command Center
+- **Journal Page Integrated**: Moved Daily Journal from standalone app into Command Center
+- **New Route**: `/journal` in Command Center with full 7-step workflow
+- **Navigation Update**: Added Journal to sidebar between Habits and Vault
+- **Removed External Link**: Removed standalone Daily Journal app link from sidebar
+- **New Files Created**:
+  - `/apps/command-center/src/api/journal.ts` - API client with full TypeScript types
+  - `/apps/command-center/src/hooks/useJournal.ts` - React Query hooks for journal data
+  - `/apps/command-center/src/pages/Journal.tsx` - Complete 7-step review page
+- **Features Implemented**:
+  - Step 1: Habits Review with toggle completion and streak display
+  - Step 2: Goals Review grouped by life area with progress bars
+  - Step 3: Journal Entry with word count
+  - Step 4: Tasks Review with reflection notes per task
+  - Step 5: Classes Review (conditional, shows only if class notes exist)
+  - Step 6: Tomorrow Preview (events, tasks, habits in 3-column grid)
+  - Step 7: Complete Review (mood selection, tags, vault save)
+  - History View for browsing past reviews
+  - Completed View with summary and vault link
+- **Auto-save**: Drafts saved every 30 seconds
+- **Dark Theme**: Matches Command Center styling
+- **API Tests**: All 14 journal API tests passing (100%)
 
 ### January 8, 2026 - Remarkable Integration (Handwritten Notes Pipeline)
 - **Complete Remarkable Integration**: Full MBA class notes pipeline

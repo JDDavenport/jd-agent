@@ -1,4 +1,4 @@
-export type VaultContentType = 'note' | 'recording_summary' | 'lecture' | 'meeting' | 'article' | 'reference';
+export type VaultContentType = 'note' | 'recording_summary' | 'lecture' | 'meeting' | 'article' | 'reference' | 'journal';
 export type VaultSource = 'remarkable' | 'plaud' | 'email' | 'manual' | 'web' | 'canvas';
 
 export interface VaultEntry {

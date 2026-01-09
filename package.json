@@ -10,7 +10,6 @@
     "vault": "cd apps/vault && bun run dev",
     "command-center": "cd apps/command-center && bun run dev",
     "jobs": "cd apps/jobs && bun run dev",
-    "daily-journal": "cd apps/daily-journal && bun run dev",
     "test": "cd hub && bun run test",
     "verify": "cd hub && bun run verify"
   },

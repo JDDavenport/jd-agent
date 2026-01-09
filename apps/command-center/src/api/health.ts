@@ -26,7 +26,25 @@ export interface PersonalHealthData {
   message?: string;
 }
 
+export interface BasicHealthResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  version: string;
+  timestamp: string;
+  uptime: number;
+  checks: {
+    database: {
+      status: 'up' | 'down';
+      latencyMs?: number;
+    };
+  };
+}
+
 export const healthApi = {
+  // Basic health check for system status indicator
+  checkHealth: async (): Promise<BasicHealthResponse> => {
+    return apiClient.get('/health');
+  },
+
   getSystemInfo: async (): Promise<SystemInfo> => {
     return apiClient.get('/system/info');
   },

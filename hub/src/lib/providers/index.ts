@@ -9,22 +9,25 @@ import { LLMProviderChain, type LLMProvider } from '../llm-provider';
 import { GroqProvider } from './groq';
 import { GeminiProvider } from './gemini';
 import { OpenAIProvider } from './openai';
+import { OllamaProvider } from './ollama';
 
 export { GroqProvider } from './groq';
 export { GeminiProvider } from './gemini';
 export { OpenAIProvider } from './openai';
+export { OllamaProvider } from './ollama';
 export { LLMProviderChain } from '../llm-provider';
 
 /**
  * Create an LLM provider chain based on environment configuration
  *
  * Priority order (configurable via LLM_PROVIDERS env var):
- * 1. Groq (free)
- * 2. Gemini (free)
- * 3. OpenAI (paid fallback)
+ * 1. Groq (free cloud)
+ * 2. Gemini (free cloud)
+ * 3. OpenAI (paid cloud)
+ * 4. Ollama (free local - always available fallback)
  */
 export function createLLMProviderChain(): LLMProviderChain {
-  const providerOrder = (process.env.LLM_PROVIDERS || 'groq,gemini,openai')
+  const providerOrder = (process.env.LLM_PROVIDERS || 'groq,gemini,openai,ollama')
     .split(',')
     .map(p => p.trim().toLowerCase());
 
@@ -40,6 +43,9 @@ export function createLLMProviderChain(): LLMProviderChain {
         break;
       case 'openai':
         providers.push(new OpenAIProvider());
+        break;
+      case 'ollama':
+        providers.push(new OllamaProvider());
         break;
       default:
         console.warn(`[LLMProviders] Unknown provider: ${name}`);

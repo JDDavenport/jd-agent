@@ -1,6 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { healthApi } from '../api/health';
 
+/**
+ * Hook for header system health indicator.
+ * Polls /api/health every 30 seconds to show online/offline status.
+ */
+export function useSystemHealth() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['system', 'health'],
+    queryFn: () => healthApi.checkHealth(),
+    refetchInterval: 30000, // Poll every 30 seconds
+    retry: 1, // Only retry once on failure
+    staleTime: 25000, // Consider data fresh for 25 seconds
+  });
+
+  // System is healthy if we got a response with status 'healthy'
+  // If there's an error or no data, assume unhealthy
+  const isHealthy = !isError && data?.status === 'healthy';
+
+  return { isHealthy, isLoading };
+}
+
 export function useSystemInfo() {
   return useQuery({
     queryKey: ['system', 'info'],

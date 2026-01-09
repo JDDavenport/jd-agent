@@ -65,3 +65,13 @@ bun.lockb
 playwright-report/
 test-results/
 test-screenshots/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Test artifacts
+test-report.json

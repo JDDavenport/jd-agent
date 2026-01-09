@@ -57,6 +57,15 @@ Track goals across life areas and build lasting habits.
 - Habit tracking with streaks
 - Progress dashboard and reflections
 
+### [Daily Journal](./daily-journal/index.md)
+Evening review workflow to reflect on the day.
+- 7-step guided review process
+- Habit completion tracking during review
+- Rich text journal with auto-save
+- Tomorrow preview and preparation
+- Mood and tag tracking
+- Vault integration for permanent records
+
 ### [Integrations](./integrations/index.md)
 Connect with your existing tools.
 - Google Calendar & Gmail
@@ -97,10 +106,12 @@ Autonomous AI-powered testing using GPT-4 Vision.
 | Create tasks | ✅ | ✅ | - | ✅ |
 | View calendar | - | ✅ | - | ✅ |
 | Search vault | - | ✅ | ✅ | ✅ |
-| Daily journal | - | - | ✅ | ✅ |
+| Daily journal | - | ✅ | ✅ | ✅ |
 | Chat interface | - | ✅ | - | ✅ |
 | System health | - | ✅ | - | - |
 | Personal health | - | ✅ | - | - |
+| Habit tracking | - | ✅ | - | - |
+| Evening review | - | ✅ | - | - |
 
 ---
 
@@ -109,7 +120,7 @@ Autonomous AI-powered testing using GPT-4 Vision.
 | App | Port | Primary Use |
 |-----|------|-------------|
 | **Tasks** | 5174 | Task management, inbox processing |
-| **Command Center** | 5173 | Dashboard, chat, system overview |
+| **Command Center** | 5173 | Dashboard, chat, journal, system overview |
 | **Vault** | 5175 | Knowledge management, search |
 | **Jobs** | 5176 | Job hunting agent |
 | **Docs** | 5177 | Documentation frontend |
@@ -130,4 +141,4 @@ Autonomous AI-powered testing using GPT-4 Vision.
 
 ---
 
-*Last updated: January 8, 2026*
+*Last updated: January 9, 2026*

@@ -75,7 +75,7 @@ function Goals() {
                 onClick={() => setSelectedGoalId(goal.id)}
               >
                 <span className="flex items-center gap-2">
-                  <span>{LIFE_AREAS[goal.lifeArea].icon}</span>
+                  <span>{goal.lifeArea ? LIFE_AREAS[goal.lifeArea].icon : '📌'}</span>
                   <span>{goal.title}</span>
                 </span>
                 <span className="text-sm text-warning">Health: {goal.healthScore}%</span>
@@ -175,7 +175,7 @@ function Goals() {
 
 // Goal Card Component
 function GoalCard({ goal, isSelected, onClick }: { goal: Goal; isSelected: boolean; onClick: () => void }) {
-  const area = LIFE_AREAS[goal.lifeArea];
+  const area = goal.lifeArea ? LIFE_AREAS[goal.lifeArea] : { icon: '📌', color: '#6B7280', name: 'General' };
 
   return (
     <Card
@@ -264,7 +264,7 @@ function GoalDetailPanel({ goalId, onClose }: { goalId: string; onClose: () => v
 
   if (!goal) return null;
 
-  const area = LIFE_AREAS[goal.lifeArea];
+  const area = goal.lifeArea ? LIFE_AREAS[goal.lifeArea] : { icon: '📌', color: '#6B7280', name: 'General', description: 'Uncategorized' };
   const goalHabits = allHabits?.filter(h => h.goalId === goalId) || [];
 
   const handleCreateReflection = () => {

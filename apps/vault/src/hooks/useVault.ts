@@ -71,6 +71,7 @@ export function useVaultChildren(parentId: string | null) {
   return useQuery({
     queryKey: ['vault', 'children', parentId],
     queryFn: () => api.getVaultChildren(parentId),
+    enabled: !!parentId, // Only fetch when we have a specific parent
   });
 }
 

@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useSystemHealth } from '../../hooks/useSystemHealth';
 
 function Header() {
-  const isHealthy = true; // TODO: Connect to actual health check
+  const { isHealthy, isLoading } = useSystemHealth();
 
   return (
     <header className="bg-dark-card border-b border-dark-border sticky top-0 z-50">
@@ -11,13 +12,17 @@ function Header() {
             JD Agent
           </h1>
           <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                isHealthy ? 'bg-success animate-pulse-glow' : 'bg-error'
-              }`}
-            />
+            {isLoading ? (
+              <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
+            ) : (
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  isHealthy ? 'bg-success animate-pulse-glow' : 'bg-error'
+                }`}
+              />
+            )}
             <span className="text-sm text-text-muted">
-              {isHealthy ? 'Online' : 'Offline'}
+              {isLoading ? 'Checking...' : isHealthy ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>

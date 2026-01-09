@@ -14,6 +14,7 @@ import BrainDump from './pages/BrainDump';
 import Goals from './pages/Goals';
 import Habits from './pages/Habits';
 import Progress from './pages/Progress';
+import Journal from './pages/Journal';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ function App() {
               <Route path="/progress" element={<Progress />} />
               <Route path="/goals" element={<Goals />} />
               <Route path="/habits" element={<Habits />} />
+              <Route path="/journal" element={<Journal />} />
               <Route path="/vault" element={<VaultExplorer />} />
               <Route path="/vault/new" element={<NoteEditor />} />
               <Route path="/vault/:id" element={<NoteEditor />} />

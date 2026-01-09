@@ -296,8 +296,8 @@ class DailyJournalService {
         .delete(habitCompletions)
         .where(eq(habitCompletions.id, existing.id));
 
-      // Recalculate streak
-      await habitService.recalculateStreak(habitId);
+      // Update streak
+      await habitService.updateStreaks(habitId);
     } else {
       // Create or update completion (toggle on)
       if (existing) {
@@ -315,8 +315,8 @@ class DailyJournalService {
         });
       }
 
-      // Recalculate streak
-      await habitService.recalculateStreak(habitId);
+      // Update streak
+      await habitService.updateStreaks(habitId);
     }
 
     // Return updated habit data
@@ -408,6 +408,7 @@ class DailyJournalService {
         task: tasks,
         project: projects,
       })
+      .from(tasks)
       .leftJoin(projects, eq(tasks.projectId, projects.id))
       .where(
         and(
@@ -496,6 +497,7 @@ class DailyJournalService {
         task: tasks,
         project: projects,
       })
+      .from(tasks)
       .leftJoin(projects, eq(tasks.projectId, projects.id))
       .where(
         and(

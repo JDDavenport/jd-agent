@@ -1,12 +1,28 @@
 import { useState, useCallback } from 'react';
 import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+} from '@dnd-kit/core';
+import {
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   ChevronDownIcon,
   ChevronRightIcon,
   PlusIcon,
   MagnifyingGlassIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
-  FolderIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
@@ -21,6 +37,7 @@ interface NotionSidebarProps {
   onSelectLegacyEntry?: (entryId: string) => void;
   onCreatePage: (parentId?: string) => void;
   onCreateEntry?: (parentId?: string) => void;
+  onMoveEntry?: (id: string, newParentId: string | null) => void;
   onOpenSearch: () => void;
   pageTree: VaultPageTreeNode[];
   legacyTree?: VaultTreeNode[];
@@ -31,19 +48,29 @@ interface NotionSidebarProps {
 export function NotionSidebar({
   isCollapsed,
   onToggleCollapse,
-  selectedPageId,
   selectedEntryId,
-  onSelectPage,
   onSelectLegacyEntry,
-  onCreatePage,
   onCreateEntry,
+  onMoveEntry,
   onOpenSearch,
   pageTree,
   legacyTree = [],
-  favorites,
   isLoading = false,
 }: NotionSidebarProps) {
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const toggleExpand = useCallback((pageId: string) => {
     setExpandedPages((prev) => {
@@ -56,6 +83,56 @@ export function NotionSidebar({
       return next;
     });
   }, []);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over?.id as string | null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setOverId(null);
+
+    if (!over || active.id === over.id) return;
+
+    // Find the target node to determine new parent
+    const findNode = (nodes: VaultTreeNode[], id: string): VaultTreeNode | null => {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+          const found = findNode(node.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const activeNode = findNode(legacyTree, active.id as string);
+    const overNode = findNode(legacyTree, over.id as string);
+
+    if (activeNode && overNode && onMoveEntry) {
+      // Move the active node to be a child of the over node
+      onMoveEntry(active.id as string, over.id as string);
+    }
+  };
+
+  // Get active node for drag overlay
+  const findActiveNode = (nodes: VaultTreeNode[], id: string): VaultTreeNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children) {
+        const found = findActiveNode(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const activeNode = activeId ? findActiveNode(legacyTree, activeId) : null;
 
   if (isCollapsed) {
     return (
@@ -116,26 +193,43 @@ export function NotionSidebar({
             </button>
           </div>
         ) : (
-          <div className="py-2">
-            {/* Legacy Vault Tree */}
-            {legacyTree.map((node) => (
-              <TreeItem
-                key={node.id}
-                node={node}
-                depth={0}
-                isExpanded={expandedPages.has(node.id)}
-                onToggle={() => toggleExpand(node.id)}
-                isSelected={selectedEntryId === node.id}
-                onSelect={() => onSelectLegacyEntry?.(node.id)}
-                onAddChild={() => onCreateEntry?.(node.id)}
-                expandedPages={expandedPages}
-                onToggleExpand={toggleExpand}
-                selectedEntryId={selectedEntryId}
-                onSelectEntry={onSelectLegacyEntry}
-                onCreateEntry={onCreateEntry}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="py-2">
+              {/* Legacy Vault Tree */}
+              {legacyTree.map((node) => (
+                <SortableTreeItem
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  isExpanded={expandedPages.has(node.id)}
+                  onToggle={() => toggleExpand(node.id)}
+                  isSelected={selectedEntryId === node.id}
+                  onSelect={() => onSelectLegacyEntry?.(node.id)}
+                  onAddChild={() => onCreateEntry?.(node.id)}
+                  expandedPages={expandedPages}
+                  onToggleExpand={toggleExpand}
+                  selectedEntryId={selectedEntryId}
+                  onSelectEntry={onSelectLegacyEntry}
+                  onCreateEntry={onCreateEntry}
+                  isOver={overId === node.id}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeNode ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <span className="text-sm">{getIcon(activeNode)}</span>
+                  <span className="text-sm font-medium text-gray-900">{activeNode.title}</span>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 
@@ -153,11 +247,41 @@ export function NotionSidebar({
   );
 }
 
+// Get icon based on context
+function getIcon(node: VaultTreeNode) {
+  const hasChildren = node.children && node.children.length > 0;
+  const context = node.context?.toLowerCase() || '';
+  const title = node.title?.toLowerCase() || '';
+
+  if (hasChildren || context === 'reference' || context === 'archive' || context === 'school' || context === 'professional' || context === 'personal') {
+    if (context === 'archive' || title.includes('archive')) return '📦';
+    if (context === 'school' || context === 'mba' || title === 'mba') return '🎓';
+    if (context === 'professional') return '💼';
+    if (context === 'personal') return '👤';
+    if (context === 'reference') return '📚';
+    if (title === 'inbox') return '📥';
+    if (title.includes('family')) return '👨‍👩‍👧‍👦';
+    if (title.includes('site') || title.includes('credential')) return '🔐';
+    if (title.includes('health') || title.includes('fitness')) return '💪';
+    if (title.includes('goal') || title.includes('plan')) return '🎯';
+    if (title.includes('people')) return '👥';
+    if (title.includes('career')) return '📈';
+    if (title.includes('resume')) return '📄';
+    if (title.includes('job')) return '💼';
+    if (title.includes('travel')) return '✈️';
+    if (title.includes('journal')) return '📔';
+    if (title.includes('document')) return '📄';
+    return '📁';
+  }
+
+  return '📝';
+}
+
 // ============================================
-// Tree Item Component
+// Sortable Tree Item Component
 // ============================================
 
-interface TreeItemProps {
+interface SortableTreeItemProps {
   node: VaultTreeNode;
   depth: number;
   isExpanded: boolean;
@@ -170,9 +294,10 @@ interface TreeItemProps {
   selectedEntryId?: string | null;
   onSelectEntry?: (id: string) => void;
   onCreateEntry?: (parentId: string) => void;
+  isOver?: boolean;
 }
 
-function TreeItem({
+function SortableTreeItem({
   node,
   depth,
   isExpanded,
@@ -185,52 +310,52 @@ function TreeItem({
   selectedEntryId,
   onSelectEntry,
   onCreateEntry,
-}: TreeItemProps) {
+  isOver,
+}: SortableTreeItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   const hasChildren = node.children && node.children.length > 0;
   const paddingLeft = 12 + depth * 16;
 
-  // Get icon based on context
-  const getIcon = () => {
-    const context = node.context?.toLowerCase() || '';
-    const title = node.title?.toLowerCase() || '';
-
-    // Folder-style icons for containers
-    if (hasChildren || context === 'reference' || context === 'archive' || context === 'school' || context === 'professional' || context === 'personal') {
-      if (context === 'archive' || title.includes('archive')) return '📦';
-      if (context === 'school' || context === 'mba' || title === 'mba') return '🎓';
-      if (context === 'professional') return '💼';
-      if (context === 'personal') return '👤';
-      if (context === 'reference') return '📚';
-      if (title === 'inbox') return '📥';
-      if (title.includes('family')) return '👨‍👩‍👧‍👦';
-      if (title.includes('site') || title.includes('credential')) return '🔐';
-      if (title.includes('health') || title.includes('fitness')) return '💪';
-      if (title.includes('goal') || title.includes('plan')) return '🎯';
-      if (title.includes('people')) return '👥';
-      if (title.includes('career')) return '📈';
-      if (title.includes('resume')) return '📄';
-      if (title.includes('job')) return '💼';
-      if (title.includes('travel')) return '✈️';
-      if (title.includes('journal')) return '📔';
-      if (title.includes('document')) return '📄';
-      return '📁';
-    }
-
-    return '📝';
-  };
-
   return (
-    <div>
+    <div ref={setNodeRef} style={style}>
       <div
         className={clsx(
           'flex items-center gap-1 py-1 pr-2 rounded-md mx-2 group cursor-pointer transition-colors',
           isSelected
             ? 'bg-blue-50 text-blue-700'
+            : isOver
+            ? 'bg-blue-100 border-2 border-blue-400 border-dashed'
             : 'hover:bg-gray-100 text-gray-700'
         )}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={onSelect}
       >
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-0.5 rounded hover:bg-gray-200 transition-colors flex-shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </button>
+
         {/* Expand/collapse button */}
         <button
           onClick={(e) => {
@@ -250,7 +375,7 @@ function TreeItem({
         </button>
 
         {/* Icon */}
-        <span className="flex-shrink-0 text-sm">{getIcon()}</span>
+        <span className="flex-shrink-0 text-sm">{getIcon(node)}</span>
 
         {/* Title */}
         <span className={clsx(
@@ -284,7 +409,7 @@ function TreeItem({
       {hasChildren && isExpanded && (
         <div>
           {node.children.map((child) => (
-            <TreeItem
+            <SortableTreeItem
               key={child.id}
               node={child}
               depth={depth + 1}

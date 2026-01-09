@@ -53,31 +53,10 @@ async function main() {
     console.log('○ Todoist API key not found (TODOIST_API_KEY)');
   }
 
-  // Skip Google Drive - refresh token expired
-  // if (
-  //   process.env.GOOGLE_CLIENT_ID &&
-  //   process.env.GOOGLE_CLIENT_SECRET &&
-  //   process.env.GOOGLE_REFRESH_TOKEN
-  // ) {
-  //   console.log('✓ Google credentials found');
-  //   config.sources.googleDrive = {
-  //     credentials: {
-  //       clientId: process.env.GOOGLE_CLIENT_ID,
-  //       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  //       refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
-  //     },
-  //   };
-  // } else {
-  //   console.log('○ Google credentials not found');
-  // }
-
-  // Skip Apple Notes - permission issues
-  // if (process.platform === 'darwin') {
-  //   console.log('✓ Running on macOS - Apple Notes available');
-  //   config.sources.appleNotes = {};
-  // } else {
-  //   console.log('○ Not running on macOS - Apple Notes unavailable');
-  // }
+  // Note: Google Drive and Apple Notes migrations are currently disabled
+  // - Google Drive: OAuth refresh token expired - needs re-authentication
+  // - Apple Notes: macOS permission issues - requires accessibility permissions
+  // To re-enable, see /docs/integrations/google-drive.md and /docs/integrations/apple-notes.md
 
   // Check if any sources are configured
   if (Object.keys(config.sources).length === 0) {

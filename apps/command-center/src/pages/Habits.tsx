@@ -181,23 +181,20 @@ function Habits() {
           ) : (
             <Card>
               <h3 className="font-semibold mb-3">By Life Area</h3>
-              {dashboard?.byArea && (
+              {dashboard?.byArea && Array.isArray(dashboard.byArea) && (
                 <div className="space-y-2">
-                  {Object.entries(dashboard.byArea).map(([area, stats]) => {
-                    const areaInfo = LIFE_AREAS[area as LifeArea];
-                    return (
-                      <div key={area} className="flex items-center justify-between p-2 bg-dark-bg rounded-lg">
-                        <span className="flex items-center gap-2">
-                          <span>{areaInfo.icon}</span>
-                          <span className="text-sm">{areaInfo.name}</span>
-                        </span>
-                        <span className="text-sm">
-                          <span className="text-accent font-semibold">{stats.completed}</span>
-                          <span className="text-text-muted">/{stats.total}</span>
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {dashboard.byArea.map((areaData: any) => (
+                    <div key={areaData.area} className="flex items-center justify-between p-2 bg-dark-bg rounded-lg">
+                      <span className="flex items-center gap-2">
+                        <span>{areaData.icon}</span>
+                        <span className="text-sm">{areaData.name}</span>
+                      </span>
+                      <span className="text-sm">
+                        <span className="text-accent font-semibold">{areaData.activeHabits}</span>
+                        <span className="text-text-muted"> habits</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>
