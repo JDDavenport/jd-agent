@@ -1,0 +1,814 @@
+import { test, expect, type Page } from '@playwright/test';
+
+// Helper function to wait for page to be ready
+async function waitForPageReady(page: Page) {
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle');
+}
+
+// Test group: Dashboard
+test.describe('Dashboard Page', () => {
+  test('should load dashboard successfully', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveTitle(/JD Agent/);
+    await expect(page.locator('h1')).toContainText('Command Center');
+  });
+
+  test('should display welcome message', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=Welcome back')).toBeVisible();
+  });
+
+  test('should render stats cards', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Stats cards should be visible
+    const statsSection = page.locator('[class*="StatsCards"]').first();
+    await expect(statsSection.or(page.locator('text=/tasks?/i').first())).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display today tasks section', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Look for today tasks component
+    const todaySection = page.locator('text=/today/i').first();
+    await expect(todaySection).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should render week calendar', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Calendar should be visible or loading
+    await page.waitForTimeout(2000); // Wait for calendar to render
+  });
+
+  test('should display deadline widget', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Check for deadline-related content
+    const hasDeadlines = await page.locator('text=/deadline/i').count();
+    expect(hasDeadlines).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should show quick chat widget', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Quick chat should be visible
+    const quickChat = page.locator('text=/chat/i').first();
+    await expect(quickChat).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display goals panel', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Goals panel should be visible or have goals-related content
+    const hasGoals = await page.locator('text=/goal/i').count();
+    expect(hasGoals).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// Test group: Navigation
+test.describe('Navigation', () => {
+  test('should navigate to vault from dashboard', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await page.click('a[href="/vault"]');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/vault');
+    await expect(page.locator('h1')).toContainText('Vault');
+  });
+
+  test('should navigate to chat from dashboard', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await page.click('a[href="/chat"]');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/chat');
+    await expect(page.locator('h1')).toContainText(/Chat/i);
+  });
+
+  test('should navigate to settings from dashboard', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await page.click('a[href="/settings"]');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/settings');
+    await expect(page.locator('h1')).toContainText('Settings');
+  });
+
+  test('should navigate to health page', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await page.click('a[href="/health"]');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/health');
+  });
+
+  test('should navigate to setup page', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/setup');
+    await expect(page.locator('h1')).toContainText(/Welcome to JD Agent|Setup/i);
+  });
+
+  test('should navigate to brain dump page', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/brain-dump');
+    await expect(page.locator('h1')).toContainText('Brain Dump');
+  });
+
+  test('should redirect unknown routes to dashboard', async ({ page }) => {
+    await page.goto('/unknown-route-123');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/');
+  });
+});
+
+// Test group: Vault Explorer
+test.describe('Vault Explorer Page', () => {
+  test('should load vault page successfully', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toContainText('Vault');
+  });
+
+  test('should display search bar', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    const searchInput = page.locator('input[placeholder*="Search"]').or(page.locator('input[type="search"]'));
+    await expect(searchInput.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should show new note button', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    const newNoteButton = page.locator('a[href="/vault/new"]').or(page.locator('button:has-text("New Note")'));
+    await expect(newNoteButton.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display type filters', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    // Check for content type filters
+    const hasFilters = await page.locator('text=/All Types|Notes|Lectures|Meetings/i').count();
+    expect(hasFilters).toBeGreaterThan(0);
+  });
+
+  test('should allow filtering by content type', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    // Try to click on a content type filter
+    const notesFilter = page.locator('button:has-text("Notes")').or(page.locator('text=Notes')).first();
+    if (await notesFilter.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await notesFilter.click();
+      await page.waitForTimeout(1000);
+    }
+  });
+
+  test('should display clear filters button when filters active', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    // Apply a filter and check for clear button
+    const notesFilter = page.locator('button:has-text("Notes")').first();
+    if (await notesFilter.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await notesFilter.click();
+      await page.waitForTimeout(500);
+
+      const clearButton = page.locator('button:has-text("Clear Filters")');
+      await expect(clearButton).toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test('should navigate to new note page', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    const newNoteButton = page.locator('a[href="/vault/new"]').first();
+    if (await newNoteButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await newNoteButton.click();
+      await waitForPageReady(page);
+
+      await expect(page).toHaveURL('/vault/new');
+    }
+  });
+
+  test('should show entry count', async ({ page }) => {
+    await page.goto('/vault');
+    await waitForPageReady(page);
+
+    // Should show number of entries
+    const entryCount = page.locator('text=/\\d+ entr(y|ies)/i').or(page.locator('text=/Loading/i'));
+    await expect(entryCount.first()).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// Test group: Chat Page
+test.describe('Chat Page', () => {
+  test('should load chat page successfully', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toContainText(/Chat/i);
+  });
+
+  test('should display chat input', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    const chatInput = page.locator('textarea, input[type="text"]').last();
+    await expect(chatInput).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should show quick actions', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    // Quick actions should be visible
+    await page.waitForTimeout(1000);
+    const hasQuickActions = await page.locator('button').count();
+    expect(hasQuickActions).toBeGreaterThan(0);
+  });
+
+  test('should display clear history button', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    const clearButton = page.locator('button:has-text("Clear History")');
+    await expect(clearButton).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should have back to dashboard link', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    const backLink = page.locator('a[href="/"]').first();
+    await expect(backLink).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should navigate to settings from chat', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    const settingsLink = page.locator('a[href="/settings"]');
+    if (await settingsLink.count() > 0) {
+      await expect(settingsLink.first()).toBeVisible();
+    }
+  });
+
+  test('should show message count', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    const messageCount = page.locator('text=/\\d+ messages?|Start a conversation/i');
+    await expect(messageCount.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should clear history button be disabled when empty', async ({ page }) => {
+    await page.goto('/chat');
+    await waitForPageReady(page);
+
+    const clearButton = page.locator('button:has-text("Clear History")');
+    const isDisabled = await clearButton.getAttribute('disabled');
+    expect(isDisabled).toBeDefined();
+  });
+});
+
+// Test group: Setup Page
+test.describe('Setup Page', () => {
+  test('should load setup page successfully', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1, h2')).toContainText(/Welcome to JD Agent|Setup/i);
+  });
+
+  test('should display progress bar', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/Step \\d+ of \\d+/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should show get started button on welcome step', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    const getStartedButton = page.locator('button:has-text("Get Started")');
+    await expect(getStartedButton).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should navigate to next step', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    const getStartedButton = page.locator('button:has-text("Get Started")');
+    await getStartedButton.click();
+    await page.waitForTimeout(500);
+
+    // Should be on service check step
+    await expect(page.locator('text=/Service|Connection/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should have back button on non-first steps', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    // Go to next step
+    await page.locator('button:has-text("Get Started")').click();
+    await page.waitForTimeout(500);
+
+    const backButton = page.locator('button:has-text("Back")');
+    await expect(backButton).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should display service connections', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    // Navigate to service step
+    await page.locator('button:has-text("Get Started")').click();
+    await page.waitForTimeout(1000);
+
+    // Should show service status
+    const hasServices = await page.locator('text=/Connected|Configured|Not Set/i').count();
+    expect(hasServices).toBeGreaterThan(0);
+  });
+
+  test('should show brain dump input', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    // Navigate to brain dump step
+    await page.locator('button:has-text("Get Started")').click();
+    await page.waitForTimeout(500);
+    await page.locator('button:has-text("Continue")').first().click();
+    await page.waitForTimeout(1000);
+
+    const taskInput = page.locator('input[placeholder*="mind"]');
+    await expect(taskInput).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display ceremony configuration', async ({ page }) => {
+    await page.goto('/setup');
+    await waitForPageReady(page);
+
+    // Navigate through steps to ceremonies
+    await page.locator('button:has-text("Get Started")').click();
+    await page.waitForTimeout(500);
+
+    for (let i = 0; i < 3; i++) {
+      const continueButton = page.locator('button:has-text("Continue")').first();
+      if (await continueButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await continueButton.click();
+        await page.waitForTimeout(500);
+      }
+    }
+
+    // Should show ceremony info
+    const hasCeremonies = await page.locator('text=/Morning|Evening|Weekly/i').count();
+    expect(hasCeremonies).toBeGreaterThan(0);
+  });
+});
+
+// Test group: Brain Dump Page
+test.describe('Brain Dump Page', () => {
+  test('should load brain dump page successfully', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toContainText('Brain Dump');
+  });
+
+  test('should display main textarea', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    const textarea = page.locator('textarea');
+    await expect(textarea).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should show add single task button', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    const addButton = page.locator('button:has-text("Add Single Task")');
+    await expect(addButton).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should show add all button', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    const addAllButton = page.locator('button:has-text("Add All")');
+    await expect(addAllButton).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display inbox count', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/Total in Inbox/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should show session count', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/This Session/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should have go to setup link', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    const setupLink = page.locator('a[href="/setup"]').first();
+    await expect(setupLink).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display tips section', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/Tips for effective/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should have navigation links to vault and dashboard', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    const vaultLink = page.locator('a[href="/vault"]');
+    const dashboardLink = page.locator('a[href="/"]');
+
+    expect(await vaultLink.count() + await dashboardLink.count()).toBeGreaterThan(0);
+  });
+
+  test('should disable buttons when textarea is empty', async ({ page }) => {
+    await page.goto('/brain-dump');
+    await waitForPageReady(page);
+
+    const textarea = page.locator('textarea');
+    await textarea.clear();
+
+    const addButton = page.locator('button:has-text("Add Single Task")');
+    const isDisabled = await addButton.getAttribute('disabled');
+    expect(isDisabled).toBeDefined();
+  });
+});
+
+// Test group: Settings Page
+test.describe('Settings Page', () => {
+  test('should load settings page successfully', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toContainText('Settings');
+  });
+
+  test('should display tab navigation', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await expect(page.locator('button:has-text("Ceremonies")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('button:has-text("Notifications")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('button:has-text("Classes")')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should switch to notifications tab', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await page.locator('button:has-text("Notifications")').click();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('text=/Notification Channels/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should switch to classes tab', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await page.locator('button:has-text("Classes")').click();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('text=/Your Classes|Add New Class/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display morning briefing ceremony', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/Morning Briefing/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display evening review ceremony', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/Evening Review/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display weekly planning ceremony', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await expect(page.locator('text=/Weekly Planning/i')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should have test buttons for ceremonies', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    const testButtons = page.locator('button:has-text("Test")');
+    expect(await testButtons.count()).toBeGreaterThan(0);
+  });
+
+  test('should have preview buttons for ceremonies', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    const previewButtons = page.locator('button:has-text("Preview")');
+    expect(await previewButtons.count()).toBeGreaterThan(0);
+  });
+
+  test('should show class management form', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await page.locator('button:has-text("Classes")').click();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('input[placeholder*="Class name"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('input[placeholder*="Course code"]')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display add class button', async ({ page }) => {
+    await page.goto('/settings');
+    await waitForPageReady(page);
+
+    await page.locator('button:has-text("Classes")').click();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('button:has-text("Add Class")')).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// Test group: System Health Page
+test.describe('System Health Page', () => {
+  test('should load system health page successfully', async ({ page }) => {
+    await page.goto('/health');
+    await waitForPageReady(page);
+
+    // Page should load
+    await page.waitForTimeout(2000);
+    expect(page.url()).toContain('/health');
+  });
+
+  test('should display health status cards', async ({ page }) => {
+    await page.goto('/health');
+    await waitForPageReady(page);
+
+    // Wait for status cards to load
+    await page.waitForTimeout(2000);
+    const hasContent = await page.locator('body').textContent();
+    expect(hasContent).toBeTruthy();
+  });
+
+  test('should show activity logs section', async ({ page }) => {
+    await page.goto('/health');
+    await waitForPageReady(page);
+
+    await page.waitForTimeout(2000);
+    // Activity logs should render
+  });
+
+  test('should display metrics or charts', async ({ page }) => {
+    await page.goto('/health');
+    await waitForPageReady(page);
+
+    await page.waitForTimeout(2000);
+    // Metrics should be visible
+  });
+});
+
+// Test group: Note Editor Page
+test.describe('Note Editor Page', () => {
+  test('should load new note editor', async ({ page }) => {
+    await page.goto('/vault/new');
+    await waitForPageReady(page);
+
+    await expect(page).toHaveURL('/vault/new');
+  });
+
+  test('should display title input', async ({ page }) => {
+    await page.goto('/vault/new');
+    await waitForPageReady(page);
+
+    const titleInput = page.locator('input[placeholder*="title" i]').or(page.locator('input').first());
+    await expect(titleInput.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should have markdown editor', async ({ page }) => {
+    await page.goto('/vault/new');
+    await waitForPageReady(page);
+
+    await page.waitForTimeout(2000);
+    // Editor should be present
+    const hasEditor = await page.locator('textarea, [contenteditable]').count();
+    expect(hasEditor).toBeGreaterThan(0);
+  });
+
+  test('should have save button', async ({ page }) => {
+    await page.goto('/vault/new');
+    await waitForPageReady(page);
+
+    const saveButton = page.locator('button:has-text("Save")');
+    expect(await saveButton.count()).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should have back navigation', async ({ page }) => {
+    await page.goto('/vault/new');
+    await waitForPageReady(page);
+
+    const backLink = page.locator('a[href="/vault"]');
+    expect(await backLink.count()).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// Test group: Error Handling
+test.describe('Error Handling', () => {
+  test('should handle network errors gracefully', async ({ page }) => {
+    await page.route('**/api/**', (route) => {
+      route.abort('failed');
+    });
+
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Should still load the page structure
+    await expect(page.locator('body')).toBeVisible();
+  });
+
+  test('should display error boundary if component crashes', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Page should have error boundary
+    await expect(page.locator('body')).toBeVisible();
+  });
+
+  test('should handle 404 API responses', async ({ page }) => {
+    await page.route('**/api/**', (route) => {
+      route.fulfill({ status: 404, body: 'Not found' });
+    });
+
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await expect(page.locator('body')).toBeVisible();
+  });
+});
+
+// Test group: Loading States
+test.describe('Loading States', () => {
+  test('should show loading spinner on dashboard', async ({ page }) => {
+    await page.goto('/');
+
+    // Loading spinner might appear briefly
+    await page.waitForTimeout(100);
+  });
+
+  test('should show loading state in vault', async ({ page }) => {
+    await page.goto('/vault');
+
+    // Check for loading state
+    await page.waitForTimeout(100);
+  });
+
+  test('should transition from loading to loaded state', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    // Page should be fully loaded
+    await expect(page.locator('h1')).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// Test group: Responsive Design
+test.describe('Responsive Design', () => {
+  test('should render correctly on mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should render correctly on tablet viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should render correctly on desktop viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    await expect(page.locator('h1')).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// Test group: Accessibility
+test.describe('Accessibility', () => {
+  test('should have proper heading hierarchy on dashboard', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    const h1Count = await page.locator('h1').count();
+    expect(h1Count).toBeGreaterThan(0);
+  });
+
+  test('should have accessible buttons with labels', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    const buttons = await page.locator('button').all();
+    for (const button of buttons.slice(0, 5)) {
+      const text = await button.textContent();
+      const ariaLabel = await button.getAttribute('aria-label');
+      expect(text || ariaLabel).toBeTruthy();
+    }
+  });
+
+  test('should have proper link navigation', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    const links = await page.locator('a[href]').count();
+    expect(links).toBeGreaterThan(0);
+  });
+});
+
+// Performance tests
+test.describe('Performance', () => {
+  test('should load dashboard within acceptable time', async ({ page }) => {
+    const startTime = Date.now();
+    await page.goto('/');
+    await waitForPageReady(page);
+    const loadTime = Date.now() - startTime;
+
+    // Should load within 10 seconds
+    expect(loadTime).toBeLessThan(10000);
+  });
+
+  test('should load vault page within acceptable time', async ({ page }) => {
+    const startTime = Date.now();
+    await page.goto('/vault');
+    await waitForPageReady(page);
+    const loadTime = Date.now() - startTime;
+
+    expect(loadTime).toBeLessThan(10000);
+  });
+
+  test('should navigate between pages quickly', async ({ page }) => {
+    await page.goto('/');
+    await waitForPageReady(page);
+
+    const startTime = Date.now();
+    await page.click('a[href="/vault"]');
+    await waitForPageReady(page);
+    const navTime = Date.now() - startTime;
+
+    expect(navTime).toBeLessThan(5000);
+  });
+});

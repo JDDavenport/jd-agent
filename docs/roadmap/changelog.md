@@ -1,0 +1,210 @@
+# Changelog
+
+All notable changes to JD Agent will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [Unreleased]
+
+### Added
+
+#### Goals & Habits Tracking System
+- Complete goal tracking with 6 fixed life areas (Spiritual, Personal, Fitness, Family, Professional, School)
+- Goal types: achievement, maintenance, growth
+- Metric types: boolean, numeric, percentage, milestone
+- Status workflow: active → paused → completed/abandoned
+- Health scoring (0-100) based on progress, habits, milestones, and activity
+- Motivation and vision statements for goals
+
+#### Milestone System
+- Ordered checkpoints within goals
+- Status tracking: pending, in_progress, completed, skipped
+- Target dates with overdue tracking
+- Evidence capture on completion
+- Auto task generation for upcoming milestones
+- Progress percentage updates goal automatically
+
+#### Habit Tracking
+- Frequency: daily, weekly, specific days
+- Time of day preference (morning, afternoon, evening)
+- Current and longest streak tracking
+- 2-day grace period for streak protection
+- Quality ratings and duration tracking
+- Goal linking for habit-goal relationships
+
+#### Reflections (Goal Journaling)
+- Types: progress, obstacle, win, adjustment
+- Sentiment tracking: positive, neutral, negative, mixed
+- Search and filtering by type/goal/area
+- Vault export capability
+
+#### Progress Dashboard
+- Today's habits completion percentage
+- Progress by life area
+- Top habit streaks
+- Goals needing attention (alerts)
+- Overall goal completion rate
+- Upcoming milestones
+- Weekly reports with highlights
+
+#### Task Generation
+- Auto-generate tasks from upcoming milestones (7 days ahead)
+- Goal check-in reminders for stale goals (7 days inactive)
+- Habit reminder tasks to protect streaks (3+ day streaks)
+- Tasks linked back to goals/habits/milestones
+
+#### Vault Integration
+- Export complete goal journeys to vault
+- Export individual reflections
+- Create goal notes
+- Auto-export completed goals
+
+#### Ceremony Integration
+- Morning ceremony: goals needing attention, upcoming milestones
+- Evening ceremony: top streaks, recent wins, enhanced reflection prompts
+- Weekly ceremony: life area progress, weekly highlights, improvements
+
+#### Documentation
+- Documentation system with user-facing guides
+- Public roadmap
+- Backlog transparency
+- Getting started documentation
+
+### Changed
+- Ceremonies enhanced with goals, habits, and progress data
+- CLAUDE.md updated with documentation requirements
+
+### Database
+- Added 7 tables: `goals`, `milestones`, `habits`, `habit_completions`, `goal_reflections`, `goal_tasks`, `habit_tasks`
+- Added `linkType` column to `goal_tasks` table
+- Added `agent` to TaskSource type
+- Added `goal-export` and `reflection-export` to VaultSource type
+
+---
+
+## [0.3.0] - 2026-01-07
+
+### Added
+
+#### AI-Powered Testing Agent
+- New autonomous QA testing agent using GPT-4o Vision
+- 18 testing tools for navigation, verification, and reporting
+- Playwright browser automation
+- Screenshot capture and analysis
+- HTML, JSON, and Markdown test report generation
+- Three test scopes: smoke, full, specific
+
+#### Job Hunting Agent
+- New standalone app at `/apps/jobs` (port 5176)
+- Full job application tracking pipeline
+- Status workflow: discovered → applied → interviewing → offered
+- Resume variant management with skill extraction
+- Job profile for targeting preferences
+- Screening question answer library
+- Kanban pipeline view with drag-drop
+- Manual job entry for external applications
+
+#### Canvas Integrity Agent
+- Autonomous verification of Canvas LMS assignments
+- Browser automation via Playwright for Canvas scraping
+- API-based assignment sync with term filtering (Winter 2026)
+- Nested project hierarchy: Semester → Class → Assignments
+- Automatic task creation with scheduled dates (3 days before due)
+- Integrity audits (full, incremental, quick check)
+- Telegram nudges for unscheduled Canvas tasks
+
+#### Agent Enhancements
+- Chat API connected to MasterAgent (previously TODO)
+- People management tools: `people_create`, `people_search`, `people_get`, `people_update`, `people_add_interaction`
+- Smart vault classification: `vault_smart_add` with auto-detection
+- Image-to-calendar: `calendar_from_image` using GPT-4o Vision
+- Calendar attendees field
+- Total agent tools increased from 26 to 37
+
+#### Tasks App
+- Nested project hierarchy in sidebar (collapsible parent-child)
+- Add task button on project hover
+- Inline "Add task" at bottom of each section in ProjectView
+- Tasks properly associate with projects via `projectId`
+
+### Changed
+- Task creation logic: without `scheduledStart` → inbox, with → today/upcoming
+- Clear distinction between `dueDate` (deadline) and `scheduledStart` (work time)
+- Canvas sync filtered to current semester only (MBA 560, MBA 677R, SWELL 132)
+- Canvas tasks now get scheduled date 3 days before due date
+
+### Database
+- Added 4 tables for Canvas tracking: `canvas_items`, `canvas_audits`, `class_project_mapping`, `canvas_schedule_tracking`
+- Added 5 tables for Job Hunting: `jobs`, `resume_metadata`, `job_profile`, `screening_answers`, `application_history`
+
+---
+
+## [0.2.0] - 2026-01-02
+
+### Added
+- Vault knowledge base with full-text search
+- Daily journal with reflection prompts
+- Task archival to vault on completion
+- Google Calendar bidirectional sync
+- Ceremonies system (morning, evening, weekly)
+- Telegram bot integration
+- Whoop health metrics integration
+- Search service with multiple backends
+
+### Changed
+- Improved task service with recurring task support
+- Enhanced project hierarchy support
+
+---
+
+## [0.1.0] - 2025-12-15
+
+### Added
+- Initial release
+- Core task management with GTD workflow
+- Inbox, Today, Upcoming, Someday views
+- Projects with sections
+- Contexts (@computer, @calls, @errands, @home)
+- Labels for cross-cutting tags
+- Quick add with natural language parsing
+- Priority levels (P1-P4)
+- Subtasks and task hierarchies
+- Task comments
+- Bulk actions
+- Keyboard shortcuts
+- Command Center dashboard
+- Tasks app
+- Vault app (basic)
+- Health endpoints
+- Canvas LMS integration
+- Notion import
+- Google Drive import
+- Apple Notes import
+- Todoist migration
+
+---
+
+## Migration Notes
+
+### Upgrading to 0.3.0
+- Run `bun run db:push` to apply new schema changes
+- New tables will be created automatically
+- Existing data is preserved
+
+### Upgrading to 0.2.0
+- Vault entries table expanded - run migrations
+- Google Calendar OAuth setup required
+
+---
+
+## Deprecations
+
+### Removed in 0.3.0
+- Linear integration deprecated (PostgreSQL is now source of truth for tasks)
+
+---
+
+*This changelog is updated with every release. For the complete roadmap, see [Roadmap](./index.md).*

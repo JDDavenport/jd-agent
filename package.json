@@ -1,0 +1,20 @@
+{
+  "name": "jd-agent-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JD Agent - Personal AI Assistant System",
+  "scripts": {
+    "dev": "cd hub && bun run dev",
+    "hub": "cd hub && bun run dev",
+    "tasks": "cd apps/tasks && bun run dev",
+    "vault": "cd apps/vault && bun run dev",
+    "command-center": "cd apps/command-center && bun run dev",
+    "jobs": "cd apps/jobs && bun run dev",
+    "daily-journal": "cd apps/daily-journal && bun run dev",
+    "test": "cd hub && bun run test",
+    "verify": "cd hub && bun run verify"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
