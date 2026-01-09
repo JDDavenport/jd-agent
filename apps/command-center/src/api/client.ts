@@ -1,7 +1,17 @@
 import axios, { type AxiosInstance } from 'axios';
 
+// Get API URL from environment or use relative path for same-origin
+const getApiBaseUrl = (): string => {
+  // Vite environment variable (set during build)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Default to relative path (works when API and UI are on same origin)
+  return '/api';
+};
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

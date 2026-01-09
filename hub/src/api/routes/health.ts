@@ -4,9 +4,15 @@ import { getWhoopIntegration } from '../../integrations/whoop';
 
 const health = new Hono();
 
+// Get environment info for health checks
+const getEnvironment = () => process.env.APP_ENV || process.env.NODE_ENV || 'development';
+const getDeploymentId = () => process.env.RAILWAY_DEPLOYMENT_ID || process.env.VERCEL_DEPLOYMENT_ID || 'local';
+
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
   version: string;
+  environment: string;
+  deploymentId: string;
   timestamp: string;
   uptime: number;
   checks: {
@@ -32,6 +38,8 @@ health.get('/', async (c) => {
   const status: HealthStatus = {
     status: dbHealthy ? 'healthy' : 'unhealthy',
     version: '0.1.0',
+    environment: getEnvironment(),
+    deploymentId: getDeploymentId(),
     timestamp: new Date().toISOString(),
     uptime: Math.floor((Date.now() - startTime) / 1000),
     checks: {
