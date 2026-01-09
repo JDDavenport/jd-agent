@@ -14,6 +14,7 @@ import {
   VipExtractionJobData,
   VipVaultWriterJobData,
   VipNotificationJobData,
+  VipSpeakerEmbeddingJobData,
 } from '../queue';
 import { vipService } from '../../services/vip-service';
 import {
@@ -23,6 +24,7 @@ import {
   addVipExtractionJob,
   addVipVaultWriterJob,
   addVipNotificationJob,
+  addVipSpeakerEmbeddingJob,
 } from '../queue';
 import { db } from '../../db/client';
 import {
@@ -45,6 +47,7 @@ import { deepgramIntegration } from '../../integrations/deepgram';
 import { getLLMProviderChain } from '../../lib/providers';
 import { getTelegramBot } from '../../integrations/telegram-bot';
 import { voiceCommandService } from '../../services/voice-command-service';
+import { speakerEmbeddingService } from '../../services/speaker-embedding-service';
 
 // ============================================
 // Helper Functions
@@ -773,6 +776,15 @@ If there are no action items, write "None identified."`;
             }
           }
         }
+
+        // Queue speaker embedding job for automatic speaker recognition
+        // This runs in parallel and won't block the pipeline
+        await addVipSpeakerEmbeddingJob({
+          batchId,
+          transcriptId: transcript.id,
+          recordingId: recording.id,
+        });
+        console.log(`[VIP] Queued speaker embedding job for transcript ${transcript.id}`);
       } catch (segmentError) {
         console.error(`[VIP] Error extracting segment ${segment.id}:`, segmentError);
         // Continue with other segments
@@ -1152,5 +1164,52 @@ export async function processVipNotificationJob(job: Job<VipNotificationJobData>
     console.error(`[VIP] Notification failed for batch ${batchId}:`, error);
     // Don't fail the batch for notification errors - batch is already complete
     throw error;
+  }
+}
+
+// ============================================
+// VIP Speaker Embedding Job Processor
+// ============================================
+
+export async function processVipSpeakerEmbeddingJob(
+  job: Job<VipSpeakerEmbeddingJobData>
+): Promise<any> {
+  const { batchId, transcriptId, recordingId } = job.data;
+
+  console.log(
+    `[VIP] Processing speaker embedding for transcript ${transcriptId}, recording ${recordingId}`
+  );
+
+  try {
+    // Check if embedding service is available
+    const isReady = await speakerEmbeddingService.isReady();
+    if (!isReady) {
+      console.warn('[VIP] Embedding service not available, skipping speaker matching');
+      return {
+        success: true,
+        skipped: true,
+        reason: 'service_unavailable',
+      };
+    }
+
+    // Auto-match speakers
+    const result = await speakerEmbeddingService.autoMatchSpeakers(transcriptId, recordingId);
+
+    console.log(
+      `[VIP] Speaker matching complete: ${result.matched}/${result.total} matched, ` +
+        `${result.needsVerification} need verification`
+    );
+
+    return {
+      success: true,
+      ...result,
+    };
+  } catch (error) {
+    console.error(`[VIP] Speaker embedding failed for transcript ${transcriptId}:`, error);
+    // Don't fail the batch for embedding errors - it's an enhancement
+    return {
+      success: false,
+      error: String(error),
+    };
   }
 }

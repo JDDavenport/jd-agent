@@ -36,6 +36,7 @@ import {
   processVipExtractionJob,
   processVipVaultWriterJob,
   processVipNotificationJob,
+  processVipSpeakerEmbeddingJob,
 } from './jobs/processors/vip';
 
 // ============================================
@@ -109,6 +110,10 @@ async function processJob(job: Job): Promise<any> {
 
       case 'vip-notification':
         result = await processVipNotificationJob(job as Job<any>);
+        break;
+
+      case 'vip-speaker-embedding':
+        result = await processVipSpeakerEmbeddingJob(job as Job<any>);
         break;
 
       case 'ocr':
@@ -207,6 +212,7 @@ async function startWorker() {
   console.log('  - vip-extraction');
   console.log('  - vip-vault-writer');
   console.log('  - vip-notification');
+  console.log('  - vip-speaker-embedding');
   console.log('  - ocr');
   console.log('  - embedding');
 }

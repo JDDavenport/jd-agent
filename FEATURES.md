@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 9, 2026
-> **Version:** 0.3.2
+> **Last Updated:** January 8, 2026
+> **Version:** 0.3.3
 > **Phase:** Phase 3 - Verify & Coach
 
 This document is the single source of truth for all current features and capabilities of the JD Agent system. **All agents working on this codebase must consult this document before making changes and update it after implementing new features.**
@@ -768,7 +768,7 @@ curl http://localhost:3000/api/journal/daily-review/history
 
 ## Plaud Pro Integration (VIP Pipeline)
 
-**Status:** Phase 3 Complete (80%) - Full pipeline + Voice Profiles + Speaker Labels + Voice Commands
+**Status:** Phase 4 Complete (90%) - Full pipeline + Voice Profiles + Speaker Labels + Voice Commands + Speaker Recognition
 
 ### What Works
 - **File Watcher:** Monitors `PLAUD_SYNC_PATH` for new audio files (MP3, M4A, WAV, etc.)
@@ -789,6 +789,13 @@ curl http://localhost:3000/api/journal/daily-review/history
   - Date extraction: today, tomorrow, day names, next week, end of week
   - Priority keywords: urgent, high priority, important, low priority
   - Speaker verification: Only executes commands from "self" voice profile
+- **Automatic Speaker Recognition (NEW):** Voice embedding-based speaker identification
+  - Python microservice with pyannote-audio for 512-dim embeddings
+  - pgvector PostgreSQL extension for efficient cosine similarity search
+  - Auto-matches speakers to known profiles (threshold: 0.7)
+  - Verification workflow for uncertain matches (0.7-0.8 confidence)
+  - Voice samples stored per profile for continuous learning
+  - Runs as async job in parallel with vault writer
 
 ### API Endpoints
 | Endpoint | Method | Purpose |
@@ -806,9 +813,14 @@ curl http://localhost:3000/api/journal/daily-review/history
 | `/api/voice-profiles` | GET, POST | List/create voice profiles |
 | `/api/voice-profiles/self` | GET | Get/create self (JD) profile |
 | `/api/voice-profiles/:id` | GET, PATCH, DELETE | Manage individual profile |
+| `/api/voice-profiles/:id/samples` | GET, POST | List/create voice samples for profile |
 | `/api/voice-profiles/transcripts/:id/speakers` | GET | Get speaker mappings for transcript |
 | `/api/voice-profiles/transcripts/:id/speakers/:speakerId` | POST, DELETE | Assign/remove speaker mapping |
 | `/api/voice-profiles/transcripts/:id/initialize` | POST | Initialize speaker mappings |
+| `/api/voice-profiles/transcripts/:id/auto-match` | POST | Trigger automatic speaker recognition |
+| `/api/voice-profiles/mappings/unverified` | GET | List auto-matches needing verification |
+| `/api/voice-profiles/mappings/:id/verify` | POST | Confirm/reject auto-matched speaker |
+| `/api/voice-profiles/embedding/status` | GET | Check embedding service status |
 
 ### VIP Pipeline Steps (All Implemented)
 1. **Ingestion** - Create batch, upload files to R2
@@ -816,13 +828,14 @@ curl http://localhost:3000/api/journal/daily-review/history
 3. **Calendar Alignment** - Matches to Google Calendar events with overlap detection
 4. **Transcription** - Deepgram Nova-2 with speaker diarization
 5. **Extraction** - LLM summarization, key points, task extraction with due dates
-6. **Vault Writer** - Creates formatted pages with callouts, headings, and transcripts
-7. **Notification** - Telegram summary with stats, content breakdown, and tasks
+6. **Speaker Embedding** - Auto-matches speakers using voice embeddings (runs async)
+7. **Vault Writer** - Creates formatted pages with callouts, headings, and transcripts
+8. **Notification** - Telegram summary with stats, content breakdown, and tasks
 
 ### What's Missing (Planned for Q1 2026)
-- **Automatic Speaker Recognition:** Voice embedding matching for auto-assignment
 - **Voice Command UI:** Visual feedback for detected/executed commands
 - **Multi-Recording Batches:** Process multiple files in single batch
+- **Speaker Recognition UI:** Review and verify auto-matched speakers
 
 ### Database Tables
 - `recordings` - Recording metadata and processing status
@@ -832,17 +845,26 @@ curl http://localhost:3000/api/journal/daily-review/history
 - `recording_segments` - Time-based segments linked to calendar
 - `extracted_items` - Tasks/notes extracted from transcripts
 - `class_pages` - Links calendar events to vault pages
-- `voice_profiles` - Speaker identification profiles (self, family, teacher, etc.)
-- `speaker_mappings` - Per-transcript mapping of speaker IDs to voice profiles
+- `voice_profiles` - Speaker identification profiles with embeddings (512-dim vector)
+- `speaker_mappings` - Per-transcript mapping with auto-match fields (autoMatched, needsVerification, matchScore)
+- `voice_samples` - Audio samples for training speaker embeddings (per profile)
 
 ### Configuration
 ```bash
+# Storage
 PLAUD_SYNC_PATH=/path/to/plaud/sync  # Local folder for synced recordings
 R2_ENDPOINT=xxx                       # Cloudflare R2 endpoint
 R2_ACCESS_KEY=xxx                     # R2 credentials
 R2_SECRET_KEY=xxx
 R2_BUCKET_NAME=xxx                    # Storage bucket
+
+# Transcription
 DEEPGRAM_API_KEY=xxx                  # Transcription service
+
+# Speaker Recognition (Optional)
+EMBEDDING_SERVICE_URL=http://localhost:8001  # Python embedding microservice
+SPEAKER_MATCH_THRESHOLD=0.7                   # Auto-match confidence threshold
+HF_TOKEN=hf_xxx                               # HuggingFace token for pyannote
 ```
 
 ### Key Files
@@ -852,7 +874,9 @@ DEEPGRAM_API_KEY=xxx                  # Transcription service
 - `/hub/src/jobs/processors/vip.ts` - Job processors (fully implemented)
 - `/hub/src/services/voice-profile-service.ts` - Voice profile management
 - `/hub/src/services/voice-command-service.ts` - Wake word detection & command parsing
+- `/hub/src/services/speaker-embedding-service.ts` - Voice embedding extraction & matching
 - `/hub/src/api/routes/voice-profiles.ts` - Voice profile API routes
+- `/services/embedding-server/` - Python FastAPI microservice (pyannote-audio)
 
 ### PRD Reference
 See `docs/plans/plaud-integration-prd-v3.md` for detailed implementation plan.
@@ -1101,6 +1125,34 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 8, 2026 - VIP Pipeline Phase 4 (Speaker Recognition)
+- **Automatic Speaker Recognition**: Voice embedding-based speaker identification
+  - Python microservice (`/services/embedding-server/`) with pyannote-audio
+  - 512-dimensional voice embeddings for speaker matching
+  - pgvector PostgreSQL extension for cosine similarity search
+  - Auto-matches speakers with confidence threshold (0.7+)
+  - Verification workflow for uncertain matches (0.7-0.8 confidence)
+- **Speaker Embedding Service** (`/hub/src/services/speaker-embedding-service.ts`)
+  - Extract embeddings from audio segments via Python microservice
+  - Create and store voice samples with embeddings
+  - Auto-match speakers using pgvector cosine similarity
+  - Verification workflow for low-confidence matches
+- **Database Updates**
+  - `voice_profiles.embedding` - 512-dim vector for aggregate speaker embedding
+  - `voice_samples` table - Individual audio samples with embeddings
+  - `speaker_mappings.autoMatched`, `needsVerification`, `matchScore` fields
+- **VIP Pipeline Integration**
+  - New `vip-speaker-embedding` job type runs after extraction
+  - Async processing in parallel with vault writer
+  - Graceful degradation when embedding service unavailable
+- **API Endpoints**
+  - POST `/api/voice-profiles/:id/samples` - Add voice sample with embedding
+  - POST `/api/voice-profiles/transcripts/:id/auto-match` - Trigger auto-matching
+  - GET `/api/voice-profiles/mappings/unverified` - List pending verifications
+  - POST `/api/voice-profiles/mappings/:id/verify` - Confirm/reject auto-match
+  - GET `/api/voice-profiles/embedding/status` - Check service status
+- **Status**: VIP Pipeline now at 90% complete (Phase 0-4)
 
 ### January 9, 2026 - VIP Pipeline Phase 3 (Voice Commands)
 - **Voice Command Service** (`/hub/src/services/voice-command-service.ts`)

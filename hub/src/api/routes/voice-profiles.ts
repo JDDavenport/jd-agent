@@ -8,7 +8,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { voiceProfileService, VoiceProfileCategory } from '../../services/voice-profile-service';
+import { speakerEmbeddingService } from '../../services/speaker-embedding-service';
 import { ValidationError, NotFoundError } from '../middleware/error-handler';
+import { db } from '../../db/client';
+import { transcripts } from '../../db/schema';
+import { eq } from 'drizzle-orm';
 
 const voiceProfilesRouter = new Hono();
 
@@ -223,6 +227,180 @@ voiceProfilesRouter.post('/transcripts/:transcriptId/initialize', async (c) => {
     success: true,
     data: speakers,
     message: 'Speaker mappings initialized',
+  });
+});
+
+// ========================================
+// Voice Sample Routes (Speaker Embedding)
+// ========================================
+
+const createSampleSchema = z.object({
+  transcriptId: z.string().uuid(),
+  recordingId: z.string().uuid(),
+  deepgramSpeakerId: z.number().int().min(0),
+  startSeconds: z.number().min(0),
+  endSeconds: z.number().min(0),
+});
+
+const verifyMappingSchema = z.object({
+  confirmed: z.boolean().optional(),
+  correctProfileId: z.string().uuid().optional(),
+});
+
+// GET /api/voice-profiles/:id/samples - List voice samples for a profile
+voiceProfilesRouter.get('/:id/samples', async (c) => {
+  const profileId = c.req.param('id');
+
+  const samples = await speakerEmbeddingService.getProfileSamples(profileId);
+
+  return c.json({
+    success: true,
+    data: samples,
+    count: samples.length,
+  });
+});
+
+// POST /api/voice-profiles/:id/samples - Add voice sample with embedding extraction
+voiceProfilesRouter.post('/:id/samples', async (c) => {
+  const profileId = c.req.param('id');
+  const body = await c.req.json();
+  const parseResult = createSampleSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    throw new ValidationError(
+      parseResult.error.errors.map((e) => e.message).join(', ')
+    );
+  }
+
+  const { transcriptId, recordingId, deepgramSpeakerId, startSeconds, endSeconds } = parseResult.data;
+
+  if (endSeconds <= startSeconds) {
+    throw new ValidationError('endSeconds must be greater than startSeconds');
+  }
+
+  // Check if embedding service is available
+  const isReady = await speakerEmbeddingService.isReady();
+  if (!isReady) {
+    throw new ValidationError('Embedding service is not available');
+  }
+
+  const sampleId = await speakerEmbeddingService.createVoiceSample(
+    profileId,
+    transcriptId,
+    recordingId,
+    deepgramSpeakerId,
+    startSeconds,
+    endSeconds
+  );
+
+  if (!sampleId) {
+    throw new ValidationError('Failed to create voice sample - could not extract embedding');
+  }
+
+  return c.json(
+    {
+      success: true,
+      data: { sampleId },
+      message: 'Voice sample created with embedding',
+    },
+    201
+  );
+});
+
+// ========================================
+// Auto-Matching Routes
+// ========================================
+
+// POST /api/voice-profiles/transcripts/:transcriptId/auto-match - Trigger auto-matching for a transcript
+voiceProfilesRouter.post('/transcripts/:transcriptId/auto-match', async (c) => {
+  const transcriptId = c.req.param('transcriptId');
+
+  // Get transcript to find recording ID
+  const [transcript] = await db
+    .select()
+    .from(transcripts)
+    .where(eq(transcripts.id, transcriptId))
+    .limit(1);
+
+  if (!transcript) {
+    throw new NotFoundError('Transcript');
+  }
+
+  // Check if embedding service is available
+  const isReady = await speakerEmbeddingService.isReady();
+  if (!isReady) {
+    return c.json({
+      success: false,
+      message: 'Embedding service is not available',
+      data: { matched: 0, total: 0, needsVerification: 0 },
+    });
+  }
+
+  const result = await speakerEmbeddingService.autoMatchSpeakers(
+    transcriptId,
+    transcript.recordingId
+  );
+
+  return c.json({
+    success: true,
+    data: result,
+    message: `Matched ${result.matched}/${result.total} speakers`,
+  });
+});
+
+// GET /api/voice-profiles/mappings/unverified - List auto-matches needing verification
+voiceProfilesRouter.get('/mappings/unverified', async (c) => {
+  const limitParam = c.req.query('limit');
+  const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
+  const unverified = await speakerEmbeddingService.getUnverifiedMappings(limit);
+
+  return c.json({
+    success: true,
+    data: unverified,
+    count: unverified.length,
+  });
+});
+
+// POST /api/voice-profiles/mappings/:id/verify - Confirm or reject auto-match
+voiceProfilesRouter.post('/mappings/:mappingId/verify', async (c) => {
+  const mappingId = c.req.param('mappingId');
+  const body = await c.req.json();
+  const parseResult = verifyMappingSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    throw new ValidationError(
+      parseResult.error.errors.map((e) => e.message).join(', ')
+    );
+  }
+
+  const { confirmed, correctProfileId } = parseResult.data;
+
+  if (confirmed === undefined && !correctProfileId) {
+    throw new ValidationError('Must provide either confirmed=true/false or correctProfileId');
+  }
+
+  await speakerEmbeddingService.verifyMapping(mappingId, {
+    confirmed,
+    correctProfileId,
+  });
+
+  return c.json({
+    success: true,
+    message: 'Mapping verification processed',
+  });
+});
+
+// GET /api/voice-profiles/embedding/status - Check embedding service status
+voiceProfilesRouter.get('/embedding/status', async (c) => {
+  const isReady = await speakerEmbeddingService.isReady();
+
+  return c.json({
+    success: true,
+    data: {
+      available: isReady,
+      serviceUrl: process.env.EMBEDDING_SERVICE_URL || 'http://localhost:8001',
+    },
   });
 });
 

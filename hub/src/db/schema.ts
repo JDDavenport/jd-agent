@@ -285,9 +285,13 @@ export const voiceProfiles = pgTable(
     // Category for organization
     category: text('category').notNull(), // 'self', 'family', 'teacher', 'classmate', 'colleague', 'other'
 
-    // Voice characteristics (for future embedding matching)
+    // Voice characteristics (for embedding matching)
     sampleCount: integer('sample_count').default(0).notNull(),
     totalDurationSeconds: integer('total_duration_seconds').default(0).notNull(),
+
+    // Voice embedding (512-dim pyannote vector, added via migration)
+    // embedding: vector('embedding', { dimensions: 512 }),
+    embeddingUpdatedAt: timestamp('embedding_updated_at', { withTimezone: true }),
 
     // Recognition settings
     isActive: boolean('is_active').default(true).notNull(),
@@ -326,12 +330,61 @@ export const speakerMappings = pgTable(
     assignedAt: timestamp('assigned_at', { withTimezone: true }),
     assignedBy: text('assigned_by'), // 'user', 'auto'
 
+    // Auto-matching fields
+    autoMatched: boolean('auto_matched').default(false).notNull(),
+    needsVerification: boolean('needs_verification').default(false).notNull(),
+    matchScore: real('match_score'), // Cosine similarity score from embedding match
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index('speaker_mappings_transcript_idx').on(table.transcriptId),
     index('speaker_mappings_profile_idx').on(table.voiceProfileId),
     index('speaker_mappings_speaker_idx').on(table.transcriptId, table.deepgramSpeakerId),
+    index('speaker_mappings_auto_matched_idx').on(table.autoMatched),
+    index('speaker_mappings_needs_verification_idx').on(table.needsVerification),
+  ]
+);
+
+// ============================================
+// VOICE SAMPLES (Speaker embedding training data)
+// ============================================
+
+export const voiceSamples = pgTable(
+  'voice_samples',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    voiceProfileId: uuid('voice_profile_id')
+      .references(() => voiceProfiles.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Source information
+    transcriptId: uuid('transcript_id').references(() => transcripts.id, { onDelete: 'set null' }),
+    recordingId: uuid('recording_id').references(() => recordings.id, { onDelete: 'set null' }),
+    deepgramSpeakerId: integer('deepgram_speaker_id'),
+
+    // Time range within recording
+    startTimeSeconds: real('start_time_seconds').notNull(),
+    endTimeSeconds: real('end_time_seconds').notNull(),
+    durationSeconds: real('duration_seconds').notNull(),
+
+    // Audio storage (R2 path to extracted segment, optional)
+    audioPath: text('audio_path'),
+
+    // Embedding (512-dim pyannote vector, added via migration)
+    // embedding: vector('embedding', { dimensions: 512 }),
+    embeddingModel: text('embedding_model').default('pyannote-embedding'),
+
+    // Quality metadata
+    quality: text('quality'), // 'good', 'fair', 'poor'
+    signalToNoise: real('signal_to_noise'), // SNR if available
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('voice_samples_profile_idx').on(table.voiceProfileId),
+    index('voice_samples_transcript_idx').on(table.transcriptId),
+    index('voice_samples_recording_idx').on(table.recordingId),
   ]
 );
 

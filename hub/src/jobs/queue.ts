@@ -31,7 +31,8 @@ export type JobType =
   | 'vip-transcription'
   | 'vip-extraction'
   | 'vip-vault-writer'
-  | 'vip-notification';
+  | 'vip-notification'
+  | 'vip-speaker-embedding';
 
 export interface TranscriptionJobData {
   recordingId: string;
@@ -113,6 +114,12 @@ export interface VipNotificationJobData {
   notificationType: 'telegram' | 'email' | 'both';
 }
 
+export interface VipSpeakerEmbeddingJobData {
+  batchId: string;
+  transcriptId: string;
+  recordingId: string;
+}
+
 export type JobData =
   | TranscriptionJobData
   | SummarizationJobData
@@ -127,7 +134,8 @@ export type JobData =
   | VipTranscriptionJobData
   | VipExtractionJobData
   | VipVaultWriterJobData
-  | VipNotificationJobData;
+  | VipNotificationJobData
+  | VipSpeakerEmbeddingJobData;
 
 // ============================================
 // Redis Connection Options
@@ -299,6 +307,13 @@ export async function addVipNotificationJob(data: VipNotificationJobData): Promi
   const queue = getQueue();
   return queue.add('vip-notification', data, {
     priority: 4,
+  });
+}
+
+export async function addVipSpeakerEmbeddingJob(data: VipSpeakerEmbeddingJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('vip-speaker-embedding', data, {
+    priority: 3, // Same priority as extraction
   });
 }
 
