@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 8, 2026
-> **Version:** 0.3.4
+> **Last Updated:** January 9, 2026
+> **Version:** 0.3.5
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -1595,6 +1595,17 @@ See `CLAUDE.md` for full documentation requirements.
 - **Design Tokens**: Notion-inspired color palette (#37352f, 708px content width, 224px sidebar)
 - **React Query Hooks**: `useVaultPages.ts`, `useVaultBlocks.ts` for data management
 - **Types Package Updated**: VaultPage, VaultBlock, VaultBlockType, all block content interfaces
+
+### January 9, 2026 - Multi-Environment Database Setup
+- **Environment Configuration**: New `/hub/src/config/env.ts` with Zod validation for all environment variables
+- **Three Environments**: Development (local), Staging (Neon branch), Production (Neon main)
+- **Environment Files**: `.env.development`, `.env.staging`, `.env.production` templates
+- **Database Client Update**: `/hub/src/db/client.ts` now uses environment-aware configuration with SSL support
+- **Migration Scripts**: `db:migrate:dev`, `db:migrate:staging`, `db:migrate:prod` commands
+- **Staging Seed Script**: `db:seed:staging` to populate staging with test data
+- **Verification Script**: `db:verify` and `db:verify:all` to test database connectivity
+- **Documentation**: Full setup guide at `/docs/infrastructure/multi-environment-setup.md`
+- **Security**: Environment files with credentials are gitignored; only templates committed
 
 ### January 8, 2026 - Documentation System
 - **Public Documentation**: User-facing guides for all features at `/docs/public/`

@@ -5,12 +5,14 @@
  * Each path can include:
  * - Integration test scripts (existing tests in hub/scripts/)
  * - Vitest unit tests (*.test.ts files)
+ * - E2E tests (Playwright tests in apps/command-center/e2e/)
  */
 
 export interface CriticalPathConfig {
   description: string;
   integrationScripts?: string[]; // Scripts in hub/scripts/
   unitTests?: string[]; // Vitest test files
+  e2eTests?: string[]; // Playwright test files in apps/command-center/e2e/
   requiresServer?: boolean;
 }
 
@@ -55,6 +57,7 @@ export const CRITICAL_PATHS: Record<string, CriticalPathConfig> = {
       // 'src/services/goals-service.test.ts', // TODO
       // 'src/services/habit-service.test.ts', // TODO
     ],
+    e2eTests: ['../apps/command-center/e2e/goals-habits.spec.ts'],
     requiresServer: true,
   },
 
@@ -63,6 +66,16 @@ export const CRITICAL_PATHS: Record<string, CriticalPathConfig> = {
     description: 'Daily journal and reflection workflow',
     integrationScripts: ['scripts/test-journal.ts'],
     unitTests: [],
+    e2eTests: ['../apps/command-center/e2e/journal.spec.ts'],
+    requiresServer: true,
+  },
+
+  // Progress Dashboard - Overview and tracking
+  'progress/dashboard': {
+    description: 'Progress dashboard with life area overview',
+    integrationScripts: [],
+    unitTests: [],
+    e2eTests: ['../apps/command-center/e2e/progress.spec.ts'],
     requiresServer: true,
   },
 

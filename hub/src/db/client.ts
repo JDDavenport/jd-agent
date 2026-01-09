@@ -1,22 +1,36 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import * as schema from './schema';
+import { getConfig, getDatabaseConfig, getCurrentEnvironment, getEnvironmentLabel } from '../config/env';
 
 const { Pool } = pg;
 
-// Create PostgreSQL connection pool
+// Load environment configuration
+const config = getConfig();
+const dbConfig = getDatabaseConfig(config);
+
+// Create PostgreSQL connection pool with environment-aware settings
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionString: dbConfig.connectionString,
+  ssl: dbConfig.ssl,
+  max: dbConfig.max,
+  idleTimeoutMillis: dbConfig.idleTimeoutMillis,
+  connectionTimeoutMillis: dbConfig.connectionTimeoutMillis,
 });
+
+// Log connection info (without sensitive data)
+const environment = getCurrentEnvironment();
+console.log(`[Database] Connecting to ${getEnvironmentLabel()}`);
+console.log(`[Database] Pool size: ${dbConfig.max}, SSL: ${dbConfig.ssl ? 'enabled' : 'disabled'}`);
 
 // Create Drizzle ORM instance
 export const db = drizzle(pool, { schema });
 
 // Export pool for direct access if needed
 export { pool };
+
+// Export environment info for other modules
+export { environment };
 
 // Health check function
 export async function checkDatabaseConnection(): Promise<boolean> {
@@ -26,7 +40,20 @@ export async function checkDatabaseConnection(): Promise<boolean> {
     client.release();
     return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error(`[Database] Connection failed (${getEnvironmentLabel()}):`, error);
     return false;
   }
+}
+
+// Get current database info (safe to expose)
+export function getDatabaseInfo() {
+  const url = new URL(dbConfig.connectionString);
+  return {
+    environment: getCurrentEnvironment(),
+    environmentLabel: getEnvironmentLabel(),
+    host: url.hostname,
+    database: url.pathname.slice(1),
+    ssl: !!dbConfig.ssl,
+    poolSize: dbConfig.max,
+  };
 }
