@@ -20,8 +20,8 @@ export function TasksMetricCard({ data, isLoading, error }: TasksMetricCardProps
     ? data.byPriority.high + data.byPriority.medium + data.byPriority.low
     : 0;
 
-  // Tasks app runs on port 5174
-  const tasksAppUrl = 'http://localhost:5174';
+  // Tasks app runs on port 5180
+  const tasksAppUrl = 'http://localhost:5180';
 
   return (
     <MetricCardBase

@@ -30,22 +30,31 @@ export function CollapsibleSection({
     <div className="space-y-2">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 w-full text-left ${headerColor} hover:text-text transition-colors`}
+        className={`flex items-center gap-2 w-full text-left min-h-[44px] py-2 -my-2 ${headerColor} hover:text-text transition-colors rounded-lg`}
+        aria-expanded={isOpen}
+        aria-controls={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
       >
         {isOpen ? (
-          <ChevronDownIcon className="w-4 h-4" />
+          <ChevronDownIcon className="w-5 h-5" aria-hidden="true" />
         ) : (
-          <ChevronRightIcon className="w-4 h-4" />
+          <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
         )}
-        {icon && <span>{icon}</span>}
+        {icon && <span aria-hidden="true">{icon}</span>}
         <span className="text-sm font-medium">{title}</span>
         {count !== undefined && count > 0 && (
-          <span className="text-xs bg-dark-border px-1.5 py-0.5 rounded">
+          <span className="text-xs bg-dark-border px-1.5 py-0.5 rounded" aria-label={`${count} items`}>
             {count}
           </span>
         )}
       </button>
-      {isOpen && <div className="pl-6 space-y-1">{children}</div>}
+      {isOpen && (
+        <div
+          id={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
+          className="pl-6 space-y-1"
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

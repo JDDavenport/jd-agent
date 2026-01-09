@@ -15,8 +15,8 @@ interface VaultMetricCardProps {
 }
 
 export function VaultMetricCard({ data, isLoading, error }: VaultMetricCardProps) {
-  // Vault app runs on port 5175
-  const vaultAppUrl = 'http://localhost:5175';
+  // Vault app runs on port 5181
+  const vaultAppUrl = 'http://localhost:5181';
 
   return (
     <MetricCardBase

@@ -699,7 +699,7 @@ curl http://localhost:3000/api/journal/daily-review/history
 | **Todoist** | Migration | Task migration and extraction (v1 & v2 APIs) |
 | **Smart Data Recovery** | Active | AI-enhanced migration from all sources with smart bucketing |
 | **Telegram** | Active | Two-way chat bot interface |
-| **ReMarkable** | Partial | Integration exists, pipeline 10% complete |
+| **ReMarkable** | Active (100%) | MBA class notes pipeline, OCR, content merging with Plaud |
 | **Plaud Pro** | Active (80%) | VIP pipeline + voice profiles + speaker labels + voice commands |
 | **Deepgram** | Active | Audio transcription with speaker diarization (Nova-2 model) |
 | **Voyage AI** | Partial | Embeddings schema ready, search wiring in progress |
@@ -880,6 +880,109 @@ HF_TOKEN=hf_xxx                               # HuggingFace token for pyannote
 
 ### PRD Reference
 See `docs/plans/plaud-integration-prd-v3.md` for detailed implementation plan.
+
+---
+
+## Remarkable Integration (Handwritten Notes)
+
+**Status:** Complete (100%) - Full MBA class notes pipeline with OCR and content merging
+
+### What Works
+- **Naming Convention Parser:** Auto-classifies notes via `MBA/[Semester]/[ClassCode]/[YYYY-MM-DD]` pattern
+- **File Watcher:** Monitors `REMARKABLE_SYNC_PATH` for new PDF, PNG, SVG, TXT files
+- **Vault Structure Auto-Creation:** Automatically creates `vault/academic/mba/{semester}/{class}/days/{date}/`
+- **OCR Processing:** Google Cloud Vision for handwriting recognition with confidence scoring
+- **PDF Text Extraction:** Direct text extraction for typed PDFs via pdf-parse
+- **Content Merging:** Combines Remarkable OCR + Plaud transcripts + typed notes into `_combined.md`
+- **Vault Page Generation:** Auto-creates/updates vault pages for class days
+- **General Inbox:** Non-class notes routed to `vault/remarkable/inbox/` for GTD weekly review
+- **Database Tracking:** Full sync history, OCR confidence, classification status
+- **Background Jobs:** Async processing for sync, OCR, and merge operations
+- **Manual Corrections:** Update OCR text, reclassify notes, mark as reviewed
+
+### Naming Convention
+```
+MBA/[Semester]/[ClassCode]/[YYYY-MM-DD]
+
+Examples:
+- MBA/Spring2026/MGMT501/2026-01-08 → Class note for MGMT501
+- MBA/Fall2025/ACCT600/2025-09-15 → Class note for ACCT600
+- shopping-list.pdf → General inbox (non-MBA pattern)
+```
+
+### API Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/ingestion/remarkable/status` | GET | Integration status and configuration |
+| `/api/ingestion/remarkable/documents` | GET | List documents in sync folder |
+| `/api/ingestion/remarkable/sync` | POST | Sync all documents |
+| `/api/ingestion/remarkable/watch/start` | POST | Start file watcher |
+| `/api/ingestion/remarkable/watch/stop` | POST | Stop file watcher |
+| `/api/ingestion/remarkable/stats` | GET | Comprehensive sync statistics |
+| `/api/ingestion/remarkable/classes` | GET | Class summaries with note counts |
+| `/api/ingestion/remarkable/notes/:classCode` | GET | Notes for a specific class |
+| `/api/ingestion/remarkable/inbox` | GET | General inbox notes |
+| `/api/ingestion/remarkable/review` | GET | Notes needing OCR review |
+| `/api/ingestion/remarkable/merge/:classCode/:noteDate` | POST | Generate combined markdown |
+| `/api/ingestion/remarkable/merge-all` | POST | Merge all pending class notes |
+| `/api/ingestion/remarkable/notes/:noteId/ocr` | PATCH | Update OCR text (manual correction) |
+| `/api/ingestion/remarkable/notes/:noteId/reclassify` | PATCH | Re-classify a note |
+| `/api/ingestion/remarkable/notes/:noteId/reviewed` | POST | Mark note as reviewed |
+| `/api/ingestion/remarkable/notes/:noteId` | DELETE | Delete a note |
+| `/api/ingestion/remarkable/jobs/sync` | POST | Queue background sync job |
+| `/api/ingestion/remarkable/jobs/merge` | POST | Queue background merge job |
+
+### Vault Structure
+```
+vault/
+  academic/
+    mba/
+      spring-2026/
+        mgmt501/
+          days/
+            2026-01-08/
+              remarkable-notes.pdf     # Original handwritten notes
+              remarkable-ocr.txt       # Extracted OCR text
+              plaud-transcript.txt     # Audio transcript (if exists)
+              typed-notes.md           # Manual typed notes (if exists)
+              _combined.md             # Auto-merged view of all sources
+  remarkable/
+    inbox/
+      shopping-list-2026-01-08-143022.pdf
+```
+
+### Database Tables
+- `remarkable_notes` - Tracking handwritten notes with OCR, classification, and vault links
+- `remarkable_sync_state` - Sync history and statistics
+
+### Configuration
+```bash
+# Required
+REMARKABLE_SYNC_PATH=/path/to/remarkable/exports  # Local folder for synced files
+
+# Optional
+REMARKABLE_DEVICE_TOKEN=xxx          # Remarkable Cloud API (future)
+GOOGLE_APPLICATION_CREDENTIALS=xxx   # For OCR (handwriting recognition)
+OCR_CONFIDENCE_THRESHOLD=50          # Min confidence for OCR (default: 50)
+VAULT_BASE_PATH=./vault              # Base path for vault storage
+```
+
+### Key Files
+- `/hub/src/integrations/remarkable.ts` - File watcher, OCR, naming parser
+- `/hub/src/services/remarkable-service.ts` - Business logic, content merging
+- `/hub/src/jobs/processors/remarkable.ts` - Background job processors
+- `/hub/src/api/routes/ingestion.ts` - API endpoints (remarkable section)
+- `/hub/src/db/schema.ts` - `remarkable_notes`, `remarkable_sync_state` tables
+
+### Setup Guide
+1. **Install rmapi** (recommended): `go install github.com/juruen/rmapi@latest`
+2. **Configure sync folder**: Set `REMARKABLE_SYNC_PATH` in `.env`
+3. **Optional OCR**: Set `GOOGLE_APPLICATION_CREDENTIALS` for handwriting OCR
+4. **Start watching**: `POST /api/ingestion/remarkable/watch/start`
+5. **Or manual sync**: `POST /api/ingestion/remarkable/sync`
+
+### PRD Reference
+See the Remarkable Integration PRD for detailed implementation plan.
 
 ---
 
@@ -1125,6 +1228,86 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 8, 2026 - Remarkable Integration (Handwritten Notes Pipeline)
+- **Complete Remarkable Integration**: Full MBA class notes pipeline
+  - Naming convention parser for `MBA/[Semester]/[ClassCode]/[YYYY-MM-DD]` pattern
+  - Auto-classification into class notes vs general inbox
+  - Semester, class code, and date extraction with validation
+- **Database Schema**: Two new tables
+  - `remarkable_notes`: Tracking handwritten notes with OCR, classification, vault links
+  - `remarkable_sync_state`: Sync history, statistics, and error tracking
+- **OCR Processing**: Google Cloud Vision integration
+  - Handwriting recognition with confidence scoring
+  - PDF text extraction via pdf-parse for typed documents
+  - Low-confidence notes flagged for manual review
+- **Content Merging System**: Unified class day notes
+  - Combines Remarkable OCR + Plaud transcripts + typed notes
+  - Generates `_combined.md` with formatted sections
+  - Auto-creates/updates vault pages for class days
+- **Vault Structure**: Academic organization
+  - `vault/academic/mba/{semester}/{class}/days/{date}/`
+  - General inbox at `vault/remarkable/inbox/`
+  - Automatic folder creation for new classes/dates
+- **Background Job Processing**: Async operations
+  - `remarkable-sync`: Full folder sync job
+  - `remarkable-ocr`: OCR processing for individual files
+  - `remarkable-merge`: Combined markdown generation
+- **18 New API Endpoints**: Comprehensive REST API
+  - Status, documents, sync, watch start/stop
+  - Stats, classes, notes by class, inbox, review queue
+  - Merge endpoints, OCR updates, reclassification
+  - Background job queueing
+- **Integration Service**: `remarkable-service.ts`
+  - Content merging logic with Plaud transcript lookup
+  - Class summary statistics
+  - Note management (update, reclassify, delete)
+  - Batch merge operations
+- **Key Files**:
+  - `/hub/src/integrations/remarkable.ts` - Core integration
+  - `/hub/src/services/remarkable-service.ts` - Business logic
+  - `/hub/src/jobs/processors/remarkable.ts` - Job processors
+  - `/hub/src/api/routes/ingestion.ts` - API routes
+  - `/hub/src/db/schema.ts` - Database tables
+
+### January 8, 2026 - Command Center v2.0 Phase 4 (Polish & Optimization)
+- **Lazy Loading**: Heavy components now lazy-loaded for faster initial page load
+  - CanvasHub, FitnessWidget, SystemMonitor, AIInsights, QuickChat loaded on demand
+  - Suspense fallbacks with loading spinners during component load
+- **Keyboard Shortcuts**: Vim-style navigation for power users
+  - `g t` → Go to Tasks app
+  - `g g` → Go to Goals page
+  - `g h` → Go to Habits page
+  - `g v` → Go to Vault app
+  - `g d` → Go to Dashboard
+  - `g s` → Go to Settings
+  - `g p` → Go to Progress
+  - `g c` → Go to Canvas
+  - `r` → Refresh all dashboard data
+  - `?` → Show keyboard shortcuts help
+- **Keyboard Shortcuts Modal**: Accessible help dialog showing all shortcuts
+  - Proper focus trap and escape key handling
+  - Accessible with ARIA labels
+- **Accessibility Improvements** (WCAG AA):
+  - ARIA labels on all metric cards with values
+  - Focus-visible outlines for keyboard navigation
+  - `role="listitem"` on metric cards for screen readers
+  - `aria-expanded` on collapsible sections
+  - Decorative icons marked with `aria-hidden`
+- **Mobile Responsiveness**:
+  - Metric cards: 2 columns on mobile, 3 on tablet, 6 on desktop
+  - Responsive font sizes (text-2xl → text-3xl)
+  - Smaller card heights on mobile (120px → 140px)
+  - Hidden "Click to view" text on mobile
+- **Touch Targets**: All interactive elements meet 44x44px minimum
+  - CollapsibleSection headers with min-h-[44px]
+  - Larger chevron icons (w-5 h-5)
+  - Keyboard shortcuts button with min-w/h-[44px]
+- **CSS Fixes**:
+  - Added `position: relative` to MetricCardBase for absolute positioning
+  - Added `group` class for hover effects
+  - Added `animate-scale-in` keyframes for modal animation
+  - Focus-visible styles for keyboard users
 
 ### January 8, 2026 - VIP Pipeline Phase 4 (Speaker Recognition)
 - **Automatic Speaker Recognition**: Voice embedding-based speaker identification
