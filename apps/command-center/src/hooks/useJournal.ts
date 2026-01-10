@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as journalApi from '../api/journal';
-import type { SaveReviewInput, CompleteReviewInput, ReviewMood } from '../api/journal';
+import type { SaveReviewInput, CompleteReviewInput } from '../api/journal';
 
 export function useDailyReview(date?: string) {
   return useQuery({
@@ -14,7 +14,7 @@ export function useSaveReviewDraft() {
 
   return useMutation({
     mutationFn: (input: SaveReviewInput) => journalApi.saveReviewDraft(input),
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journal', 'daily-review'] });
     },
   });
