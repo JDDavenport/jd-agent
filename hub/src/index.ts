@@ -242,8 +242,9 @@ if (telegramBot.isConfigured()) {
   console.log('⚠️  Telegram bot not configured - set TELEGRAM_TOKEN and TELEGRAM_CHAT_ID');
 }
 
-// Export for Bun
+// Export for Bun - bind to 0.0.0.0 for container deployments
 export default {
   port,
+  hostname: '0.0.0.0',
   fetch: app.fetch,
 };
