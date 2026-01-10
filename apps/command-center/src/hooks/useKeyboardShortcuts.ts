@@ -19,7 +19,7 @@ export function useKeyboardShortcuts(config: ShortcutConfig = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pendingKey = useRef<string | null>(null);
-  const pendingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const pendingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearPending = useCallback(() => {
     pendingKey.current = null;

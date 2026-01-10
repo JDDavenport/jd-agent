@@ -16,10 +16,6 @@ interface TasksMetricCardProps {
 }
 
 export function TasksMetricCard({ data, isLoading, error }: TasksMetricCardProps) {
-  const totalActive = data
-    ? data.byPriority.high + data.byPriority.medium + data.byPriority.low
-    : 0;
-
   // Tasks app runs on port 5180
   const tasksAppUrl = 'http://localhost:5180';
 

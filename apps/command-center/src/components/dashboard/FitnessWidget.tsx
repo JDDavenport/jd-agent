@@ -82,7 +82,7 @@ function FitnessWidget() {
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-text-muted">Today's Recovery</span>
           <span className={`text-2xl font-bold ${recoveryStatus.textColor}`}>
-            {data?.todayRecovery !== null ? `${data.todayRecovery}%` : '--'}
+            {data?.todayRecovery !== null && data?.todayRecovery !== undefined ? `${data.todayRecovery}%` : '--'}
           </span>
         </div>
         <ProgressBar
@@ -134,7 +134,7 @@ function FitnessWidget() {
         <div className="mt-4 pt-4 border-t border-dark-border">
           <h3 className="text-xs text-text-muted mb-2">Sleep Trend (7 days)</h3>
           <div className="flex items-end gap-1 h-12">
-            {data.sleepTrend.map((day, index) => {
+            {data.sleepTrend.map((day) => {
               const heightPercent = (day.hours / 10) * 100; // Max 10 hours
               return (
                 <div

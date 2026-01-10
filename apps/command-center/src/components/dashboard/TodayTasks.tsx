@@ -14,7 +14,7 @@ import { useGroupedTodayTasks } from '../../hooks/useDashboardEnhanced';
 import { useCompleteTask } from '../../hooks/useTasks';
 import LoadingSpinner from '../common/LoadingSpinner';
 import EmptyState from '../common/EmptyState';
-import { CollapsibleSection, PriorityBadge, SourceBadge, ProgressBar } from './shared';
+import { CollapsibleSection, SourceBadge, ProgressBar } from './shared';
 import type { TaskWithProject } from '../../types/dashboard';
 
 interface TaskItemProps {
