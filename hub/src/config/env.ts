@@ -62,7 +62,9 @@ export function getCurrentEnvironment(): Environment {
  */
 function loadEnvFile(): void {
   const environment = getCurrentEnvironment();
-  const rootDir = path.resolve(__dirname, '../../');
+  // Use import.meta.dir for Bun compatibility (ES modules don't have __dirname)
+  const currentDir = typeof __dirname !== 'undefined' ? __dirname : import.meta.dir;
+  const rootDir = path.resolve(currentDir, '../../');
 
   // Priority order for env files
   const envFiles = [
