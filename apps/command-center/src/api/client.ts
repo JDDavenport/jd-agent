@@ -4,7 +4,13 @@ import axios, { type AxiosInstance } from 'axios';
 const getApiBaseUrl = (): string => {
   // Vite environment variable (set during build)
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    const baseUrl = import.meta.env.VITE_API_URL;
+    // Ensure the URL ends with /api for correct routing
+    if (baseUrl.endsWith('/api')) {
+      return baseUrl;
+    }
+    // Remove trailing slash if present and append /api
+    return baseUrl.replace(/\/$/, '') + '/api';
   }
   // Default to relative path (works when API and UI are on same origin)
   return '/api';
