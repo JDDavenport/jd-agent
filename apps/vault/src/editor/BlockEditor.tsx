@@ -35,7 +35,7 @@ export function BlockEditor({
   readOnly = false,
   autoFocus = false,
 }: BlockEditorProps) {
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Convert blocks to TipTap JSON format
   const blocksToTipTapContent = useCallback((blocks: VaultBlock[] | undefined) => {
