@@ -67,27 +67,17 @@ whoopRouter.get('/callback', async (c) => {
 
   try {
     const whoop = getWhoopIntegration();
-    const tokens = await whoop.exchangeCodeForToken(code);
-    
-    // In production, store tokens securely in database
-    // For now, return success message
-    return c.json({
-      success: true,
-      message: 'Whoop integration authorized successfully',
-      data: {
-        // Don't expose tokens in response
-        expiresIn: tokens.expires_in,
-      },
-    });
+    await whoop.exchangeCodeForToken(code);
+
+    // Redirect back to the frontend personal health page
+    const frontendUrl = process.env.FRONTEND_URL || 'https://command-center-plum.vercel.app';
+    return c.redirect(`${frontendUrl}/personal-health?connected=true`);
   } catch (error) {
     console.error('[Whoop] OAuth callback error:', error);
-    return c.json({
-      success: false,
-      error: { 
-        code: 'TOKEN_EXCHANGE_FAILED', 
-        message: error instanceof Error ? error.message : 'Failed to exchange code for token' 
-      },
-    }, 500);
+    // Redirect to frontend with error
+    const frontendUrl = process.env.FRONTEND_URL || 'https://command-center-plum.vercel.app';
+    const errorMessage = encodeURIComponent(error instanceof Error ? error.message : 'Failed to connect');
+    return c.redirect(`${frontendUrl}/personal-health?error=${errorMessage}`);
   }
 });
 
