@@ -2,8 +2,21 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 
-// Path to docs directory (relative to project root)
-const DOCS_PATH = path.join(process.cwd(), '../../docs');
+// Path to docs directory
+// In production on Vercel: ./docs (copied by prebuild script)
+// In development/local: ../../docs (relative to apps/docs-frontend)
+function getDocsPath(): string {
+  const localPath = path.join(process.cwd(), 'docs');
+  const monorepoPath = path.join(process.cwd(), '../../docs');
+
+  // Prefer local copy if it exists (production)
+  if (fs.existsSync(localPath)) {
+    return localPath;
+  }
+  return monorepoPath;
+}
+
+const DOCS_PATH = getDocsPath();
 
 export interface DocMeta {
   title: string;
