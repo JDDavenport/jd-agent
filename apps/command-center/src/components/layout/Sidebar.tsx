@@ -12,10 +12,17 @@ interface ExternalApp {
   icon: React.ReactElement;
 }
 
+// Get app URLs from environment or use localhost defaults
+const getAppUrl = (envVar: string, defaultPort: number): string => {
+  const envValue = import.meta.env[envVar];
+  if (envValue) return envValue;
+  return `http://localhost:${defaultPort}`;
+};
+
 const externalApps: ExternalApp[] = [
   {
     name: 'Tasks',
-    url: 'http://localhost:5174',
+    url: getAppUrl('VITE_TASKS_URL', 5174),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -29,7 +36,7 @@ const externalApps: ExternalApp[] = [
   },
   {
     name: 'Vault App',
-    url: 'http://localhost:5175',
+    url: getAppUrl('VITE_VAULT_URL', 5175),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -43,7 +50,7 @@ const externalApps: ExternalApp[] = [
   },
   {
     name: 'Jobs',
-    url: 'http://localhost:5176',
+    url: getAppUrl('VITE_JOBS_URL', 5176),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -57,7 +64,7 @@ const externalApps: ExternalApp[] = [
   },
   {
     name: 'Docs',
-    url: 'http://localhost:5177',
+    url: getAppUrl('VITE_DOCS_URL', 5177),
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
