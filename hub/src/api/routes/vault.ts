@@ -120,19 +120,36 @@ vaultRouter.get('/', async (c) => {
 /**
  * GET /api/vault/search
  * Full-text search across vault entries
+ * Use ?semantic=true for semantic search (requires embedding API key)
  */
 vaultRouter.get('/search', async (c) => {
   const query = c.req.query();
+  const useSemantic = query.semantic === 'true';
   const parseResult = searchSchema.safeParse(query);
-  
+
   if (!parseResult.success) {
     throw new ValidationError(parseResult.error.errors.map(e => e.message).join(', '));
   }
 
   try {
+    // Use semantic search if requested
+    if (useSemantic) {
+      const entries = await vaultService.semanticSearch(parseResult.data.query, {
+        limit: parseResult.data.limit,
+        context: parseResult.data.context,
+      });
+
+      return c.json({
+        success: true,
+        data: entries,
+        count: entries.length,
+        searchType: 'semantic',
+      });
+    }
+
     // Try full-text search first
     const entries = await vaultService.search(parseResult.data);
-    
+
     return c.json({
       success: true,
       data: entries,
@@ -145,7 +162,7 @@ vaultRouter.get('/search', async (c) => {
       parseResult.data.query,
       parseResult.data.limit
     );
-    
+
     return c.json({
       success: true,
       data: entries,
@@ -153,6 +170,34 @@ vaultRouter.get('/search', async (c) => {
       searchType: 'simple',
     });
   }
+});
+
+/**
+ * GET /api/vault/embeddings/stats
+ * Get embedding statistics
+ */
+vaultRouter.get('/embeddings/stats', async (c) => {
+  const stats = await vaultService.getEmbeddingStats();
+  return c.json({
+    success: true,
+    data: stats,
+  });
+});
+
+/**
+ * POST /api/vault/embeddings/backfill
+ * Backfill embeddings for entries that don't have them
+ */
+vaultRouter.post('/embeddings/backfill', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const batchSize = body.batchSize || 10;
+
+  const result = await vaultService.backfillEmbeddings(batchSize);
+  return c.json({
+    success: true,
+    data: result,
+    message: `Processed ${result.processed} entries, ${result.errors} errors`,
+  });
 });
 
 /**
@@ -528,6 +573,151 @@ vaultRouter.delete('/:id', async (c) => {
   return c.json({
     success: true,
     message: 'Vault entry deleted successfully',
+  });
+});
+
+// ============================================
+// Version Management Routes
+// ============================================
+
+/**
+ * GET /api/vault/:id/versions
+ * List all versions of a vault entry
+ */
+vaultRouter.get('/:id/versions', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid entry ID format');
+  }
+
+  const versions = await vaultService.listVersions(id);
+
+  return c.json({
+    success: true,
+    data: versions,
+    count: versions.length,
+  });
+});
+
+/**
+ * GET /api/vault/:id/versions/:version
+ * Get a specific version of a vault entry
+ */
+vaultRouter.get('/:id/versions/:version', async (c) => {
+  const id = c.req.param('id');
+  const versionStr = c.req.param('version');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid entry ID format');
+  }
+
+  const versionNumber = parseInt(versionStr, 10);
+  if (isNaN(versionNumber) || versionNumber < 1) {
+    throw new ValidationError('Version must be a positive integer');
+  }
+
+  const version = await vaultService.getVersion(id, versionNumber);
+
+  if (!version) {
+    throw new NotFoundError('Version');
+  }
+
+  return c.json({
+    success: true,
+    data: version,
+  });
+});
+
+/**
+ * POST /api/vault/:id/versions
+ * Create a version snapshot of the current state
+ */
+vaultRouter.post('/:id/versions', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid entry ID format');
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const schema = z.object({
+    changeDescription: z.string().optional(),
+    changedBy: z.enum(['user', 'agent', 'system', 'auto']).optional(),
+  });
+
+  const parseResult = schema.safeParse(body);
+  if (!parseResult.success) {
+    throw new ValidationError('Invalid version options');
+  }
+
+  const version = await vaultService.createVersion(id, parseResult.data);
+
+  if (!version) {
+    throw new NotFoundError('Vault entry');
+  }
+
+  return c.json({
+    success: true,
+    data: version,
+    message: 'Version created successfully',
+  }, 201);
+});
+
+/**
+ * POST /api/vault/:id/versions/:version/restore
+ * Restore a vault entry to a previous version
+ */
+vaultRouter.post('/:id/versions/:version/restore', async (c) => {
+  const id = c.req.param('id');
+  const versionStr = c.req.param('version');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid entry ID format');
+  }
+
+  const versionNumber = parseInt(versionStr, 10);
+  if (isNaN(versionNumber) || versionNumber < 1) {
+    throw new ValidationError('Version must be a positive integer');
+  }
+
+  const entry = await vaultService.restoreVersion(id, versionNumber);
+
+  if (!entry) {
+    throw new NotFoundError('Version');
+  }
+
+  return c.json({
+    success: true,
+    data: entry,
+    message: `Restored to version ${versionNumber}`,
+  });
+});
+
+/**
+ * DELETE /api/vault/:id/versions
+ * Prune old versions, keeping only the most recent N
+ */
+vaultRouter.delete('/:id/versions', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid entry ID format');
+  }
+
+  const keepLastStr = c.req.query('keepLast') || '10';
+  const keepLast = parseInt(keepLastStr, 10);
+
+  if (isNaN(keepLast) || keepLast < 1) {
+    throw new ValidationError('keepLast must be a positive integer');
+  }
+
+  const deletedCount = await vaultService.pruneVersions(id, keepLast);
+
+  return c.json({
+    success: true,
+    deletedCount,
+    message: `Deleted ${deletedCount} old versions, kept ${keepLast} most recent`,
   });
 });
 

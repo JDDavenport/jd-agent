@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 9, 2026
-> **Version:** 0.3.5
+> **Last Updated:** January 10, 2026
+> **Version:** 0.3.7
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -53,7 +53,16 @@ This document is the single source of truth for all current features and capabil
 - Bulk status updates
 - Filtering by status, project, context, priority, labels
 - Auto-archival of completed tasks to vault
-- Recurring task instance generation
+- Recurring task instance generation (automatic on task completion)
+
+**Recurring Tasks (NEW):**
+- Natural language parsing for recurrence patterns ("every Monday", "daily", "weekly")
+- RRULE format storage (RFC 5545 compliant)
+- Recurrence picker UI with presets (Daily, Weekdays, Weekly, Bi-weekly, Monthly)
+- Automatic instance generation when recurring task is completed
+- Batch processing job for missed instances
+- Visual indicator on task cards showing recurrence pattern
+- Supports: daily, weekly, bi-weekly, monthly, specific days (e.g., "every Tuesday and Thursday")
 
 ### 2. Project Management
 
@@ -102,6 +111,29 @@ This document is the single source of truth for all current features and capabil
 - Access legacy vault entries
 - Keyboard navigation (arrows + Enter)
 
+**Dark Mode Support (NEW):**
+- System, light, and dark theme options
+- Theme toggle in sidebar footer (dropdown variant)
+- Persists preference to localStorage
+- Respects system `prefers-color-scheme` when set to "system"
+- CSS variables for consistent theming
+- Dark mode styles for all components including prose content
+
+**Entity Link Menu (NEW - [[):**
+- Type `[[` in editor to open entity link menu
+- Tab between Pages, Tasks, and Goals
+- Advanced task filters: All, Today, Inbox, Upcoming, P1, P2
+- Task icons show priority (🔴 P1, 🟠 P2, ✓ other)
+- Real-time search with keyboard navigation
+- Create new page option when no match found
+
+**Entry Versioning (NEW):**
+- Automatic version snapshots on content changes
+- Version history with timestamps and change descriptions
+- Restore to any previous version (creates backup first)
+- Prune old versions (keep last N)
+- API endpoints for version management
+
 **Legacy Vault Features (Still Available):**
 - Full-text search
 - Semantic search with embeddings (Voyage AI) - *Schema ready, wiring in progress*
@@ -121,6 +153,14 @@ This document is the single source of truth for all current features and capabil
 - notion, google_drive, google_docs, apple_notes, tasks
 
 ### 4. Calendar Integration
+
+**Dedicated Calendar Page (`/calendar`):**
+- **Month View**: Full month grid with event dots, click date to drill down to day view
+- **Week View** (default): 7-day time grid with hourly slots (6am-10pm), current time indicator
+- **Day View**: Single day with full event details, larger time slots for easy clicking
+- **Event Modal**: Create/edit events with title, type, all-day toggle, date/time, location, description
+- **Navigation**: Previous/next period, today button, keyboard shortcuts (N/T/M/W/D/arrows/Esc)
+- **Dashboard Integration**: "View Full Calendar" link from WeekCalendar widget
 
 **Features:**
 - Google Calendar sync (OAuth 2.0)
@@ -1077,6 +1117,7 @@ See the Remarkable Integration PRD for detailed implementation plan.
 **Views (Notion Mode - NEW):**
 - BlockPageView: Block-based page editing with TipTap
 - Welcome view: Empty state with create page CTA
+- GoalsView: Goals dashboard with life area grouping and progress tracking
 
 **Views (Legacy Mode):**
 - SearchView: Global search with quick actions
@@ -1091,6 +1132,8 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - BlockEditor: TipTap-based block editor
 - SlashMenu: Slash command menu for block insertion
 - CommandPalette: ⌘K quick search and navigation
+- ThemeToggle: Light/dark/system theme switcher
+- PageLinkMenu: Entity linking with task filters
 
 **Features:**
 - Block-based editing (Notion-style)
@@ -1098,6 +1141,8 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - Command palette (⌘K) for search
 - Hierarchical page organization
 - Mode switching (Pages vs Legacy)
+- Dark mode with system preference detection
+- Entity linking via `[[` trigger with task/goal/page tabs
 - Keyboard shortcuts: ⌘K (search), ⌘N (new), ⌘\ (sidebar), ⌘S (save)
 - Full-text and semantic search (legacy)
 - Rich markdown editing (legacy)
@@ -1122,6 +1167,7 @@ See the Remarkable Integration PRD for detailed implementation plan.
 | `vault_pages` | Block-based pages (NEW) |
 | `vault_blocks` | Page content blocks (NEW) |
 | `vault_references` | Cross-system links (NEW) |
+| `vault_entry_versions` | Entry version history (NEW) |
 | `recordings` | Audio recordings |
 | `transcripts` | Transcribed audio |
 | `recording_summaries` | Processed summaries |
@@ -1224,6 +1270,84 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 10, 2026 - Vault App P2 Enhancements
+- **Dark Mode Support (P2-1)**: Complete dark mode implementation for vault app
+  - ThemeContext with light/dark/system options
+  - ThemeToggle component (icon and dropdown variants)
+  - CSS custom properties for consistent theming
+  - localStorage persistence and system preference detection
+  - Dark mode styles for prose, scrollbars, form inputs, and all UI components
+  - Files: `ThemeContext.tsx`, `ThemeToggle.tsx`, `index.css`, `Sidebar.tsx`
+- **Goal Progress Tracking UI (P2-2)**: New GoalsView component in vault
+  - Filter tabs: Active, Completed, All
+  - Summary stats: Active goals, completed, avg progress, life areas
+  - Goals grouped by life area with color coding
+  - Progress bars with color-coded thresholds (green/yellow/orange/red)
+  - Expandable goal details (target date, metrics, motivation)
+  - Status icons (active, paused, completed, abandoned)
+  - Files: `GoalsView.tsx`, `App.tsx`, `Sidebar.tsx`
+- **Advanced Task Filters in Entity Link Menu (P2-3)**: Enhanced PageLinkMenu
+  - Task filter bar: All, Today, Inbox, Upcoming, P1, P2
+  - Priority-based task icons (🔴 P1, 🟠 P2, ✓ other)
+  - Client-side filtering with date range detection
+  - Task metadata in entity results (status, priority, dueDate)
+  - Files: `PageLinkMenu.tsx`
+- **Vault Entry Versioning (P2-4)**: Basic version control for vault entries
+  - New `vault_entry_versions` database table
+  - Service methods: createVersion, listVersions, getVersion, restoreVersion, pruneVersions, updateWithVersion
+  - API endpoints: GET/POST `/:id/versions`, GET `/:id/versions/:version`, POST `/:id/versions/:version/restore`, DELETE `/:id/versions`
+  - Automatic backup before restore operations
+  - Files: `schema.ts`, `vault-service.ts`, `vault.ts` (routes)
+
+### January 11, 2026 - Recurring Task UI (ENH-019)
+- **Natural Language Parser**: Extended task parser to extract recurrence patterns
+  - Supports: "daily", "weekly", "monthly", "bi-weekly", "every day", "every week"
+  - Day-specific: "every Monday", "every Tuesday and Thursday", "every weekday"
+  - Human-readable display: "Daily", "Weekly - Mon, Wed, Fri", etc.
+- **Recurrence Picker UI**: Added to QuickAddTask component
+  - Presets dropdown: None, Daily, Weekdays, Weekly, Bi-weekly, Monthly
+  - Shows parsed recurrence from natural language input
+  - Integration with advanced options section
+- **TaskCard Indicator**: Visual recurrence badge on task cards
+  - Purple recurring icon with human-readable pattern
+  - Tooltip shows full RRULE description
+- **Instance Generator Job**: Background job for creating recurring instances
+  - `recurrence-generate`: Triggered when recurring task is completed
+  - `recurrence-batch`: Daily batch job for missed instances
+  - Uses rrule npm package for RFC 5545 compliance
+  - Creates child tasks with `recurrenceParentId` linking
+- **API Updates**: Added recurrenceRule to task create/update schemas
+- **Files Modified**:
+  - `apps/tasks/src/utils/parseNaturalLanguage.ts` - Recurrence pattern extraction
+  - `apps/tasks/src/components/QuickAddTask.tsx` - Recurrence picker UI
+  - `apps/tasks/src/components/TaskCard.tsx` - Recurrence indicator
+  - `hub/src/api/routes/tasks.ts` - API schema updates
+  - `hub/src/services/task-service.ts` - Recurrence trigger on complete
+  - `hub/src/jobs/processors/recurrence.ts` - New processor file
+  - `hub/src/jobs/queue.ts` - New job types
+  - `hub/src/worker.ts` - Job handler integration
+
+### January 10, 2026 - Calendar Page Implementation
+- **Dedicated Calendar Page**: Created full `/calendar` route in Command Center
+- **Three Views**: Month view (grid with event dots), Week view (time slots), Day view (hourly breakdown)
+- **Event Modal**: Full create/edit modal with title, event type, all-day toggle, date/time, location, description
+- **Keyboard Shortcuts**: N (new event), T (today), M/W/D (views), arrows (navigation), Esc (close modal)
+- **Navigation Controls**: Previous/next period, today button, view switcher
+- **Current Time Indicator**: Red line showing current time in Week/Day views
+- **Dashboard Link**: Added "View Full Calendar" link to WeekCalendar dashboard widget
+- **Mutation Hooks**: Added useCreateEvent, useUpdateEvent, useDeleteEvent hooks
+- **Files Created**:
+  - `apps/command-center/src/pages/Calendar.tsx` - Main calendar page
+  - `apps/command-center/src/components/calendar/MonthView.tsx` - Month grid view
+  - `apps/command-center/src/components/calendar/WeekView.tsx` - Week time-slot view
+  - `apps/command-center/src/components/calendar/DayView.tsx` - Day detailed view
+  - `apps/command-center/src/components/calendar/EventModal.tsx` - Create/edit modal
+- **Files Modified**:
+  - `apps/command-center/src/App.tsx` - Added `/calendar` route
+  - `apps/command-center/src/components/layout/Sidebar.tsx` - Added Calendar nav item
+  - `apps/command-center/src/hooks/useCalendar.ts` - Added mutation hooks
+  - `apps/command-center/src/components/dashboard/WeekCalendar.tsx` - Added "View Full Calendar" link
 
 ### January 10, 2026 - Calendar Documentation Update
 - **Documentation Accuracy**: Updated `/docs/public/features/calendar/index.md` to match actual implementation

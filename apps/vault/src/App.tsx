@@ -3,9 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NotionSidebar } from './components/NotionSidebar';
 import { BlockPageView } from './views/BlockPageView';
 import { SearchView } from './views/SearchView';
-import { JournalView } from './views/JournalView';
-import { ArchiveView } from './views/ArchiveView';
+import { JournalViewConnected } from './views/JournalViewConnected';
+import { ArchiveViewConnected } from './views/ArchiveViewConnected';
 import { TagsView } from './views/TagsView';
+import { GoalsView } from './views/GoalsView';
 import { PageView } from './components/PageView';
 import { VaultList } from './components/VaultList';
 import { NewEntryModal } from './components/NewEntryModal';
@@ -45,6 +46,7 @@ type ViewType =
   | 'inbox'
   | 'favorites'
   | 'journal'
+  | 'goals'
   | 'archive'
   | 'projects'
   | 'areas'
@@ -180,6 +182,7 @@ function VaultApp() {
     const actionMap: Record<string, ViewType> = {
       inbox: 'inbox',
       journal: 'journal',
+      goals: 'goals',
       favorites: 'favorites',
       projects: 'projects',
       areas: 'areas',
@@ -284,6 +287,8 @@ function VaultApp() {
         return 'Favorites';
       case 'journal':
         return 'Journal';
+      case 'goals':
+        return 'Goals';
       case 'archive':
         return 'Archive';
       case 'projects':
@@ -377,17 +382,28 @@ function VaultApp() {
         );
 
       case 'journal':
-        return (
-          <JournalView
-            onSave={() => {}}
-          />
-        );
+        return <JournalViewConnected />;
 
       case 'archive':
         return (
-          <ArchiveView
-            tasks={[]}
-            onTaskClick={() => {}}
+          <ArchiveViewConnected
+            onTaskClick={(taskId) => {
+              // Navigate to the task's vault entry if available
+              const entry = allEntries?.find((e) => e.sourceRef === taskId);
+              if (entry) {
+                handleSelectEntry(entry);
+              }
+            }}
+          />
+        );
+
+      case 'goals':
+        return (
+          <GoalsView
+            onGoalSelect={(goalId) => {
+              // Could navigate to a goal detail view or link
+              console.log('Selected goal:', goalId);
+            }}
           />
         );
 

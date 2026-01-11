@@ -1,7 +1,8 @@
-import { eq, and, or, desc, asc, sql, ilike, arrayContains, inArray } from 'drizzle-orm';
+import { eq, and, or, desc, asc, sql, ilike, arrayContains, inArray, max } from 'drizzle-orm';
 import { db } from '../db/client';
-import { vaultEntries, vaultEmbeddings, recordings } from '../db/schema';
+import { vaultEntries, vaultEmbeddings, recordings, vaultEntryVersions } from '../db/schema';
 import type { VaultContentType, VaultSource } from '../types';
+import { vaultEmbeddingService } from './vault-embedding-service';
 
 // ============================================
 // Types
@@ -45,6 +46,24 @@ export interface SearchOptions {
   context?: string;
   contentType?: VaultContentType;
   limit?: number;
+}
+
+export interface VaultEntryVersion {
+  id: string;
+  entryId: string;
+  versionNumber: number;
+  title: string;
+  content: string | null;
+  tags: string[] | null;
+  category: string | null;
+  changeDescription: string | null;
+  changedBy: string | null;
+  createdAt: Date;
+}
+
+export interface CreateVersionInput {
+  changeDescription?: string;
+  changedBy?: 'user' | 'agent' | 'system' | 'auto';
 }
 
 export interface VaultEntryWithRecording {
@@ -109,6 +128,11 @@ export class VaultService {
         sourceDate: input.sourceDate,
       })
       .returning();
+
+    // Generate embeddings asynchronously (don't wait)
+    vaultEmbeddingService.generateEmbeddings(entry.id).catch(err => {
+      console.error('[VaultService] Failed to generate embeddings:', err);
+    });
 
     return this.getById(entry.id) as Promise<VaultEntryWithRecording>;
   }
@@ -295,6 +319,74 @@ export class VaultService {
   }
 
   /**
+   * Semantic search using embeddings
+   * Falls back to text search if embeddings not available
+   */
+  async semanticSearch(
+    query: string,
+    options: { limit?: number; context?: string } = {}
+  ): Promise<VaultEntryWithRecording[]> {
+    const { limit = 20, context } = options;
+
+    // Try semantic search first
+    if (vaultEmbeddingService.isReady()) {
+      const semanticResults = await vaultEmbeddingService.semanticSearch(query, limit, context);
+
+      if (semanticResults.length > 0) {
+        // Get full entries for the results
+        const entryIds = semanticResults.map(r => r.entryId);
+        const entries = await db
+          .select({
+            entry: vaultEntries,
+            recording: {
+              id: recordings.id,
+              originalFilename: recordings.originalFilename,
+              recordingType: recordings.recordingType,
+              recordedAt: recordings.recordedAt,
+            },
+          })
+          .from(vaultEntries)
+          .leftJoin(recordings, eq(vaultEntries.recordingId, recordings.id))
+          .where(inArray(vaultEntries.id, entryIds));
+
+        // Sort by similarity order
+        const entryMap = new Map(
+          entries.map(({ entry, recording }) => [
+            entry.id,
+            { ...entry, recording: recording?.id ? recording : null },
+          ])
+        );
+
+        return semanticResults
+          .map(r => entryMap.get(r.entryId))
+          .filter((e): e is VaultEntryWithRecording => e !== undefined);
+      }
+    }
+
+    // Fall back to text search
+    console.log('[VaultService] Semantic search not available, falling back to text search');
+    return this.simpleSearch(query, limit);
+  }
+
+  /**
+   * Get embedding stats for vault
+   */
+  async getEmbeddingStats(): Promise<{ ready: boolean; totalChunks: number; entriesWithEmbeddings: number }> {
+    const stats = await vaultEmbeddingService.getStats();
+    return {
+      ready: vaultEmbeddingService.isReady(),
+      ...stats,
+    };
+  }
+
+  /**
+   * Backfill embeddings for entries that don't have them
+   */
+  async backfillEmbeddings(batchSize = 10): Promise<{ processed: number; errors: number }> {
+    return vaultEmbeddingService.backfillEmbeddings(batchSize);
+  }
+
+  /**
    * Update a vault entry
    */
   async update(id: string, input: UpdateVaultEntryInput): Promise<VaultEntryWithRecording | null> {
@@ -317,6 +409,14 @@ export class VaultService {
       .returning();
 
     if (!updated) return null;
+
+    // Regenerate embeddings if title or content changed
+    if (input.title !== undefined || input.content !== undefined) {
+      vaultEmbeddingService.generateEmbeddings(id).catch(err => {
+        console.error('[VaultService] Failed to regenerate embeddings:', err);
+      });
+    }
+
     return this.getById(id);
   }
 
@@ -654,6 +754,136 @@ export class VaultService {
       .returning();
 
     return this.getById(entry.id) as Promise<VaultEntryWithRecording>;
+  }
+
+  // ============================================
+  // Version Management
+  // ============================================
+
+  /**
+   * Create a version snapshot of an entry
+   * Call this before making changes to preserve the current state
+   */
+  async createVersion(
+    entryId: string,
+    options: CreateVersionInput = {}
+  ): Promise<VaultEntryVersion | null> {
+    const entry = await this.getById(entryId);
+    if (!entry) return null;
+
+    // Get the next version number
+    const [result] = await db
+      .select({ maxVersion: max(vaultEntryVersions.versionNumber) })
+      .from(vaultEntryVersions)
+      .where(eq(vaultEntryVersions.entryId, entryId));
+
+    const nextVersion = (result?.maxVersion || 0) + 1;
+
+    const [version] = await db
+      .insert(vaultEntryVersions)
+      .values({
+        entryId,
+        versionNumber: nextVersion,
+        title: entry.title,
+        content: entry.content,
+        tags: entry.tags,
+        category: entry.category || null,
+        changeDescription: options.changeDescription || null,
+        changedBy: options.changedBy || 'user',
+      })
+      .returning();
+
+    return version as VaultEntryVersion;
+  }
+
+  /**
+   * List all versions of an entry
+   */
+  async listVersions(entryId: string): Promise<VaultEntryVersion[]> {
+    const versions = await db
+      .select()
+      .from(vaultEntryVersions)
+      .where(eq(vaultEntryVersions.entryId, entryId))
+      .orderBy(desc(vaultEntryVersions.versionNumber));
+
+    return versions as VaultEntryVersion[];
+  }
+
+  /**
+   * Get a specific version
+   */
+  async getVersion(entryId: string, versionNumber: number): Promise<VaultEntryVersion | null> {
+    const [version] = await db
+      .select()
+      .from(vaultEntryVersions)
+      .where(
+        and(
+          eq(vaultEntryVersions.entryId, entryId),
+          eq(vaultEntryVersions.versionNumber, versionNumber)
+        )
+      )
+      .limit(1);
+
+    return (version as VaultEntryVersion) || null;
+  }
+
+  /**
+   * Restore an entry to a previous version
+   * Creates a new version before restoring to preserve current state
+   */
+  async restoreVersion(entryId: string, versionNumber: number): Promise<VaultEntryWithRecording | null> {
+    const version = await this.getVersion(entryId, versionNumber);
+    if (!version) return null;
+
+    // Create a backup version before restoring
+    await this.createVersion(entryId, {
+      changeDescription: `Backup before restoring to version ${versionNumber}`,
+      changedBy: 'system',
+    });
+
+    // Restore the entry
+    return this.update(entryId, {
+      title: version.title,
+      content: version.content || undefined,
+      tags: version.tags || undefined,
+    });
+  }
+
+  /**
+   * Delete old versions, keeping only the most recent N versions
+   */
+  async pruneVersions(entryId: string, keepLast: number = 10): Promise<number> {
+    const versions = await this.listVersions(entryId);
+
+    if (versions.length <= keepLast) return 0;
+
+    const toDelete = versions.slice(keepLast);
+    const deleteIds = toDelete.map(v => v.id);
+
+    const result = await db
+      .delete(vaultEntryVersions)
+      .where(inArray(vaultEntryVersions.id, deleteIds))
+      .returning();
+
+    return result.length;
+  }
+
+  /**
+   * Update an entry with automatic version creation
+   * This is a convenience method that creates a version before updating
+   */
+  async updateWithVersion(
+    id: string,
+    input: UpdateVaultEntryInput,
+    versionOptions: CreateVersionInput = {}
+  ): Promise<VaultEntryWithRecording | null> {
+    // Create version before making changes
+    await this.createVersion(id, {
+      changeDescription: versionOptions.changeDescription || 'Content updated',
+      changedBy: versionOptions.changedBy || 'user',
+    });
+
+    return this.update(id, input);
   }
 }
 
