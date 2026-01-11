@@ -1,0 +1,344 @@
+{
+  "scan_date": "2026-01-08",
+  "summary": {
+    "total_features_documented": 13,
+    "documentation_quality": {
+      "complete": 13,
+      "partial": 0,
+      "stub": 0,
+      "missing": 0
+    },
+    "apps_count": 5,
+    "services_count": 42,
+    "agents_count": 5,
+    "integrations_count": 14
+  },
+  "feature_documentation": [
+    {
+      "feature_name": "Task Management",
+      "documentation_path": "/docs/public/features/tasks/index.md",
+      "quality": "Complete",
+      "size_bytes": 9556,
+      "sections": [
+        "Overview",
+        "Getting Started",
+        "Views (Inbox, Today, Upcoming, Projects, Filters)",
+        "Task Properties",
+        "Projects and Recurring Tasks",
+        "Subtasks",
+        "Keyboard Shortcuts",
+        "Tips & Best Practices"
+      ]
+    },
+    {
+      "feature_name": "Vault (Knowledge Base)",
+      "documentation_path": "/docs/public/features/vault/index.md",
+      "quality": "Complete",
+      "size_bytes": 11845,
+      "sections": [
+        "Overview",
+        "Getting Started",
+        "Content Types",
+        "Views",
+        "Search",
+        "Daily Journal",
+        "Task Archive",
+        "Organization (PARA)",
+        "Keyboard Shortcuts",
+        "Import"
+      ]
+    },
+    {
+      "feature_name": "AI Agent",
+      "documentation_path": "/docs/public/features/agent/index.md",
+      "quality": "Complete",
+      "size_bytes": 12087,
+      "sections": [
+        "Overview",
+        "Getting Started",
+        "Task Management Tools",
+        "Calendar Management",
+        "Vault Integration",
+        "People Management",
+        "Scheduling Tools",
+        "37 Specialized Tools",
+        "Telegram Setup"
+      ]
+    },
+    {
+      "feature_name": "Daily Journal",
+      "documentation_path": "/docs/public/features/daily-journal/index.md",
+      "quality": "Complete",
+      "size_bytes": 8945,
+      "sections": [
+        "Overview",
+        "Getting Started",
+        "7-Step Workflow",
+        "Auto-Save",
+        "Mood Tracking",
+        "Progress Indicator",
+        "Vault Integration",
+        "History View",
+        "API Reference",
+        "Keyboard Shortcuts"
+      ]
+    },
+    {
+      "feature_name": "Goals & Habits Tracking",
+      "documentation_path": "/docs/public/features/goals/index.md",
+      "quality": "Complete",
+      "size_bytes": 4200,
+      "sections": [
+        "Life Areas",
+        "Goal Creation",
+        "Health Score",
+        "Goal Status",
+        "Milestones",
+        "Habit Tracking",
+        "Reflections",
+        "Progress Dashboard"
+      ]
+    },
+    {
+      "feature_name": "Job Hunting Agent",
+      "documentation_path": "/docs/public/features/job-hunting/index.md",
+      "quality": "Complete",
+      "size_bytes": 5234,
+      "sections": [
+        "Overview",
+        "Setup",
+        "Profile Configuration",
+        "Resume Management",
+        "Job Discovery",
+        "Match Scoring",
+        "Application Tracking",
+        "Cover Letter Generation"
+      ]
+    },
+    {
+      "feature_name": "Testing Agent",
+      "documentation_path": "/docs/public/features/testing-agent/index.md",
+      "quality": "Complete",
+      "size_bytes": 3789,
+      "sections": [
+        "Overview",
+        "How It Works",
+        "Getting Started",
+        "Test Scopes",
+        "18 Testing Tools",
+        "Finding Types",
+        "Report Generation"
+      ]
+    },
+    {
+      "feature_name": "Calendar",
+      "documentation_path": "/docs/public/features/calendar/index.md",
+      "quality": "Complete",
+      "size_bytes": 3456,
+      "sections": [
+        "Overview",
+        "Getting Started",
+        "Google Calendar Connection",
+        "Event Types",
+        "Recurring Events",
+        "Conflict Detection",
+        "Time Blocking"
+      ]
+    },
+    {
+      "feature_name": "Ceremonies",
+      "documentation_path": "/docs/public/features/ceremonies/index.md",
+      "quality": "Complete",
+      "size_bytes": 2987,
+      "sections": [
+        "Overview",
+        "Morning Ceremony",
+        "Evening Ceremony",
+        "Weekly Review",
+        "Delivery Channels",
+        "Configuration"
+      ]
+    },
+    {
+      "feature_name": "Personal Health",
+      "documentation_path": "/docs/public/features/health/index.md",
+      "quality": "Complete",
+      "size_bytes": 2156,
+      "sections": [
+        "Overview",
+        "Dashboard Components",
+        "Recovery Score",
+        "Sleep Performance",
+        "Strain Score",
+        "Whoop Integration"
+      ]
+    },
+    {
+      "feature_name": "Canvas Integration",
+      "documentation_path": "/docs/public/features/canvas/index.md",
+      "quality": "Complete",
+      "size_bytes": 3123,
+      "sections": [
+        "Overview",
+        "Getting Started",
+        "Canvas Integrity Agent",
+        "Audit Types",
+        "Sync Status",
+        "Course Mapping",
+        "Assignment Tracking"
+      ]
+    },
+    {
+      "feature_name": "Integrations",
+      "documentation_path": "/docs/public/features/integrations/index.md",
+      "quality": "Complete",
+      "size_bytes": 4567,
+      "sections": [
+        "Overview",
+        "Active Integrations Status",
+        "Quick Setup Guide",
+        "Integration Matrix",
+        "Authentication Methods",
+        "Individual Integration Guides"
+      ]
+    },
+    {
+      "feature_name": "Features Overview Index",
+      "documentation_path": "/docs/public/features/index.md",
+      "quality": "Complete",
+      "size_bytes": 5234,
+      "sections": [
+        "Core Features Index",
+        "Specialized Agents",
+        "Feature Matrix",
+        "Apps Overview",
+        "Quick Links"
+      ]
+    }
+  ],
+  "apps": [
+    {
+      "name": "Command Center",
+      "path": "/apps/command-center",
+      "port": 5173,
+      "status": "Working",
+      "components_count": 32,
+      "has_tests": true,
+      "test_files": 5,
+      "tech_stack": ["React 19", "Vite", "TypeScript", "Tailwind CSS", "React Router v7"]
+    },
+    {
+      "name": "Tasks",
+      "path": "/apps/tasks",
+      "port": 5174,
+      "status": "Working",
+      "components_count": 17,
+      "has_tests": false,
+      "test_files": 0,
+      "tech_stack": ["React 19", "Vite", "TypeScript", "Tailwind CSS"]
+    },
+    {
+      "name": "Vault",
+      "path": "/apps/vault",
+      "port": 5175,
+      "status": "Working",
+      "components_count": 28,
+      "has_tests": false,
+      "test_files": 0,
+      "tech_stack": ["React 19", "Vite", "TypeScript", "TipTap", "Tailwind CSS"]
+    },
+    {
+      "name": "Jobs",
+      "path": "/apps/jobs",
+      "port": 5176,
+      "status": "Working",
+      "components_count": "Unknown",
+      "has_tests": false,
+      "test_files": 0,
+      "tech_stack": ["React 19", "Vite", "TypeScript", "Tailwind CSS"]
+    },
+    {
+      "name": "Docs Frontend",
+      "path": "/apps/docs-frontend",
+      "port": 5177,
+      "status": "Working",
+      "components_count": "Unknown",
+      "has_tests": false,
+      "test_files": 0,
+      "tech_stack": ["React 19", "Vite", "TypeScript", "Tailwind CSS"]
+    }
+  ],
+  "services": [
+    { "name": "Task Service", "path": "/hub/src/services/task-generation-service.ts" },
+    { "name": "Project Service", "path": "/hub/src/services/project-service.ts" },
+    { "name": "Calendar Service", "path": "/hub/src/services/calendar-service.ts" },
+    { "name": "Vault Service", "path": "/hub/src/services/vault-page-service.ts" },
+    { "name": "Search Service", "path": "/hub/src/services/search-service.ts" },
+    { "name": "Goals Service", "path": "/hub/src/services/goals-service.ts" },
+    { "name": "Habit Service", "path": "/hub/src/services/habit-service.ts" },
+    { "name": "Milestones Service", "path": "/hub/src/services/milestones-service.ts" },
+    { "name": "Daily Journal Service", "path": "/hub/src/services/daily-journal-service.ts" },
+    { "name": "Ceremony Service", "path": "/hub/src/services/ceremony-service.ts" },
+    { "name": "People Service", "path": "/hub/src/services/people-service.ts" },
+    { "name": "Job Service", "path": "/hub/src/services/job-service.ts" },
+    { "name": "Canvas Integrity Service", "path": "/hub/src/services/canvas-integrity-service.ts" },
+    { "name": "VIP Service", "path": "/hub/src/services/vip-service.ts" },
+    { "name": "Remarkable Service", "path": "/hub/src/services/remarkable-service.ts" },
+    { "name": "Label Service", "path": "/hub/src/services/label-service.ts" },
+    { "name": "Context Service", "path": "/hub/src/services/context-service.ts" },
+    { "name": "Scheduling Service", "path": "/hub/src/services/scheduling-service.ts" },
+    { "name": "Analytics Service", "path": "/hub/src/services/analytics-service.ts" },
+    { "name": "Voice Profile Service", "path": "/hub/src/services/voice-profile-service.ts" }
+  ],
+  "agents": [
+    {
+      "name": "Master Agent",
+      "path": "/hub/src/agents/master-agent.ts",
+      "tools_count": 37,
+      "status": "Active",
+      "llm_providers": ["Groq", "Google Gemini", "OpenAI"]
+    },
+    {
+      "name": "Job Agent",
+      "path": "/hub/src/agents/job-agent/",
+      "tools_count": 31,
+      "status": "Active",
+      "capabilities": ["Job discovery", "Resume selection", "Cover letter generation", "Application tracking"]
+    },
+    {
+      "name": "Canvas Integrity Agent",
+      "path": "/hub/src/agents/canvas-integrity/",
+      "tools_count": null,
+      "status": "Active",
+      "capabilities": ["Browser-based auditing", "Assignment verification"]
+    },
+    {
+      "name": "Testing Agent",
+      "path": "/hub/src/agents/testing/",
+      "tools_count": 18,
+      "status": "Active",
+      "capabilities": ["Vision-based QA", "UI exploration", "Report generation"]
+    },
+    {
+      "name": "Class Agent",
+      "path": "/hub/src/agents/class-agent.ts",
+      "tools_count": null,
+      "status": "Active",
+      "capabilities": ["Academic content processing"]
+    }
+  ],
+  "integrations": [
+    { "name": "Google Calendar", "path": "/hub/src/integrations/google-calendar.ts", "auth_type": "OAuth 2.0", "status": "Active" },
+    { "name": "Gmail", "path": "/hub/src/integrations/gmail.ts", "auth_type": "OAuth 2.0", "status": "Active" },
+    { "name": "Canvas LMS", "path": "/hub/src/integrations/canvas.ts", "auth_type": "API Token", "status": "Active" },
+    { "name": "Telegram Bot", "path": "/hub/src/integrations/telegram-bot.ts", "auth_type": "Bot Token", "status": "Active" },
+    { "name": "Notion", "path": "/hub/src/integrations/notion.ts", "auth_type": "OAuth 2.0", "status": "Active" },
+    { "name": "Google Drive", "path": "/hub/src/integrations/google-drive-extractor.ts", "auth_type": "OAuth 2.0", "status": "Active" },
+    { "name": "Apple Notes", "path": "/hub/src/integrations/apple-notes-extractor.ts", "auth_type": "AppleScript", "status": "Active" },
+    { "name": "Whoop", "path": "/hub/src/integrations/whoop.ts", "auth_type": "API Token", "status": "Active" },
+    { "name": "Todoist", "path": "/hub/src/integrations/todoist-extractor.ts", "auth_type": "API Token", "status": "Migration" },
+    { "name": "Remarkable", "path": "/hub/src/integrations/remarkable.ts", "auth_type": "Cloud + API", "status": "Active" },
+    { "name": "Plaud", "path": "/hub/src/integrations/plaud.ts", "auth_type": "API Token", "status": "80% Complete" },
+    { "name": "Deepgram", "path": "/hub/src/integrations/deepgram.ts", "auth_type": "API Token", "status": "Active" }
+  ]
+}
