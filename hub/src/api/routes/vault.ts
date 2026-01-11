@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { vaultService } from '../../services/vault-service';
+import { vaultMigrationService } from '../../services/vault-migration-service';
 import { ValidationError, NotFoundError } from '../middleware/error-handler';
 import type { VaultContentType, VaultSource } from '../../types';
 import { vaultPagesRouter, vaultBlocksRouter } from './vault-pages';
@@ -773,6 +774,96 @@ vaultRouter.delete('/:id/versions', async (c) => {
     deletedCount,
     message: `Deleted ${deletedCount} old versions, kept ${keepLast} most recent`,
   });
+});
+
+// ============================================
+// Migration Endpoints (vault_entries → vault_pages)
+// ============================================
+
+/**
+ * GET /api/vault/migration/status
+ * Get migration status
+ */
+vaultRouter.get('/migration/status', async (c) => {
+  const status = await vaultMigrationService.getMigrationStatus();
+
+  return c.json({
+    success: true,
+    data: status,
+  });
+});
+
+/**
+ * POST /api/vault/migration/run
+ * Run migration (converts vault_entries to vault_pages)
+ */
+vaultRouter.post('/migration/run', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+
+  const schema = z.object({
+    limit: z.number().int().min(1).max(1000).optional(),
+    dryRun: z.boolean().optional(),
+    skipExisting: z.boolean().optional(),
+  });
+
+  const parseResult = schema.safeParse(body);
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.errors.map(e => e.message).join(', '));
+  }
+
+  const stats = await vaultMigrationService.migrateEntries({
+    limit: parseResult.data.limit || 100,
+    dryRun: parseResult.data.dryRun || false,
+    skipExisting: parseResult.data.skipExisting !== false,
+  });
+
+  return c.json({
+    success: true,
+    data: stats,
+    message: `Migration ${parseResult.data.dryRun ? '(dry run) ' : ''}complete: ${stats.migrated} entries migrated, ${stats.skipped} skipped, ${stats.failed} failed`,
+  });
+});
+
+/**
+ * POST /api/vault/migration/rollback
+ * Rollback migration for a specific entry or all entries
+ */
+vaultRouter.post('/migration/rollback', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+
+  const schema = z.object({
+    legacyEntryId: z.string().uuid().optional(),
+    all: z.boolean().optional(),
+  });
+
+  const parseResult = schema.safeParse(body);
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.errors.map(e => e.message).join(', '));
+  }
+
+  if (parseResult.data.all) {
+    const count = await vaultMigrationService.rollbackAll();
+    return c.json({
+      success: true,
+      count,
+      message: `Rolled back ${count} migrated pages`,
+    });
+  }
+
+  if (parseResult.data.legacyEntryId) {
+    const success = await vaultMigrationService.rollbackEntry(parseResult.data.legacyEntryId);
+
+    if (!success) {
+      throw new NotFoundError('Migrated page for this entry');
+    }
+
+    return c.json({
+      success: true,
+      message: 'Rollback complete',
+    });
+  }
+
+  throw new ValidationError('Must provide either legacyEntryId or all: true');
 });
 
 export { vaultRouter };

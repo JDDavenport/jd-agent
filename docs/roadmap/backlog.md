@@ -44,7 +44,7 @@ This backlog provides transparency into:
 
 | ID | Description | Priority | Category | Status |
 |----|-------------|----------|----------|--------|
-| ENH-016 | Legacy vault_entries migration to vault_pages | P1 | Vault | Planned |
+| ENH-016 | Legacy vault_entries migration to vault_pages | P1 | Vault | ✅ Completed |
 | ENH-017 | Vault chat interface for querying data | P1 | Vault/AI | ✅ Completed |
 | ENH-018 | Complete semantic search pipeline | P1 | Search/AI | ✅ Completed |
 | ENH-001 | PARA folder structure for Vault | P1 | Vault | ✅ Completed |
@@ -113,6 +113,7 @@ Items recently moved from backlog to done.
 | ENH-019 | Recurring task UI | Jan 11, 2026 | Natural language parsing, recurrence picker, instance generation |
 | ENH-002 | Controlled tag taxonomy | Jan 11, 2026 | Categories, aliases, suggestions, validation, grouped endpoints |
 | ENH-001 | PARA folder structure | Jan 11, 2026 | Projects, Areas, Resources, Archive root folders, moveToPARA API |
+| ENH-016 | Legacy vault_entries migration | Jan 11, 2026 | Migration service, markdown to blocks conversion, PARA mapping, rollback |
 | BUG-001 | Remarkable Integration | Jan 9, 2026 | Full MBA class notes pipeline, OCR, content merging |
 | FEAT-T01 | AI Testing Agent | Jan 7, 2026 | Vision-based QA testing |
 | FEAT-T02 | Job Hunting Agent | Jan 7, 2026 | Full job application pipeline |
