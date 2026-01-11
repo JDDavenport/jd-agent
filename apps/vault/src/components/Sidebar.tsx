@@ -13,9 +13,11 @@ import {
   StarIcon,
   TagIcon,
   Squares2X2Icon,
+  FlagIcon,
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { PageTree } from './PageTreeItem';
+import { ThemeToggle } from './ThemeToggle';
 import type { VaultTreeNode } from '../api';
 
 export type ViewType =
@@ -23,6 +25,7 @@ export type ViewType =
   | 'inbox'
   | 'favorites'
   | 'journal'
+  | 'goals'
   | 'archive'
   | 'projects'
   | 'areas'
@@ -81,6 +84,7 @@ export function Sidebar({
     { id: 'inbox', name: 'Inbox', icon: InboxIcon, count: inboxCount, type: 'inbox' },
     { id: 'favorites', name: 'Favorites', icon: StarIcon, count: favoritesCount, type: 'favorites' },
     { id: 'journal', name: 'Journal', icon: CalendarIcon, type: 'journal' },
+    { id: 'goals', name: 'Goals', icon: FlagIcon, type: 'goals' },
     { id: 'archive', name: 'Archive', icon: ArchiveBoxIcon, type: 'archive' },
   ];
 
@@ -99,11 +103,11 @@ export function Sidebar({
   };
 
   return (
-    <aside className="w-64 bg-gray-50 border-r border-gray-200 h-screen flex flex-col">
+    <aside className="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-screen flex flex-col">
       {/* Logo */}
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Squares2X2Icon className="w-6 h-6 text-purple-500" />
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <Squares2X2Icon className="w-6 h-6 text-purple-500 dark:text-purple-400" />
           JD Vault
         </h1>
       </div>
@@ -112,7 +116,7 @@ export function Sidebar({
       <div className="p-3">
         <button
           onClick={() => onNewEntry?.()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 dark:bg-purple-600 text-white rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 transition-colors text-sm font-medium"
         >
           <PlusIcon className="w-4 h-4" />
           New Page
@@ -130,8 +134,8 @@ export function Sidebar({
               className={clsx(
                 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 selectedView === item.id
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               )}
             >
               <item.icon className="w-5 h-5" />
@@ -141,8 +145,8 @@ export function Sidebar({
                   className={clsx(
                     'px-2 py-0.5 rounded-full text-xs',
                     selectedView === item.id
-                      ? 'bg-purple-200 text-purple-800'
-                      : 'bg-gray-200 text-gray-600'
+                      ? 'bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                   )}
                 >
                   {item.count}
@@ -156,7 +160,7 @@ export function Sidebar({
         <div className="mt-6">
           <button
             onClick={() => toggleSection('pages')}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300"
           >
             {expandedSections.has('pages') ? (
               <ChevronDownIcon className="w-4 h-4" />
@@ -169,7 +173,7 @@ export function Sidebar({
           {expandedSections.has('pages') && (
             <div className="mt-1">
               {isLoadingTree ? (
-                <div className="px-3 py-2 text-sm text-gray-400">Loading...</div>
+                <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">Loading...</div>
               ) : (
                 <PageTree
                   nodes={tree}
@@ -186,7 +190,7 @@ export function Sidebar({
 
         {/* Browse */}
         <div className="mt-6">
-          <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Browse
           </div>
           <div className="mt-1 space-y-1">
@@ -197,8 +201,8 @@ export function Sidebar({
                 className={clsx(
                   'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                   selectedView === item.id
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 )}
               >
                 <item.icon className="w-5 h-5" />
@@ -209,14 +213,20 @@ export function Sidebar({
         </div>
       </nav>
 
-      {/* Keyboard Shortcuts */}
-      <div className="p-4 border-t border-gray-200 text-xs text-gray-400">
-        <p>
-          <kbd className="px-1.5 py-0.5 bg-gray-100 rounded">⌘K</kbd> Search
-        </p>
-        <p className="mt-1">
-          <kbd className="px-1.5 py-0.5 bg-gray-100 rounded">N</kbd> New page
-        </p>
+      {/* Footer with Theme Toggle and Shortcuts */}
+      <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Theme</span>
+          <ThemeToggle variant="dropdown" />
+        </div>
+        <div className="text-xs text-gray-400 dark:text-gray-500">
+          <p>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">⌘K</kbd> Search
+          </p>
+          <p className="mt-1">
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">N</kbd> New page
+          </p>
+        </div>
       </div>
     </aside>
   );

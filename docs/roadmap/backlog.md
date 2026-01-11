@@ -2,7 +2,7 @@
 
 > Known issues, planned enhancements, and feature requests
 
-**Last Updated:** January 9, 2026
+**Last Updated:** January 10, 2026
 
 ---
 
@@ -50,9 +50,13 @@ This backlog provides transparency into:
 | ENH-001 | PARA folder structure for Vault | P1 | Vault | Planned |
 | ENH-002 | Controlled tag taxonomy | P1 | Vault | Planned |
 | ENH-003 | Faceted search API | P1 | Search | Planned |
-| ENH-004 | Advanced task filters | P2 | Tasks | Planned |
+| ENH-019 | Recurring task UI (recurrence picker in QuickAdd) | P1 | Tasks | ✅ Completed |
+| ENH-020 | Subtasks UI (create, display, indent in TaskCard) | P1 | Tasks | Planned |
+| ENH-021 | Task comments/notes (threaded comments on tasks) | P2 | Tasks | Planned |
+| ENH-022 | Task reminders/notifications system | P2 | Tasks | Planned |
+| ENH-004 | Advanced task filters | P2 | Tasks | ✅ Completed |
 | ENH-005 | Project templates | P2 | Tasks | Planned |
-| ENH-006 | Vault entry versioning | P2 | Vault | Planned |
+| ENH-006 | Vault entry versioning | P2 | Vault | ✅ Completed |
 | ENH-007 | Brain dump voice input | P2 | Capture | Planned |
 | ENH-008 | Ceremony customization UI | P3 | Ceremonies | Open |
 | ENH-009 | Dashboard widget customization | P3 | UI | Open |
@@ -60,7 +64,7 @@ This backlog provides transparency into:
 | ENH-011 | Calendar conflict auto-resolution | P3 | Calendar | Open |
 | ENH-012 | Batch task operations | P2 | Tasks | Open |
 | ENH-013 | Task dependencies visualization | P3 | Tasks | Open |
-| ENH-014 | Goal progress tracking | P2 | Goals | Open |
+| ENH-014 | Goal progress tracking UI | P2 | Goals | ✅ Completed |
 | ENH-015 | Weekly review workflow UI | P2 | Ceremonies | Open |
 
 ---
@@ -80,7 +84,7 @@ This backlog provides transparency into:
 | FEAT-009 | Slack integration | P3 | Integration | Under Consideration | - |
 | FEAT-010 | Task delegation/assignment | P3 | Collaboration | Under Consideration | - |
 | FEAT-011 | Natural language date parsing improvements | P2 | Tasks | Open | - |
-| FEAT-012 | Dark mode for all apps | P2 | UI | Open | - |
+| FEAT-012 | Dark mode for all apps | P2 | UI | ✅ Vault Complete | Jan 2026 |
 | FEAT-013 | Export data (JSON/CSV) | P2 | Data | Open | - |
 | FEAT-014 | Import from other task managers | P3 | Data | Open | - |
 | FEAT-015 | Browser extension for quick capture | P3 | Capture | Under Consideration | - |
@@ -98,6 +102,11 @@ Items recently moved from backlog to done.
 
 | ID | Description | Completed | Notes |
 |----|-------------|-----------|-------|
+| ENH-004 | Advanced task filters | Jan 10, 2026 | Task filter bar in entity link menu (All, Today, Inbox, Upcoming, P1, P2) |
+| ENH-006 | Vault entry versioning | Jan 10, 2026 | Version history, restore, prune - full API |
+| ENH-014 | Goal progress tracking UI | Jan 10, 2026 | GoalsView with life area grouping, progress bars |
+| FEAT-012 | Dark mode (Vault) | Jan 10, 2026 | ThemeContext, ThemeToggle, CSS variables |
+| ENH-019 | Recurring task UI | Jan 11, 2026 | Natural language parsing, recurrence picker, instance generation |
 | BUG-001 | Remarkable Integration | Jan 9, 2026 | Full MBA class notes pipeline, OCR, content merging |
 | FEAT-T01 | AI Testing Agent | Jan 7, 2026 | Vision-based QA testing |
 | FEAT-T02 | Job Hunting Agent | Jan 7, 2026 | Full job application pipeline |

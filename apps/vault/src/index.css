@@ -1,12 +1,42 @@
 @import "tailwindcss";
 
+/* Light theme (default) */
 :root {
   --color-primary: #8b5cf6;
   --color-primary-dark: #7c3aed;
+  --color-bg: #f9fafb;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f3f4f6;
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
+}
+
+/* Dark theme */
+.dark {
+  --color-primary: #a78bfa;
+  --color-primary-dark: #8b5cf6;
+  --color-bg: #111827;
+  --color-bg-secondary: #1f2937;
+  --color-bg-tertiary: #374151;
+  --color-text: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-muted: #9ca3af;
+  --color-border: #374151;
+  --color-border-light: #4b5563;
 }
 
 body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  @apply antialiased transition-colors duration-200;
+}
+
+/* Dark mode utility classes */
+.dark body {
+  @apply bg-gray-900 text-gray-100;
 }
 
 /* Custom scrollbar */
@@ -19,10 +49,88 @@ body {
   @apply bg-gray-100;
 }
 
+.dark ::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
 ::-webkit-scrollbar-thumb {
   @apply bg-gray-300 rounded-full;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-400;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+/* Dark mode for common UI elements */
+.dark .bg-white {
+  background-color: #111827;
+}
+
+/* Editor dark mode overrides */
+.dark .prose {
+  color: #f3f4f6;
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4 {
+  color: #f9fafb;
+}
+
+.dark .prose p {
+  color: #e5e7eb;
+}
+
+.dark .prose a {
+  color: #60a5fa;
+}
+
+.dark .prose strong {
+  color: #f9fafb;
+}
+
+.dark .prose code {
+  color: #e5e7eb;
+  background-color: #374151;
+}
+
+.dark .prose pre {
+  background-color: #1f2937;
+}
+
+.dark .prose blockquote {
+  color: #d1d5db;
+  border-left-color: #4b5563;
+}
+
+.dark .prose hr {
+  border-color: #374151;
+}
+
+.dark .prose li::marker {
+  color: #9ca3af;
+}
+
+/* Form inputs dark mode */
+.dark input[type="text"],
+.dark input[type="url"],
+.dark input[type="email"],
+.dark input[type="search"],
+.dark textarea {
+  @apply bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500;
+}
+
+.dark input[type="text"]:focus,
+.dark input[type="url"]:focus,
+.dark textarea:focus {
+  @apply border-purple-500 ring-purple-500;
 }

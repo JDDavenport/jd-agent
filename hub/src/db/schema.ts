@@ -860,6 +860,36 @@ export const vaultConnections = pgTable(
 );
 
 // ============================================
+// VAULT ENTRY VERSIONS (Content versioning)
+// ============================================
+
+export const vaultEntryVersions = pgTable(
+  'vault_entry_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entryId: uuid('entry_id')
+      .references(() => vaultEntries.id, { onDelete: 'cascade' })
+      .notNull(),
+    versionNumber: integer('version_number').notNull(),
+
+    // Versioned content snapshot
+    title: text('title').notNull(),
+    content: text('content'),
+    tags: text('tags').array(),
+    category: text('category'),
+
+    // Metadata
+    changeDescription: text('change_description'), // Optional description of what changed
+    changedBy: text('changed_by').default('user'), // 'user', 'agent', 'system', 'auto'
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('vault_entry_versions_entry_idx').on(table.entryId),
+    index('vault_entry_versions_version_idx').on(table.entryId, table.versionNumber),
+  ]
+);
+
+// ============================================
 // TASK COMMENTS (Collaboration)
 // ============================================
 
@@ -1874,3 +1904,64 @@ export const remarkableSyncState = pgTable('remarkable_sync_state', {
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ============================================
+// TEST SESSIONS (Parallel AI Testing)
+// ============================================
+// Tracks AI-powered test sessions for parallel execution.
+// Each session runs a TestingAgent with isolated browser and screenshot storage.
+
+export const testSessions = pgTable(
+  'test_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Status tracking
+    status: text('status').default('pending').notNull(),
+    // 'pending', 'running', 'completed', 'failed', 'cancelled'
+
+    // Configuration (stored as JSON)
+    config: jsonb('config').notNull(), // Full TestingConfig object
+    baseUrl: text('base_url').notNull(),
+    apiBaseUrl: text('api_base_url').notNull(),
+    testScope: text('test_scope').notNull(), // 'full', 'smoke', 'specific'
+    specificPages: text('specific_pages').array(),
+    maxIterations: integer('max_iterations').default(50),
+    headless: boolean('headless').default(true),
+
+    // Progress tracking
+    progress: jsonb('progress'), // {currentIteration, maxIterations, currentPage, ...}
+    currentIteration: integer('current_iteration').default(0),
+
+    // Results (populated on completion)
+    result: jsonb('result'), // Full TestResult object
+    passed: integer('passed'),
+    failed: integer('failed'),
+    warnings: integer('warnings'),
+    totalFindings: integer('total_findings'),
+    summary: text('summary'),
+    recommendations: text('recommendations').array(),
+
+    // Screenshot storage (isolated per session)
+    screenshotDir: text('screenshot_dir').notNull(),
+    screenshotPaths: text('screenshot_paths').array(),
+
+    // Error tracking
+    errorMessage: text('error_message'),
+    errorStack: text('error_stack'),
+
+    // Job tracking (BullMQ)
+    jobId: text('job_id'),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    durationMs: integer('duration_ms'),
+  },
+  (table) => [
+    index('test_sessions_status_idx').on(table.status),
+    index('test_sessions_created_idx').on(table.createdAt),
+    index('test_sessions_job_idx').on(table.jobId),
+  ]
+);
