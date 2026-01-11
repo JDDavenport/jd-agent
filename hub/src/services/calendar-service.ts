@@ -136,31 +136,43 @@ export class CalendarService {
 
   /**
    * List events with optional filters
+   * If no date range is provided, defaults to current date + 30 days
    */
   async list(filters: EventFilters = {}): Promise<CalendarEventRecord[]> {
+    // Default to current date range if no dates provided
+    const effectiveFilters = { ...filters };
+    if (!effectiveFilters.startDate && !effectiveFilters.endDate) {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      effectiveFilters.startDate = now;
+      const future = new Date(now);
+      future.setDate(future.getDate() + 30);
+      effectiveFilters.endDate = future;
+    }
+
     console.log('[CalendarService] list() called with filters:', JSON.stringify({
-      startDate: filters.startDate?.toISOString(),
-      endDate: filters.endDate?.toISOString(),
-      eventType: filters.eventType,
-      context: filters.context,
+      startDate: effectiveFilters.startDate?.toISOString(),
+      endDate: effectiveFilters.endDate?.toISOString(),
+      eventType: effectiveFilters.eventType,
+      context: effectiveFilters.context,
     }));
 
     const conditions = [];
 
-    if (filters.startDate) {
-      conditions.push(gte(calendarEvents.startTime, filters.startDate));
+    if (effectiveFilters.startDate) {
+      conditions.push(gte(calendarEvents.startTime, effectiveFilters.startDate));
     }
 
-    if (filters.endDate) {
-      conditions.push(lte(calendarEvents.startTime, filters.endDate));
+    if (effectiveFilters.endDate) {
+      conditions.push(lte(calendarEvents.startTime, effectiveFilters.endDate));
     }
 
-    if (filters.eventType) {
-      conditions.push(eq(calendarEvents.eventType, filters.eventType));
+    if (effectiveFilters.eventType) {
+      conditions.push(eq(calendarEvents.eventType, effectiveFilters.eventType));
     }
 
-    if (filters.context) {
-      conditions.push(eq(calendarEvents.context, filters.context));
+    if (effectiveFilters.context) {
+      conditions.push(eq(calendarEvents.context, effectiveFilters.context));
     }
 
     console.log('[CalendarService] Executing query with', conditions.length, 'conditions');
