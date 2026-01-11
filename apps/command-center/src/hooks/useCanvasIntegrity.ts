@@ -1,6 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-const API_BASE = '/api/canvas-integrity';
+// Get API URL from environment or use relative path for same-origin
+const getApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    const baseUrl = import.meta.env.VITE_API_URL;
+    if (baseUrl.endsWith('/api')) {
+      return baseUrl;
+    }
+    return baseUrl.replace(/\/$/, '') + '/api';
+  }
+  return '/api';
+};
+
+const API_BASE = `${getApiBaseUrl()}/canvas-integrity`;
 
 // Types
 interface CanvasItem {
@@ -76,12 +88,40 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 // Hooks
+interface ApiStatusResponse {
+  items: {
+    total: string;
+    synced: string;
+    pending: string;
+    mismatch: string;
+    orphaned: string;
+  };
+  syncPercentage: number;
+  integrityScore: number | null;
+  lastAuditAt: string | null;
+  lastAuditStatus: string | null;
+  unscheduledCount: number;
+  activeCourses: number;
+}
+
 export function useCanvasStatus() {
   return useQuery({
     queryKey: ['canvas-integrity', 'status'],
     queryFn: async () => {
-      const data = await fetchJson<{ success: boolean; data: IntegrityStatus }>(`${API_BASE}/status`);
-      return data.data;
+      const data = await fetchJson<{ success: boolean; data: ApiStatusResponse }>(`${API_BASE}/status`);
+      const apiData = data.data;
+      // Transform API response to match UI interface
+      return {
+        totalItems: parseInt(apiData.items.total) || 0,
+        syncedItems: parseInt(apiData.items.synced) || 0,
+        pendingItems: parseInt(apiData.items.pending) || 0,
+        mismatchItems: parseInt(apiData.items.mismatch) || 0,
+        orphanedItems: parseInt(apiData.items.orphaned) || 0,
+        lastAuditAt: apiData.lastAuditAt,
+        lastAuditType: apiData.lastAuditStatus,
+        upcomingAssignments: apiData.unscheduledCount || 0,
+        overdueAssignments: 0,
+      } as IntegrityStatus;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
