@@ -63,9 +63,15 @@ const listFiltersSchema = z.object({
  * List calendar events with optional filters
  */
 const listEventsHandler = async (c: any) => {
+  console.log('[Calendar] List handler called');
   try {
-    const query = c.req.query();
-    console.log('[Calendar] List request query:', JSON.stringify(query));
+    let query: Record<string, string> = {};
+    try {
+      query = c.req.query() || {};
+      console.log('[Calendar] List request query:', JSON.stringify(query));
+    } catch (queryError) {
+      console.error('[Calendar] Error getting query params:', queryError);
+    }
 
     const parseResult = listFiltersSchema.safeParse(query);
 
@@ -80,14 +86,16 @@ const listEventsHandler = async (c: any) => {
       }, 400);
     }
 
+    const filters = parseResult.data;
     console.log('[Calendar] Parsed filters:', JSON.stringify({
-      startDate: parseResult.data.startDate?.toISOString(),
-      endDate: parseResult.data.endDate?.toISOString(),
-      eventType: parseResult.data.eventType,
-      context: parseResult.data.context,
+      startDate: filters.startDate?.toISOString?.() || filters.startDate,
+      endDate: filters.endDate?.toISOString?.() || filters.endDate,
+      eventType: filters.eventType,
+      context: filters.context,
     }));
 
-    const events = await calendarService.list(parseResult.data);
+    console.log('[Calendar] Calling calendarService.list()');
+    const events = await calendarService.list(filters);
     console.log('[Calendar] Found', events.length, 'events');
 
     return c.json({
@@ -97,6 +105,7 @@ const listEventsHandler = async (c: any) => {
     });
   } catch (error) {
     console.error('[Calendar] List events error:', error);
+    console.error('[Calendar] Error stack:', error instanceof Error ? error.stack : 'no stack');
     return c.json({
       success: false,
       error: {
