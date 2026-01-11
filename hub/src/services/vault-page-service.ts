@@ -7,7 +7,19 @@ import type {
   VaultPageBreadcrumb,
   CreateVaultPageInput,
   UpdateVaultPageInput,
+  PARAType,
 } from '@jd-agent/types';
+
+// ============================================
+// PARA Folder Configuration
+// ============================================
+
+export const PARA_FOLDERS: Array<{ type: PARAType; title: string; icon: string; description: string }> = [
+  { type: 'projects', title: 'Projects', icon: '📁', description: 'Active projects with deadlines and goals' },
+  { type: 'areas', title: 'Areas', icon: '🏠', description: 'Ongoing areas of responsibility' },
+  { type: 'resources', title: 'Resources', icon: '📚', description: 'Reference materials and information' },
+  { type: 'archive', title: 'Archive', icon: '📦', description: 'Inactive items for future reference' },
+];
 
 // ============================================
 // Types
@@ -171,14 +183,19 @@ export class VaultPageService {
    * Delete a vault page (also deletes all blocks via cascade)
    */
   async delete(id: string): Promise<boolean> {
-    // Move children to parent of deleted page
+    // Check if page exists and if it's a system page
     const [page] = await db
-      .select({ parentId: vaultPages.parentId })
+      .select({ parentId: vaultPages.parentId, isSystem: vaultPages.isSystem })
       .from(vaultPages)
       .where(eq(vaultPages.id, id))
       .limit(1);
 
     if (!page) return false;
+
+    // Prevent deleting system pages (PARA root folders)
+    if (page.isSystem) {
+      throw new Error('Cannot delete system page (PARA folder)');
+    }
 
     // Update children's parentId
     await db
@@ -215,6 +232,8 @@ export class VaultPageService {
         icon: vaultPages.icon,
         parentId: vaultPages.parentId,
         isFavorite: vaultPages.isFavorite,
+        paraType: vaultPages.paraType,
+        isSystem: vaultPages.isSystem,
         sortOrder: vaultPages.sortOrder,
         createdAt: vaultPages.createdAt,
         updatedAt: vaultPages.updatedAt,
@@ -235,6 +254,8 @@ export class VaultPageService {
         icon: page.icon,
         parentId: page.parentId,
         isFavorite: page.isFavorite,
+        paraType: page.paraType as PARAType | null,
+        isSystem: page.isSystem,
         children: [],
         createdAt: page.createdAt.toISOString(),
         updatedAt: page.updatedAt.toISOString(),
@@ -382,6 +403,129 @@ export class VaultPageService {
   }
 
   // ============================================
+  // PARA Folder Methods
+  // ============================================
+
+  /**
+   * Initialize PARA root folders if they don't exist
+   */
+  async initializePARA(): Promise<{ created: number; existing: number }> {
+    let created = 0;
+    let existing = 0;
+
+    for (let i = 0; i < PARA_FOLDERS.length; i++) {
+      const folder = PARA_FOLDERS[i];
+
+      // Check if PARA folder already exists
+      const [existingFolder] = await db
+        .select()
+        .from(vaultPages)
+        .where(
+          and(
+            eq(vaultPages.paraType, folder.type),
+            eq(vaultPages.isSystem, true),
+            isNull(vaultPages.parentId)
+          )
+        )
+        .limit(1);
+
+      if (existingFolder) {
+        existing++;
+        continue;
+      }
+
+      // Create the PARA folder
+      await db.insert(vaultPages).values({
+        title: folder.title,
+        icon: folder.icon,
+        paraType: folder.type,
+        isSystem: true,
+        sortOrder: i,
+        parentId: null,
+      });
+      created++;
+    }
+
+    return { created, existing };
+  }
+
+  /**
+   * Get PARA root folders
+   */
+  async getPARAFolders(): Promise<VaultPage[]> {
+    const folders = await db
+      .select()
+      .from(vaultPages)
+      .where(
+        and(
+          eq(vaultPages.isSystem, true),
+          isNull(vaultPages.parentId)
+        )
+      )
+      .orderBy(asc(vaultPages.sortOrder));
+
+    return folders.map(p => this.formatPage(p));
+  }
+
+  /**
+   * Get pages by PARA type (including nested pages)
+   */
+  async listByPARAType(paraType: PARAType): Promise<VaultPage[]> {
+    // First get the PARA root folder
+    const [rootFolder] = await db
+      .select()
+      .from(vaultPages)
+      .where(
+        and(
+          eq(vaultPages.paraType, paraType),
+          eq(vaultPages.isSystem, true),
+          isNull(vaultPages.parentId)
+        )
+      )
+      .limit(1);
+
+    if (!rootFolder) return [];
+
+    // Get all direct children of this PARA folder
+    const pages = await db
+      .select()
+      .from(vaultPages)
+      .where(
+        and(
+          eq(vaultPages.parentId, rootFolder.id),
+          eq(vaultPages.isArchived, false)
+        )
+      )
+      .orderBy(asc(vaultPages.sortOrder), desc(vaultPages.updatedAt));
+
+    return pages.map(p => this.formatPage(p));
+  }
+
+  /**
+   * Move a page to a PARA folder
+   */
+  async moveToPARA(pageId: string, paraType: PARAType): Promise<VaultPage | null> {
+    // Get the PARA root folder
+    const [rootFolder] = await db
+      .select({ id: vaultPages.id })
+      .from(vaultPages)
+      .where(
+        and(
+          eq(vaultPages.paraType, paraType),
+          eq(vaultPages.isSystem, true),
+          isNull(vaultPages.parentId)
+        )
+      )
+      .limit(1);
+
+    if (!rootFolder) {
+      throw new Error(`PARA folder "${paraType}" not initialized`);
+    }
+
+    return this.update(pageId, { parentId: rootFolder.id });
+  }
+
+  // ============================================
   // Helpers
   // ============================================
 
@@ -395,6 +539,8 @@ export class VaultPageService {
       isFavorite: page.isFavorite,
       isArchived: page.isArchived,
       sortOrder: page.sortOrder,
+      paraType: page.paraType as PARAType | null,
+      isSystem: page.isSystem,
       legacyEntryId: page.legacyEntryId,
       createdAt: page.createdAt.toISOString(),
       updatedAt: page.updatedAt.toISOString(),

@@ -43,6 +43,13 @@
       "when": 1768146075982,
       "tag": "0005_worthless_sumo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768147090438,
+      "tag": "0006_blushing_oracle",
+      "breakpoints": true
     }
   ]
 }

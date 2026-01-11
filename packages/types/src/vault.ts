@@ -78,6 +78,8 @@ export interface VaultSearchParams {
 // VAULT PAGES (Notion-like block-based pages)
 // ============================================
 
+export type PARAType = 'projects' | 'areas' | 'resources' | 'archive';
+
 export interface VaultPage {
   id: string;
   parentId?: string | null;
@@ -87,6 +89,8 @@ export interface VaultPage {
   isFavorite: boolean;
   isArchived: boolean;
   sortOrder: number;
+  paraType?: PARAType | null;
+  isSystem?: boolean;
   legacyEntryId?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -99,6 +103,8 @@ export interface VaultPageTreeNode {
   icon?: string | null;
   parentId: string | null;
   isFavorite: boolean;
+  paraType?: PARAType | null;
+  isSystem?: boolean;
   children: VaultPageTreeNode[];
   createdAt: string;
   updatedAt: string;
@@ -115,6 +121,7 @@ export interface CreateVaultPageInput {
   parentId?: string | null;
   icon?: string | null;
   coverImage?: string | null;
+  paraType?: PARAType | null;
 }
 
 export interface UpdateVaultPageInput {

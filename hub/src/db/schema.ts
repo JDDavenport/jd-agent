@@ -561,6 +561,10 @@ export const vaultPages = pgTable(
     isArchived: boolean('is_archived').default(false).notNull(),
     sortOrder: integer('sort_order').default(0).notNull(),
 
+    // PARA folder structure
+    paraType: text('para_type'), // 'projects' | 'areas' | 'resources' | 'archive' | null
+    isSystem: boolean('is_system').default(false).notNull(), // Protects PARA root folders
+
     // Legacy link (optional - for migration from vault_entries)
     legacyEntryId: uuid('legacy_entry_id').references(() => vaultEntries.id),
 
@@ -574,6 +578,7 @@ export const vaultPages = pgTable(
     index('vault_pages_favorite_idx').on(table.isFavorite),
     index('vault_pages_archived_idx').on(table.isArchived),
     index('vault_pages_sort_idx').on(table.sortOrder),
+    index('vault_pages_para_type_idx').on(table.paraType),
   ]
 );
 
