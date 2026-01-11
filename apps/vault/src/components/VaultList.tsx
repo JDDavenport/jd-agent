@@ -1,5 +1,5 @@
 import { VaultCard } from './VaultCard';
-import type { VaultEntry } from '@jd-agent/types';
+import type { VaultEntry } from '../api';
 
 interface VaultListProps {
   entries: VaultEntry[];

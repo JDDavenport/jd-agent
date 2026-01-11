@@ -9,7 +9,7 @@ import { CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { TaskCard } from '../components/TaskCard';
 import { InlineAddTask } from '../components/InlineAddTask';
 import { useTasks, useCompleteTask } from '../hooks/useTasks';
-import type { Task } from '@jd-agent/types';
+import type { Task } from '../api';
 
 interface DayGroup {
   date: Date;

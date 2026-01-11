@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
-import type { CreateTaskInput, UpdateTaskInput, TaskFilters } from '@jd-agent/types';
+import type { CreateTaskInput, UpdateTaskInput, TaskFilters } from '../api';
 
 export function useTasks(filters?: TaskFilters) {
   return useQuery({

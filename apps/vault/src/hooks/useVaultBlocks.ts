@@ -5,7 +5,7 @@ import type {
   UpdateVaultBlockInput,
   MoveVaultBlockInput,
   BatchBlockOperation,
-} from '@jd-agent/types';
+} from '../api';
 import { vaultPageKeys } from './useVaultPages';
 
 // Query keys

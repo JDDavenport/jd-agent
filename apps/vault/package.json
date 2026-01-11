@@ -16,8 +16,6 @@
     "@floating-ui/react": "^0.27.16",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
-    "@jd-agent/api-client": "file:../../packages/api-client",
-    "@jd-agent/types": "file:../../packages/types",
     "@tanstack/react-query": "^5.90.16",
     "@tiptap/core": "^3.15.3",
     "@tiptap/extension-code-block-lowlight": "^3.15.3",

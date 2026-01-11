@@ -3,7 +3,7 @@ import { api } from '../api';
 import type {
   CreateVaultPageInput,
   UpdateVaultPageInput,
-} from '@jd-agent/types';
+} from '../api';
 
 // Query keys
 export const vaultPageKeys = {

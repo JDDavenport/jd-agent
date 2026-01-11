@@ -1,5 +1,5 @@
 import { TaskCard } from './TaskCard';
-import type { Task } from '@jd-agent/types';
+import type { Task } from '../api';
 
 interface TaskListProps {
   tasks: Task[];

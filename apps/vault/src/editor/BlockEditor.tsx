@@ -10,7 +10,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { useCallback, useEffect, useRef } from 'react';
 import { SlashMenu } from './SlashMenu';
-import type { VaultBlock } from '@jd-agent/types';
+import type { VaultBlock } from '../api';
 import './editor.css';
 
 // Create lowlight instance with common languages

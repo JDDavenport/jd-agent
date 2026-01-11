@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { useCreateTask } from '../hooks/useTasks';
-import type { TaskStatus } from '@jd-agent/types';
+import type { TaskStatus } from '../api';
 
 interface InlineAddTaskProps {
   context?: string;

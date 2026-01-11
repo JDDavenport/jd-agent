@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
-import type { Task } from '@jd-agent/types';
+import type { Task } from '../api';
 
 interface DraggableTaskListProps {
   tasks: Task[];

@@ -8,7 +8,7 @@ import {
   InboxIcon,
   StarIcon,
 } from '@heroicons/react/24/outline';
-import type { VaultEntry } from '@jd-agent/types';
+import type { VaultEntry } from '../api';
 
 interface SearchViewProps {
   recentEntries?: VaultEntry[];
