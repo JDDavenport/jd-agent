@@ -11,6 +11,7 @@ import {
   FileText,
   Zap,
 } from 'lucide-react';
+import { config } from '@/lib/config';
 
 const features = [
   {
@@ -80,7 +81,7 @@ export default function HomePage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
-              href="http://localhost:5173"
+              href={config.appUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-6 py-3 border border-border rounded-lg font-medium hover:bg-muted transition-colors"
@@ -197,7 +198,7 @@ export default function HomePage() {
               Changelog
             </Link>
             <a
-              href="http://localhost:5173"
+              href={config.appUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"

@@ -18,6 +18,7 @@ import {
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { SearchModal } from '@/components/search/SearchModal';
 import clsx from 'clsx';
+import { config } from '@/lib/config';
 
 const navItems = [
   { href: '/docs', label: 'Docs', icon: BookOpen },
@@ -110,7 +111,7 @@ export function TopNav() {
 
             {/* Go to App button */}
             <a
-              href="http://localhost:5173"
+              href={config.appUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden md:flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
@@ -159,7 +160,7 @@ export function TopNav() {
                 );
               })}
               <a
-                href="http://localhost:5173"
+                href={config.appUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary"
