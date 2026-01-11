@@ -3,6 +3,16 @@ import { healthApi, type PersonalHealthData } from '../api/health';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
+// Get the API base URL for OAuth redirects (needs full URL, not relative)
+const getApiOrigin = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    // VITE_API_URL is the hub URL without /api suffix
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  }
+  // In development, API is on same origin
+  return '';
+};
+
 function PersonalHealth() {
   const { data: healthData, isLoading, error, refetch } = useQuery<PersonalHealthData>({
     queryKey: ['personal-health'],
@@ -84,7 +94,7 @@ function PersonalHealth() {
               {healthData?.message || 'Connect your Whoop account to view your personal health metrics.'}
             </p>
             <a
-              href={healthData?.authorizeUrl || '/api/whoop/authorize'}
+              href={`${getApiOrigin()}${healthData?.authorizeUrl || '/api/whoop/authorize'}`}
               className="inline-flex items-center justify-center px-6 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-lg transition-colors no-underline"
             >
               🔗 Connect Whoop
