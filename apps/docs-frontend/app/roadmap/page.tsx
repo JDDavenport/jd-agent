@@ -1,4 +1,4 @@
-import { getRoadmapData, getBacklog } from '@/lib/docs';
+import { getRoadmapData, getBacklog, getRoadmapLastUpdated } from '@/lib/docs';
 import { RoadmapBoard } from '@/components/roadmap/RoadmapBoard';
 import { BacklogSection } from '@/components/roadmap/BacklogSection';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ export const metadata = {
 export default function RoadmapPage() {
   const roadmapData = getRoadmapData();
   const backlog = getBacklog();
+  const lastUpdated = getRoadmapLastUpdated();
 
   return (
     <div className="min-h-screen">
@@ -100,7 +101,7 @@ export default function RoadmapPage() {
 
       {/* Last Updated */}
       <div className="container max-w-7xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground border-t border-border">
-        Last updated: January 8, 2026
+        Last updated: {lastUpdated}
       </div>
     </div>
   );

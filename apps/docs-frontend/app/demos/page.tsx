@@ -36,7 +36,7 @@ const demos = [
     title: 'Calendar Integration',
     description: 'See how calendar sync and time blocking work together.',
     duration: '3 min',
-    status: 'coming-soon',
+    status: 'available',
     href: '/docs/features/calendar',
   },
 ];

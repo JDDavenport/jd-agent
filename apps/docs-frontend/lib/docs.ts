@@ -302,6 +302,18 @@ export interface RoadmapColumn {
   items: RoadmapItem[];
 }
 
+export function getRoadmapLastUpdated(): string {
+  const roadmapPath = path.join(DOCS_PATH, 'roadmap/index.md');
+
+  if (!fs.existsSync(roadmapPath)) {
+    return 'Unknown';
+  }
+
+  const content = fs.readFileSync(roadmapPath, 'utf8');
+  const match = content.match(/\*\*Last Updated:\*\*\s*([^\n|]+)/);
+  return match ? match[1].trim() : 'Unknown';
+}
+
 export function getRoadmapData(): RoadmapColumn[] {
   const roadmapPath = path.join(DOCS_PATH, 'roadmap/index.md');
 
