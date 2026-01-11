@@ -100,6 +100,21 @@ export const contexts = pgTable('contexts', {
 });
 
 // ============================================
+// TAG CATEGORIES (Grouping for controlled taxonomy)
+// ============================================
+
+export const tagCategories = pgTable('tag_categories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(), // 'status', 'type', 'context', 'priority', 'area', 'project'
+  description: text('description'),
+  color: text('color').default('#808080'),
+  icon: text('icon'), // emoji or icon name
+  sortOrder: integer('sort_order').default(0).notNull(),
+  isSystem: boolean('is_system').default(false).notNull(), // System categories can't be deleted
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ============================================
 // LABELS (Todoist-style tags for cross-cutting concerns)
 // ============================================
 
@@ -110,6 +125,13 @@ export const labels = pgTable('labels', {
   isFavorite: boolean('is_favorite').default(false).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+
+  // Controlled taxonomy fields
+  categoryId: uuid('category_id').references(() => tagCategories.id, { onDelete: 'set null' }),
+  description: text('description'),
+  aliases: text('aliases').array(), // Alternative names for auto-suggestion
+  isSystem: boolean('is_system').default(false).notNull(), // System tags can't be deleted
+  usageCount: integer('usage_count').default(0).notNull(), // Track popularity
 });
 
 // ============================================
@@ -1904,6 +1926,264 @@ export const remarkableSyncState = pgTable('remarkable_sync_state', {
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ============================================
+// FINANCE - PLAID ACCOUNTS (Connected bank/credit accounts)
+// ============================================
+
+export const plaidAccounts = pgTable(
+  'plaid_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Plaid identifiers
+    itemId: text('item_id').notNull(), // Plaid item ID (one per institution link)
+    accountId: text('account_id').notNull().unique(), // Plaid account ID (unique per account)
+    institutionId: text('institution_id'),
+    institutionName: text('institution_name').notNull(),
+
+    // Encrypted credentials (AES-256-GCM)
+    accessTokenEncrypted: text('access_token_encrypted').notNull(),
+    accessTokenIv: text('access_token_iv').notNull(),
+
+    // Account info
+    accountMask: text('account_mask'), // Last 4 digits
+    accountName: text('account_name'),
+    accountType: text('account_type'), // 'credit', 'depository', 'loan', 'investment'
+    accountSubtype: text('account_subtype'), // 'credit card', 'checking', 'savings'
+
+    // Current balance (stored as cents/integer)
+    currentBalanceCents: integer('current_balance_cents'),
+    availableBalanceCents: integer('available_balance_cents'),
+    limitCents: integer('limit_cents'), // For credit cards
+    isoCurrencyCode: text('iso_currency_code').default('USD'),
+
+    // Sync state
+    lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
+    lastSyncCursor: text('last_sync_cursor'), // For Plaid transactions sync
+    syncStatus: text('sync_status').default('active'), // 'active', 'error', 'disconnected'
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+
+    // User preferences
+    isHidden: boolean('is_hidden').default(false),
+    displayName: text('display_name'), // User-set name
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('plaid_accounts_item_idx').on(table.itemId),
+    index('plaid_accounts_status_idx').on(table.syncStatus),
+  ]
+);
+
+// ============================================
+// FINANCE - TRANSACTIONS (Individual financial transactions)
+// ============================================
+
+export const financeTransactions = pgTable(
+  'finance_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    plaidAccountId: uuid('plaid_account_id')
+      .references(() => plaidAccounts.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Plaid identifiers
+    plaidTransactionId: text('plaid_transaction_id').unique(),
+
+    // Transaction details
+    amountCents: integer('amount_cents').notNull(), // Positive = expense, negative = income/refund
+    isoCurrencyCode: text('iso_currency_code').default('USD'),
+    date: date('date').notNull(),
+    datetime: timestamp('datetime', { withTimezone: true }),
+
+    // Merchant info
+    merchantName: text('merchant_name'),
+    merchantEntityId: text('merchant_entity_id'), // Plaid merchant ID
+    name: text('name').notNull(), // Transaction description
+
+    // Categorization
+    plaidCategory: text('plaid_category').array(), // Plaid's categories
+    plaidCategoryId: text('plaid_category_id'),
+    category: text('category'), // Our normalized category
+    subcategory: text('subcategory'),
+    aiCategorized: boolean('ai_categorized').default(false),
+
+    // Status
+    pending: boolean('pending').default(false),
+
+    // Location (optional)
+    location: jsonb('location'), // { address, city, region, postalCode, country, lat, lon }
+
+    // Payment info
+    paymentChannel: text('payment_channel'), // 'online', 'in_store', 'other'
+    paymentMeta: jsonb('payment_meta'),
+
+    // User overrides
+    userCategory: text('user_category'), // Manual override
+    userNote: text('user_note'),
+    isExcluded: boolean('is_excluded').default(false), // Exclude from reports
+
+    // Vault integration (receipts)
+    receiptVaultPageId: uuid('receipt_vault_page_id').references(() => vaultPages.id, {
+      onDelete: 'set null',
+    }),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('finance_transactions_account_idx').on(table.plaidAccountId),
+    index('finance_transactions_date_idx').on(table.date),
+    index('finance_transactions_category_idx').on(table.category),
+    index('finance_transactions_plaid_id_idx').on(table.plaidTransactionId),
+    index('finance_transactions_pending_idx').on(table.pending),
+  ]
+);
+
+// ============================================
+// FINANCE - BUDGETS (Monthly/category spending limits)
+// ============================================
+
+export const financeBudgets = pgTable(
+  'finance_budgets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Budget definition
+    name: text('name').notNull(),
+    category: text('category').notNull(), // Category to track
+
+    // Amount (stored as cents)
+    amountCents: integer('amount_cents').notNull(), // Monthly budget limit
+
+    // Period
+    periodType: text('period_type').default('monthly'), // 'weekly', 'monthly', 'yearly'
+    startDate: date('start_date'),
+    endDate: date('end_date'), // null = ongoing
+
+    // Rollover
+    rolloverEnabled: boolean('rollover_enabled').default(false),
+    rolloverAmountCents: integer('rollover_amount_cents').default(0),
+
+    // Alerts
+    alertThreshold: integer('alert_threshold').default(80), // Percentage to alert (0-100)
+    alertsEnabled: boolean('alerts_enabled').default(true),
+
+    // Status
+    isActive: boolean('is_active').default(true),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('finance_budgets_category_idx').on(table.category),
+    index('finance_budgets_active_idx').on(table.isActive),
+  ]
+);
+
+// ============================================
+// FINANCE - INSIGHTS (AI-generated analysis)
+// ============================================
+
+export const financeInsights = pgTable(
+  'finance_insights',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Insight type
+    insightType: text('insight_type').notNull(),
+    // 'spending_spike', 'unusual_transaction', 'budget_warning',
+    // 'savings_opportunity', 'recurring_detected', 'payment_reminder'
+
+    category: text('category'), // Related category
+
+    // Content
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    severity: text('severity').default('info'), // 'info', 'warning', 'alert'
+
+    // Related data
+    relatedTransactionIds: uuid('related_transaction_ids').array(),
+    data: jsonb('data'), // Additional context
+
+    // Actions
+    actionable: boolean('actionable').default(false),
+    actionType: text('action_type'), // 'create_task', 'adjust_budget', 'review'
+    actionPayload: jsonb('action_payload'),
+
+    // State
+    isDismissed: boolean('is_dismissed').default(false),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+    isActioned: boolean('is_actioned').default(false),
+    actionedAt: timestamp('actioned_at', { withTimezone: true }),
+
+    // Expiry
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('finance_insights_type_idx').on(table.insightType),
+    index('finance_insights_dismissed_idx').on(table.isDismissed),
+    index('finance_insights_expires_idx').on(table.expiresAt),
+  ]
+);
+
+// ============================================
+// FINANCE - RECURRING TRANSACTIONS (Detected subscriptions/bills)
+// ============================================
+
+export const financeRecurring = pgTable(
+  'finance_recurring',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Pattern info
+    merchantName: text('merchant_name').notNull(),
+    category: text('category'),
+
+    // Amount (may vary slightly)
+    averageAmountCents: integer('average_amount_cents').notNull(),
+    lastAmountCents: integer('last_amount_cents'),
+
+    // Frequency
+    frequency: text('frequency').notNull(), // 'weekly', 'biweekly', 'monthly', 'yearly'
+    predictedNextDate: date('predicted_next_date'),
+
+    // History
+    firstOccurrence: date('first_occurrence'),
+    lastOccurrence: date('last_occurrence'),
+    occurrenceCount: integer('occurrence_count').default(0),
+
+    // Related transactions
+    transactionIds: uuid('transaction_ids').array(),
+
+    // User settings
+    isActive: boolean('is_active').default(true),
+    userLabel: text('user_label'), // User-friendly name
+
+    // Task integration (payment reminders)
+    reminderEnabled: boolean('reminder_enabled').default(false),
+    reminderDaysBefore: integer('reminder_days_before').default(3),
+    lastTaskId: uuid('last_task_id').references(() => tasks.id, { onDelete: 'set null' }),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('finance_recurring_merchant_idx').on(table.merchantName),
+    index('finance_recurring_next_date_idx').on(table.predictedNextDate),
+    index('finance_recurring_active_idx').on(table.isActive),
+  ]
+);
 
 // ============================================
 // TEST SESSIONS (Parallel AI Testing)
