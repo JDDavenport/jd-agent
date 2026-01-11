@@ -387,6 +387,147 @@ export class VaultService {
   }
 
   /**
+   * Get facets for filtering
+   * Returns counts for each filter value to enable faceted search UI
+   */
+  async getFacets(filters: VaultFilters = {}): Promise<{
+    contentTypes: Array<{ value: string; count: number }>;
+    contexts: Array<{ value: string; count: number }>;
+    sources: Array<{ value: string; count: number }>;
+    tags: Array<{ value: string; count: number }>;
+    dateRange: { min: Date | null; max: Date | null };
+    total: number;
+  }> {
+    // Build base conditions from filters (for filtered facets)
+    const conditions = [];
+    if (filters.context) {
+      conditions.push(eq(vaultEntries.context, filters.context));
+    }
+    if (filters.contentType) {
+      conditions.push(eq(vaultEntries.contentType, filters.contentType));
+    }
+    if (filters.source) {
+      conditions.push(eq(vaultEntries.source, filters.source));
+    }
+    if (filters.tags && filters.tags.length > 0) {
+      conditions.push(sql`${vaultEntries.tags} && ${filters.tags}`);
+    }
+    if (filters.fromDate) {
+      conditions.push(sql`${vaultEntries.sourceDate} >= ${filters.fromDate}`);
+    }
+    if (filters.toDate) {
+      conditions.push(sql`${vaultEntries.sourceDate} <= ${filters.toDate}`);
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get content type counts
+    const contentTypeCounts = await db
+      .select({
+        value: vaultEntries.contentType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(vaultEntries)
+      .where(whereClause)
+      .groupBy(vaultEntries.contentType)
+      .orderBy(desc(sql`count(*)`));
+
+    // Get context counts
+    const contextCounts = await db
+      .select({
+        value: vaultEntries.context,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(vaultEntries)
+      .where(whereClause)
+      .groupBy(vaultEntries.context)
+      .orderBy(desc(sql`count(*)`));
+
+    // Get source counts
+    const sourceCounts = await db
+      .select({
+        value: vaultEntries.source,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(vaultEntries)
+      .where(whereClause)
+      .groupBy(vaultEntries.source)
+      .orderBy(desc(sql`count(*)`));
+
+    // Get tag counts (unnest array)
+    const tagCounts = await db
+      .select({
+        value: sql<string>`unnest(${vaultEntries.tags})`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(vaultEntries)
+      .where(and(whereClause, sql`${vaultEntries.tags} IS NOT NULL`))
+      .groupBy(sql`unnest(${vaultEntries.tags})`)
+      .orderBy(desc(sql`count(*)`))
+      .limit(50);
+
+    // Get date range
+    const [dateRange] = await db
+      .select({
+        min: sql<Date>`min(${vaultEntries.sourceDate})`,
+        max: sql<Date>`max(${vaultEntries.sourceDate})`,
+      })
+      .from(vaultEntries)
+      .where(whereClause);
+
+    // Get total count
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(vaultEntries)
+      .where(whereClause);
+
+    return {
+      contentTypes: contentTypeCounts.map(r => ({ value: r.value, count: r.count })),
+      contexts: contextCounts.map(r => ({ value: r.value, count: r.count })),
+      sources: sourceCounts.map(r => ({ value: r.value || 'unknown', count: r.count })),
+      tags: tagCounts.map(r => ({ value: r.value, count: r.count })),
+      dateRange: {
+        min: dateRange?.min || null,
+        max: dateRange?.max || null,
+      },
+      total: totalResult?.count || 0,
+    };
+  }
+
+  /**
+   * Faceted search - combines search with facet aggregations
+   */
+  async facetedSearch(
+    query: string,
+    filters: VaultFilters = {},
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{
+    results: VaultEntryWithRecording[];
+    facets: Awaited<ReturnType<typeof this.getFacets>>;
+    pagination: { total: number; limit: number; offset: number };
+  }> {
+    const { limit = 20, offset = 0 } = options;
+
+    // Get filtered results with search
+    const results = query
+      ? await this.search({ query, ...filters, limit })
+      : await this.list({ ...filters, limit, offset });
+
+    // Get facets for the current filter state
+    const facets = await this.getFacets(filters);
+
+    return {
+      results,
+      facets,
+      pagination: {
+        total: facets.total,
+        limit,
+        offset,
+      },
+    };
+  }
+
+  /**
    * Update a vault entry
    */
   async update(id: string, input: UpdateVaultEntryInput): Promise<VaultEntryWithRecording | null> {

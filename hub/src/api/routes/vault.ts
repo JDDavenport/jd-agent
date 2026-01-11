@@ -173,6 +173,60 @@ vaultRouter.get('/search', async (c) => {
 });
 
 /**
+ * GET /api/vault/facets
+ * Get facet counts for filtering UI
+ * Supports filtering to get "filtered facets"
+ */
+vaultRouter.get('/facets', async (c) => {
+  const query = c.req.query();
+  const parseResult = listFiltersSchema.safeParse(query);
+
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.message);
+  }
+
+  const facets = await vaultService.getFacets(parseResult.data);
+
+  return c.json({
+    success: true,
+    data: facets,
+  });
+});
+
+/**
+ * GET /api/vault/faceted-search
+ * Search with facet aggregations for building filter UIs
+ * Returns both results and facet counts
+ */
+vaultRouter.get('/faceted-search', async (c) => {
+  const query = c.req.query();
+
+  // Parse search params
+  const searchQuery = query.q || query.query || '';
+  const limit = query.limit ? parseInt(query.limit, 10) : 20;
+  const offset = query.offset ? parseInt(query.offset, 10) : 0;
+
+  // Parse filters
+  const filterResult = listFiltersSchema.safeParse(query);
+  if (!filterResult.success) {
+    throw new ValidationError(filterResult.error.message);
+  }
+
+  const result = await vaultService.facetedSearch(
+    searchQuery,
+    filterResult.data,
+    { limit, offset }
+  );
+
+  return c.json({
+    success: true,
+    data: result.results,
+    facets: result.facets,
+    pagination: result.pagination,
+  });
+});
+
+/**
  * GET /api/vault/embeddings/stats
  * Get embedding statistics
  */
