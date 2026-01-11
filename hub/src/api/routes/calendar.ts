@@ -63,20 +63,37 @@ const listFiltersSchema = z.object({
  * List calendar events with optional filters
  */
 const listEventsHandler = async (c: any) => {
-  const query = c.req.query();
-  const parseResult = listFiltersSchema.safeParse(query);
+  try {
+    const query = c.req.query();
+    const parseResult = listFiltersSchema.safeParse(query);
 
-  if (!parseResult.success) {
-    throw new ValidationError(parseResult.error.message);
+    if (!parseResult.success) {
+      return c.json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: parseResult.error.message,
+        },
+      }, 400);
+    }
+
+    const events = await calendarService.list(parseResult.data);
+
+    return c.json({
+      success: true,
+      data: events,
+      count: events.length,
+    });
+  } catch (error) {
+    console.error('[Calendar] List events error:', error);
+    return c.json({
+      success: false,
+      error: {
+        code: 'CALENDAR_LIST_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+    }, 500);
   }
-
-  const events = await calendarService.list(parseResult.data);
-
-  return c.json({
-    success: true,
-    data: events,
-    count: events.length,
-  });
 };
 
 calendarRouter.get('/', listEventsHandler);
@@ -87,12 +104,23 @@ calendarRouter.get('/events', listEventsHandler);
  * Get today's events
  */
 calendarRouter.get('/today', async (c) => {
-  const events = await calendarService.getToday();
-  return c.json({
-    success: true,
-    data: events,
-    count: events.length,
-  });
+  try {
+    const events = await calendarService.getToday();
+    return c.json({
+      success: true,
+      data: events,
+      count: events.length,
+    });
+  } catch (error) {
+    console.error('[Calendar] Today events error:', error);
+    return c.json({
+      success: false,
+      error: {
+        code: 'CALENDAR_TODAY_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+    }, 500);
+  }
 });
 
 /**
@@ -139,16 +167,35 @@ calendarRouter.get('/sync', async (c) => {
  * Get Google Calendar integration status
  */
 calendarRouter.get('/status', async (c) => {
-  const googleCalendar = getGoogleCalendar();
-  const counts = await calendarService.getCountsByType();
-  
-  return c.json({
-    success: true,
-    data: {
-      googleConfigured: googleCalendar.isConfigured(),
-      eventCounts: counts,
-    },
-  });
+  try {
+    const googleCalendar = getGoogleCalendar();
+    const isConfigured = googleCalendar.isConfigured();
+
+    let counts: Record<string, number> = {};
+    try {
+      counts = await calendarService.getCountsByType();
+    } catch (countError) {
+      console.error('[Calendar] Error getting counts:', countError);
+      // Return partial response even if counts fail
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        googleConfigured: isConfigured,
+        eventCounts: counts,
+      },
+    });
+  } catch (error) {
+    console.error('[Calendar] Status endpoint error:', error);
+    return c.json({
+      success: false,
+      error: {
+        code: 'CALENDAR_STATUS_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+    }, 500);
+  }
 });
 
 /**
