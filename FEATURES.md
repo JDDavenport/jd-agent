@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
 > **Last Updated:** January 10, 2026
-> **Version:** 0.3.7
+> **Version:** 0.3.8
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -144,9 +144,34 @@ This document is the single source of truth for all current features and capabil
 - Prune old versions (keep last N)
 - API endpoints for version management
 
+**Semantic Search (NEW - Complete):**
+- Voyage AI embeddings for semantic similarity search
+- Automatic embedding generation on entry create/update
+- Query via `GET /api/vault/search?semantic=true`
+- Falls back to full-text search when embeddings unavailable
+- Backfill endpoint for existing entries: `POST /api/vault/embeddings/backfill`
+- Stats endpoint: `GET /api/vault/embeddings/stats`
+
+**Faceted Search API (NEW):**
+- Filter counts for building search UIs
+- Facets: contentTypes, contexts, sources, tags, dateRange
+- Filtered facets (counts update based on applied filters)
+- Combined search + facets with pagination
+- Endpoints:
+  - `GET /api/vault/facets` - Get facet counts
+  - `GET /api/vault/faceted-search` - Search with facets
+
+**Vault Chat (AI Assistant):**
+- Slide-out chat panel for querying vault data
+- Natural language questions about your knowledge base
+- Uses master agent with vault_search and vault_get tools
+- Suggested prompts for quick start
+- Source citations with clickable links
+- Clear history functionality
+- Keyboard shortcuts: Escape to close
+
 **Legacy Vault Features (Still Available):**
 - Full-text search
-- Semantic search with embeddings (Voyage AI) - *Schema ready, wiring in progress*
 - Tagging and categorization
 - Duplicate detection
 - File attachments (S3/R2 storage)
@@ -1323,6 +1348,24 @@ See `CLAUDE.md` for full documentation requirements.
   - Subtasks inherit context and project from parent
   - Independent completion (completing subtasks doesn't auto-complete parent)
   - Files: `task-service.ts`, `tasks.ts`, `TaskCard.tsx`, `SubtaskList.tsx`, `QuickAddTask.tsx`
+
+### January 10, 2026 - P1 Search & Chat Verification
+- **Faceted Search API (ENH-003)**: New search filtering capabilities
+  - `getFacets()` method returns counts for contentTypes, contexts, sources, tags
+  - `facetedSearch()` combines search results with facet aggregations
+  - `GET /api/vault/facets` endpoint for filter UI counts
+  - `GET /api/vault/faceted-search` endpoint with pagination support
+  - Filtered facets update counts based on applied filters
+  - Files: `vault-service.ts`, `vault.ts` (routes)
+- **Semantic Search Pipeline (ENH-018)**: Verified complete
+  - Voyage AI embeddings with automatic generation on create/update
+  - `GET /api/vault/search?semantic=true` for semantic queries
+  - Backfill endpoint for existing entries
+  - Falls back to full-text when embeddings unavailable
+- **Vault Chat Interface (ENH-017)**: Verified complete
+  - VaultChat.tsx slide-out panel for AI queries
+  - Uses master agent with vault tools
+  - Suggested prompts, source citations, clear history
 
 ### January 10, 2026 - Vault App P2 Enhancements
 - **Dark Mode Support (P2-1)**: Complete dark mode implementation for vault app
