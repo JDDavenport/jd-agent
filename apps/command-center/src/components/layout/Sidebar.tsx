@@ -12,17 +12,18 @@ interface ExternalApp {
   icon: React.ReactElement;
 }
 
-// Get app URLs from environment or use localhost defaults
-const getAppUrl = (envVar: string, defaultPort: number): string => {
-  const envValue = import.meta.env[envVar];
-  if (envValue) return envValue;
-  return `http://localhost:${defaultPort}`;
+// App URLs - use environment variables in production, localhost in development
+const APP_URLS = {
+  tasks: import.meta.env.VITE_TASKS_URL || 'http://localhost:5174',
+  vault: import.meta.env.VITE_VAULT_URL || 'http://localhost:5175',
+  jobs: import.meta.env.VITE_JOBS_URL || 'http://localhost:5176',
+  docs: import.meta.env.VITE_DOCS_URL || 'http://localhost:5177',
 };
 
 const externalApps: ExternalApp[] = [
   {
     name: 'Tasks',
-    url: getAppUrl('VITE_TASKS_URL', 5174),
+    url: APP_URLS.tasks,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -36,7 +37,7 @@ const externalApps: ExternalApp[] = [
   },
   {
     name: 'Vault App',
-    url: getAppUrl('VITE_VAULT_URL', 5175),
+    url: APP_URLS.vault,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -50,7 +51,7 @@ const externalApps: ExternalApp[] = [
   },
   {
     name: 'Jobs',
-    url: getAppUrl('VITE_JOBS_URL', 5176),
+    url: APP_URLS.jobs,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -64,7 +65,7 @@ const externalApps: ExternalApp[] = [
   },
   {
     name: 'Docs',
-    url: getAppUrl('VITE_DOCS_URL', 5177),
+    url: APP_URLS.docs,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
