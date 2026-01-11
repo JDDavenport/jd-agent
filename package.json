@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "JD Agent - Personal AI Assistant System",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "hub"
+  ],
   "scripts": {
     "dev": "cd hub && bun run dev",
     "hub": "cd hub && bun run dev",
@@ -10,6 +15,9 @@
     "vault": "cd apps/vault && bun run dev",
     "command-center": "cd apps/command-center && bun run dev",
     "jobs": "cd apps/jobs && bun run dev",
+    "docs": "cd apps/docs-frontend && bun run dev",
+    "docs:sync": "./scripts/sync-docs.sh",
+    "docs:check": "./scripts/sync-docs.sh --check",
     "test": "cd hub && bun run test",
     "verify": "cd hub && bun run verify"
   },
