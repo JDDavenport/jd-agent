@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] - 2026-01-10
+
+### Added
+- Calendar service unit tests (37 tests covering all CRUD operations, conflict detection, alerts)
+- Improved E2E tests for week calendar widget (4 tests with meaningful assertions)
+
+### Changed
+- Updated calendar documentation to accurately reflect current implementation
+- Clarified that calendar is currently a dashboard widget (not standalone page)
+- Removed non-functional keyboard shortcuts from documentation
+- Added API endpoints reference to calendar docs
+
+### Roadmap
+- Added "Calendar Page" to planned features (Month/Week/Day views, event creation modal, keyboard shortcuts)
+
+---
+
 ## [0.3.3] - 2026-01-09
 
 ### Added
