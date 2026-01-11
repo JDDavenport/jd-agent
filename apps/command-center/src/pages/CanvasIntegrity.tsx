@@ -15,7 +15,7 @@ function CanvasIntegrity() {
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'courses' | 'audits'>('overview');
   const [syncFilter, setSyncFilter] = useState<string>('all');
 
-  const { data: status, isLoading: loadingStatus } = useCanvasStatus();
+  const { data: status, isLoading: loadingStatus, isError: statusError, error: statusErrorMsg } = useCanvasStatus();
   const { data: items, isLoading: loadingItems } = useCanvasItems(
     syncFilter !== 'all' ? { syncStatus: syncFilter } : undefined
   );
@@ -48,6 +48,16 @@ function CanvasIntegrity() {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Show error state if status query failed
+  if (statusError) {
+    return (
+      <div className="p-4 bg-red-500/20 border border-red-500 rounded-lg">
+        <h2 className="text-red-400 font-bold">Unable to load Canvas status</h2>
+        <p className="text-red-300">{statusErrorMsg?.message || 'Please check your connection and try again'}</p>
       </div>
     );
   }

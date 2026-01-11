@@ -108,22 +108,23 @@ export function useCanvasStatus() {
   return useQuery({
     queryKey: ['canvas-integrity', 'status'],
     queryFn: async () => {
-      const data = await fetchJson<{ success: boolean; data: ApiStatusResponse }>(`${API_BASE}/status`);
-      const apiData = data.data;
-      // Transform API response to match UI interface
+      const res = await fetch(`${API_BASE}/status`);
+      const json = await res.json();
+      // API returns { success: true, data: { items: {...}, ... } }
+      const apiData = json.data;
       return {
-        totalItems: parseInt(apiData.items.total) || 0,
-        syncedItems: parseInt(apiData.items.synced) || 0,
-        pendingItems: parseInt(apiData.items.pending) || 0,
-        mismatchItems: parseInt(apiData.items.mismatch) || 0,
-        orphanedItems: parseInt(apiData.items.orphaned) || 0,
-        lastAuditAt: apiData.lastAuditAt,
-        lastAuditType: apiData.lastAuditStatus,
-        upcomingAssignments: apiData.unscheduledCount || 0,
+        totalItems: Number(apiData?.items?.total) || 0,
+        syncedItems: Number(apiData?.items?.synced) || 0,
+        pendingItems: Number(apiData?.items?.pending) || 0,
+        mismatchItems: Number(apiData?.items?.mismatch) || 0,
+        orphanedItems: Number(apiData?.items?.orphaned) || 0,
+        lastAuditAt: apiData?.lastAuditAt || null,
+        lastAuditType: apiData?.lastAuditStatus || null,
+        upcomingAssignments: Number(apiData?.unscheduledCount) || 0,
         overdueAssignments: 0,
       } as IntegrityStatus;
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 }
 
