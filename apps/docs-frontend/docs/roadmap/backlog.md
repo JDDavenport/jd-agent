@@ -45,11 +45,11 @@ This backlog provides transparency into:
 | ID | Description | Priority | Category | Status |
 |----|-------------|----------|----------|--------|
 | ENH-016 | Legacy vault_entries migration to vault_pages | P1 | Vault | Planned |
-| ENH-017 | Vault chat interface for querying data | P1 | Vault/AI | Planned |
-| ENH-018 | Complete semantic search pipeline | P1 | Search/AI | Planned |
+| ENH-017 | Vault chat interface for querying data | P1 | Vault/AI | ✅ Completed |
+| ENH-018 | Complete semantic search pipeline | P1 | Search/AI | ✅ Completed |
 | ENH-001 | PARA folder structure for Vault | P1 | Vault | Planned |
 | ENH-002 | Controlled tag taxonomy | P1 | Vault | Planned |
-| ENH-003 | Faceted search API | P1 | Search | Planned |
+| ENH-003 | Faceted search API | P1 | Search | ✅ Completed |
 | ENH-019 | Recurring task UI (recurrence picker in QuickAdd) | P1 | Tasks | ✅ Completed |
 | ENH-020 | Subtasks UI (create, display, indent in TaskCard) | P1 | Tasks | ✅ Completed |
 | ENH-021 | Task comments/notes (threaded comments on tasks) | P2 | Tasks | Planned |
@@ -102,6 +102,9 @@ Items recently moved from backlog to done.
 
 | ID | Description | Completed | Notes |
 |----|-------------|-----------|-------|
+| ENH-003 | Faceted search API | Jan 10, 2026 | getFacets(), facetedSearch(), /facets and /faceted-search endpoints |
+| ENH-017 | Vault chat interface | Jan 10, 2026 | VaultChat.tsx + chat.ts API (pre-existing, verified) |
+| ENH-018 | Semantic search pipeline | Jan 10, 2026 | Full pipeline with embeddings (pre-existing, verified) |
 | ENH-004 | Advanced task filters | Jan 10, 2026 | Task filter bar in entity link menu (All, Today, Inbox, Upcoming, P1, P2) |
 | ENH-006 | Vault entry versioning | Jan 10, 2026 | Version history, restore, prune - full API |
 | ENH-014 | Goal progress tracking UI | Jan 10, 2026 | GoalsView with life area grouping, progress bars |

@@ -45,13 +45,13 @@ This backlog provides transparency into:
 | ID | Description | Priority | Category | Status |
 |----|-------------|----------|----------|--------|
 | ENH-016 | Legacy vault_entries migration to vault_pages | P1 | Vault | Planned |
-| ENH-017 | Vault chat interface for querying data | P1 | Vault/AI | Planned |
-| ENH-018 | Complete semantic search pipeline | P1 | Search/AI | Planned |
+| ENH-017 | Vault chat interface for querying data | P1 | Vault/AI | ✅ Completed |
+| ENH-018 | Complete semantic search pipeline | P1 | Search/AI | ✅ Completed |
 | ENH-001 | PARA folder structure for Vault | P1 | Vault | Planned |
 | ENH-002 | Controlled tag taxonomy | P1 | Vault | Planned |
-| ENH-003 | Faceted search API | P1 | Search | Planned |
+| ENH-003 | Faceted search API | P1 | Search | ✅ Completed |
 | ENH-019 | Recurring task UI (recurrence picker in QuickAdd) | P1 | Tasks | ✅ Completed |
-| ENH-020 | Subtasks UI (create, display, indent in TaskCard) | P1 | Tasks | Planned |
+| ENH-020 | Subtasks UI (create, display, indent in TaskCard) | P1 | Tasks | ✅ Completed |
 | ENH-021 | Task comments/notes (threaded comments on tasks) | P2 | Tasks | Planned |
 | ENH-022 | Task reminders/notifications system | P2 | Tasks | Planned |
 | ENH-004 | Advanced task filters | P2 | Tasks | ✅ Completed |
@@ -102,10 +102,14 @@ Items recently moved from backlog to done.
 
 | ID | Description | Completed | Notes |
 |----|-------------|-----------|-------|
+| ENH-003 | Faceted search API | Jan 10, 2026 | getFacets(), facetedSearch(), /facets and /faceted-search endpoints |
+| ENH-017 | Vault chat interface | Jan 10, 2026 | VaultChat.tsx + chat.ts API (pre-existing, verified) |
+| ENH-018 | Semantic search pipeline | Jan 10, 2026 | Full pipeline with embeddings (pre-existing, verified) |
 | ENH-004 | Advanced task filters | Jan 10, 2026 | Task filter bar in entity link menu (All, Today, Inbox, Upcoming, P1, P2) |
 | ENH-006 | Vault entry versioning | Jan 10, 2026 | Version history, restore, prune - full API |
 | ENH-014 | Goal progress tracking UI | Jan 10, 2026 | GoalsView with life area grouping, progress bars |
 | FEAT-012 | Dark mode (Vault) | Jan 10, 2026 | ThemeContext, ThemeToggle, CSS variables |
+| ENH-020 | Subtasks UI | Jan 11, 2026 | Backend API, SubtaskList component, TaskCard integration, counts |
 | ENH-019 | Recurring task UI | Jan 11, 2026 | Natural language parsing, recurrence picker, instance generation |
 | BUG-001 | Remarkable Integration | Jan 9, 2026 | Full MBA class notes pipeline, OCR, content merging |
 | FEAT-T01 | AI Testing Agent | Jan 7, 2026 | Vision-based QA testing |
