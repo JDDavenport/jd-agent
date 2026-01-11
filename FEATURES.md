@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
 > **Last Updated:** January 10, 2026
-> **Version:** 0.3.9
+> **Version:** 0.3.10
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -1213,6 +1213,29 @@ See the Remarkable Integration PRD for detailed implementation plan.
 | `/api/labels/categories/:id` | GET, DELETE | Get/delete category |
 | `/api/labels/category/:id` | GET | Get tags by category |
 
+### PARA Folder Structure
+
+**Root Folders (4 system folders):**
+- `Projects` (📁) - Active projects with deadlines and goals
+- `Areas` (🏠) - Ongoing areas of responsibility
+- `Resources` (📚) - Reference materials and information
+- `Archive` (📦) - Inactive items for future reference
+
+**Features:**
+- System folders protected from deletion
+- Automatic initialization via API
+- Pages can be moved to any PARA folder
+- Tree view includes PARA type in nodes
+- paraType and isSystem fields on vault_pages
+
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/vault/pages/para/initialize` | POST | Create PARA root folders |
+| `/api/vault/pages/para/folders` | GET | Get PARA root folders with config |
+| `/api/vault/pages/para/:type` | GET | List pages under a PARA type |
+| `/api/vault/pages/:id/move-to-para` | POST | Move page to a PARA folder |
+
 ---
 
 ## Database Schema (Key Tables)
@@ -1355,6 +1378,15 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 11, 2026 - PARA Folder Structure (ENH-001)
+- **Root Folders**: 4 system PARA folders (Projects, Areas, Resources, Archive)
+- **System Protection**: PARA folders cannot be deleted
+- **Move to PARA**: API endpoint to organize pages into PARA folders
+- **Database**: Added paraType and isSystem fields to vault_pages
+- **API Endpoints**: /para/initialize, /para/folders, /para/:type, /:id/move-to-para
+- **Types**: Added PARAType to VaultPage and VaultPageTreeNode interfaces
+- **Files**: `vault-page-service.ts`, `vault-pages.ts` (routes), `schema.ts`, `vault.ts` (types)
 
 ### January 11, 2026 - Controlled Tag Taxonomy (ENH-002)
 - **Tag Categories**: 5 default categories (status, type, context, priority, area)

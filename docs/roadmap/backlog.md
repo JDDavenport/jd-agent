@@ -47,7 +47,7 @@ This backlog provides transparency into:
 | ENH-016 | Legacy vault_entries migration to vault_pages | P1 | Vault | Planned |
 | ENH-017 | Vault chat interface for querying data | P1 | Vault/AI | ✅ Completed |
 | ENH-018 | Complete semantic search pipeline | P1 | Search/AI | ✅ Completed |
-| ENH-001 | PARA folder structure for Vault | P1 | Vault | Planned |
+| ENH-001 | PARA folder structure for Vault | P1 | Vault | ✅ Completed |
 | ENH-002 | Controlled tag taxonomy | P1 | Vault | ✅ Completed |
 | ENH-003 | Faceted search API | P1 | Search | ✅ Completed |
 | ENH-019 | Recurring task UI (recurrence picker in QuickAdd) | P1 | Tasks | ✅ Completed |
@@ -112,6 +112,7 @@ Items recently moved from backlog to done.
 | ENH-020 | Subtasks UI | Jan 11, 2026 | Backend API, SubtaskList component, TaskCard integration, counts |
 | ENH-019 | Recurring task UI | Jan 11, 2026 | Natural language parsing, recurrence picker, instance generation |
 | ENH-002 | Controlled tag taxonomy | Jan 11, 2026 | Categories, aliases, suggestions, validation, grouped endpoints |
+| ENH-001 | PARA folder structure | Jan 11, 2026 | Projects, Areas, Resources, Archive root folders, moveToPARA API |
 | BUG-001 | Remarkable Integration | Jan 9, 2026 | Full MBA class notes pipeline, OCR, content merging |
 | FEAT-T01 | AI Testing Agent | Jan 7, 2026 | Vision-based QA testing |
 | FEAT-T02 | Job Hunting Agent | Jan 7, 2026 | Full job application pipeline |

@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { vaultPageService } from '../../services/vault-page-service';
+import { vaultPageService, PARA_FOLDERS } from '../../services/vault-page-service';
 import { vaultBlockService } from '../../services/vault-block-service';
 import { ValidationError, NotFoundError } from '../middleware/error-handler';
+import type { PARAType } from '@jd-agent/types';
 
 const vaultPagesRouter = new Hono();
 
@@ -156,6 +157,100 @@ vaultPagesRouter.get('/quick-find', async (c) => {
     data: pages,
     count: pages.length,
   });
+});
+
+// ============================================
+// PARA Folder Routes
+// ============================================
+
+/**
+ * POST /api/vault/pages/para/initialize
+ * Initialize PARA root folders
+ */
+vaultPagesRouter.post('/para/initialize', async (c) => {
+  const result = await vaultPageService.initializePARA();
+
+  return c.json({
+    success: true,
+    data: result,
+    message: `Created ${result.created} PARA folders (${result.existing} already existed)`,
+  });
+});
+
+/**
+ * GET /api/vault/pages/para/folders
+ * Get PARA root folders
+ */
+vaultPagesRouter.get('/para/folders', async (c) => {
+  const folders = await vaultPageService.getPARAFolders();
+
+  return c.json({
+    success: true,
+    data: folders,
+    config: PARA_FOLDERS,
+  });
+});
+
+/**
+ * GET /api/vault/pages/para/:type
+ * Get pages by PARA type
+ */
+vaultPagesRouter.get('/para/:type', async (c) => {
+  const type = c.req.param('type') as PARAType;
+
+  const validTypes = ['projects', 'areas', 'resources', 'archive'];
+  if (!validTypes.includes(type)) {
+    throw new ValidationError(`Invalid PARA type. Must be one of: ${validTypes.join(', ')}`);
+  }
+
+  const pages = await vaultPageService.listByPARAType(type);
+
+  return c.json({
+    success: true,
+    data: pages,
+    count: pages.length,
+  });
+});
+
+/**
+ * POST /api/vault/pages/:id/move-to-para
+ * Move a page to a PARA folder
+ */
+vaultPagesRouter.post('/:id/move-to-para', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid page ID format');
+  }
+
+  const body = await c.req.json();
+  const schema = z.object({
+    paraType: z.enum(['projects', 'areas', 'resources', 'archive']),
+  });
+
+  const parseResult = schema.safeParse(body);
+  if (!parseResult.success) {
+    throw new ValidationError('paraType must be one of: projects, areas, resources, archive');
+  }
+
+  try {
+    const page = await vaultPageService.moveToPARA(id, parseResult.data.paraType);
+
+    if (!page) {
+      throw new NotFoundError('Vault page');
+    }
+
+    return c.json({
+      success: true,
+      data: page,
+      message: `Page moved to ${parseResult.data.paraType}`,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('not initialized')) {
+      throw new ValidationError(error.message);
+    }
+    throw error;
+  }
 });
 
 /**
@@ -336,16 +431,23 @@ vaultPagesRouter.delete('/:id', async (c) => {
     throw new ValidationError('Invalid page ID format');
   }
 
-  const deleted = await vaultPageService.delete(id);
+  try {
+    const deleted = await vaultPageService.delete(id);
 
-  if (!deleted) {
-    throw new NotFoundError('Vault page');
+    if (!deleted) {
+      throw new NotFoundError('Vault page');
+    }
+
+    return c.json({
+      success: true,
+      message: 'Page deleted successfully',
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Cannot delete system')) {
+      throw new ValidationError(error.message);
+    }
+    throw error;
   }
-
-  return c.json({
-    success: true,
-    message: 'Page deleted successfully',
-  });
 });
 
 // ============================================
