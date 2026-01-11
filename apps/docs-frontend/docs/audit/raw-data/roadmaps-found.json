@@ -1,0 +1,229 @@
+{
+  "scan_date": "2026-01-08",
+  "total_files": 7,
+  "planning_documents": [
+    {
+      "name": "Product Roadmap",
+      "file_path": "/docs/roadmap/index.md",
+      "format": "Markdown",
+      "last_updated": "2026-01-09",
+      "version": "0.3.3",
+      "total_items": 47,
+      "status_breakdown": {
+        "shipped": 12,
+        "in_progress": 2,
+        "planned": 4,
+        "exploring": 4,
+        "not_planned": 2
+      },
+      "current_phase": "Phase 3: Verify & Coach",
+      "purpose": "Public-facing roadmap with transparency"
+    },
+    {
+      "name": "Project Backlog",
+      "file_path": "/docs/roadmap/backlog.md",
+      "format": "Markdown",
+      "last_updated": "2026-01-09",
+      "total_items": 45,
+      "status_breakdown": {
+        "known_issues": 6,
+        "enhancements": 15,
+        "feature_requests": 20,
+        "recently_completed": 8
+      },
+      "issue_severity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 4,
+        "low": 1
+      },
+      "purpose": "Known issues and feature requests tracking"
+    },
+    {
+      "name": "Changelog",
+      "file_path": "/docs/roadmap/changelog.md",
+      "format": "Keep a Changelog (Markdown)",
+      "last_updated": "2026-01-09",
+      "total_releases": 6,
+      "releases": [
+        {
+          "version": "Unreleased",
+          "status": "IN_DEVELOPMENT",
+          "item_count": 45
+        },
+        {
+          "version": "0.3.3",
+          "date": "2026-01-09",
+          "status": "RELEASED",
+          "item_count": 45
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-01-07",
+          "status": "RELEASED",
+          "item_count": 28
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-01-02",
+          "status": "RELEASED",
+          "item_count": 12
+        },
+        {
+          "version": "0.1.0",
+          "date": "2025-12-15",
+          "status": "RELEASED",
+          "item_count": 24
+        }
+      ],
+      "purpose": "Release notes and version history"
+    },
+    {
+      "name": "Plaud Pro Integration PRD v3.0",
+      "file_path": "/docs/plans/plaud-integration-prd-v3.0.md",
+      "format": "Markdown",
+      "date": "2026-01-08",
+      "version": "3.0",
+      "status": "20% Complete",
+      "implementation_phases": 5,
+      "phases": [
+        {
+          "name": "Phase 0: Foundation Fixes",
+          "status": "CURRENT_SPRINT"
+        },
+        {
+          "name": "Phase 1: Voice Profile System",
+          "status": "NEXT_SPRINT"
+        },
+        {
+          "name": "Phase 2: AI-Powered Extraction",
+          "status": "PLANNED"
+        },
+        {
+          "name": "Phase 3: Voice Commands",
+          "status": "PLANNED"
+        },
+        {
+          "name": "Phase 4: Plaud Cloud Integration",
+          "status": "BLOCKED"
+        }
+      ],
+      "purpose": "Voice recording pipeline implementation plan"
+    },
+    {
+      "name": "LLM Cost Optimization Plan",
+      "file_path": "/docs/plans/llm-cost-optimization.md",
+      "format": "Markdown",
+      "last_updated": "2026-01-08",
+      "status": "Implementation Ready",
+      "implementation_phases": 5,
+      "providers_analyzed": 4,
+      "providers": [
+        {
+          "name": "Groq",
+          "status": "RECOMMENDED_PRIMARY",
+          "pricing": "FREE (14,400 req/day)"
+        },
+        {
+          "name": "Google Gemini",
+          "status": "RECOMMENDED_FALLBACK",
+          "pricing": "FREE (15 req/min)"
+        },
+        {
+          "name": "Together.ai",
+          "status": "SECONDARY",
+          "pricing": "$25 free credit"
+        },
+        {
+          "name": "Ollama Local",
+          "status": "OPTIONAL_LOCAL",
+          "pricing": "FREE (local)"
+        }
+      ],
+      "expected_cost_reduction": "95%+",
+      "purpose": "Multi-provider LLM strategy for cost reduction"
+    },
+    {
+      "name": "Goals & Habits Implementation Plan",
+      "file_path": "/docs/internal/goals-habits-implementation-plan.md",
+      "format": "Markdown",
+      "date": "2026-01-08",
+      "status": "Ready for Implementation",
+      "implementation_phases": 6,
+      "phases": [
+        {
+          "name": "Phase 1: Schema & Data Layer",
+          "estimated_duration": "Days 1-3"
+        },
+        {
+          "name": "Phase 2: Service Layer",
+          "estimated_duration": "Days 4-6"
+        },
+        {
+          "name": "Phase 3: API Routes",
+          "estimated_duration": "Days 7-9"
+        },
+        {
+          "name": "Phase 4: Integration Layer",
+          "estimated_duration": "Days 10-12"
+        },
+        {
+          "name": "Phase 5: Frontend Integration",
+          "estimated_duration": "Days 13-14"
+        },
+        {
+          "name": "Phase 6: Testing & Documentation",
+          "estimated_duration": "Days 15+"
+        }
+      ],
+      "new_tables": 4,
+      "new_services": 5,
+      "new_api_endpoints": 20,
+      "purpose": "Comprehensive goals/habits/milestones system"
+    },
+    {
+      "name": "Vault Data Architecture Restructuring",
+      "file_path": "/docs/vault-restructuring-plan.md",
+      "format": "Markdown",
+      "date": "2026-01-07",
+      "status": "Proposed",
+      "implementation_priority_levels": 4,
+      "proposed_architecture": {
+        "methodology": "PARA",
+        "folder_hierarchy_levels": 8,
+        "folders": [
+          "INBOX",
+          "PROJECTS",
+          "AREAS",
+          "RESOURCES",
+          "ARCHIVE",
+          "PEOPLE",
+          "JOURNAL",
+          "RECORDINGS"
+        ]
+      },
+      "schema_changes": {
+        "new_columns": 5,
+        "new_tables": 2,
+        "migration_phases": 4
+      },
+      "purpose": "PARA methodology restructuring for Vault"
+    }
+  ],
+  "summary": {
+    "total_planning_items": 180,
+    "by_status": {
+      "shipped": 1,
+      "in_progress": 2,
+      "planned": 2,
+      "ready_for_implementation": 2
+    },
+    "by_type": {
+      "roadmap": 1,
+      "backlog": 1,
+      "changelog": 1,
+      "implementation_plan": 3,
+      "prd": 1
+    }
+  }
+}

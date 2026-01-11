@@ -55,7 +55,7 @@ This document is the single source of truth for all current features and capabil
 - Auto-archival of completed tasks to vault
 - Recurring task instance generation (automatic on task completion)
 
-**Recurring Tasks (NEW):**
+**Recurring Tasks:**
 - Natural language parsing for recurrence patterns ("every Monday", "daily", "weekly")
 - RRULE format storage (RFC 5545 compliant)
 - Recurrence picker UI with presets (Daily, Weekdays, Weekly, Bi-weekly, Monthly)
@@ -63,6 +63,16 @@ This document is the single source of truth for all current features and capabil
 - Batch processing job for missed instances
 - Visual indicator on task cards showing recurrence pattern
 - Supports: daily, weekly, bi-weekly, monthly, specific days (e.g., "every Tuesday and Thursday")
+
+**Subtasks (NEW):**
+- Create subtasks for any parent task (max 1 level deep)
+- Subtask count indicator on parent task cards (e.g., "2/5 subtasks")
+- Expandable subtask list in TaskCard with inline add/complete functionality
+- Subtasks inherit context and project from parent by default
+- Independent completion status (completing all subtasks doesn't auto-complete parent)
+- Cascade delete (deleting parent removes all subtasks)
+- QuickAddTask modal supports subtask creation mode
+- API endpoints: GET/POST /api/tasks/:id/subtasks
 
 ### 2. Project Management
 
@@ -1270,6 +1280,18 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 11, 2026 - Task Subtasks Support
+- **Subtasks UI (ENH-020)**: Full subtask support for tasks
+  - Backend: GET/POST /api/tasks/:id/subtasks endpoints
+  - Service methods with depth validation (max 1 level)
+  - Subtask counts included in all task queries (subtaskCount, completedSubtaskCount)
+  - TaskCard shows subtask count indicator (e.g., "2/3 subtasks")
+  - Expandable SubtaskList component with inline add/complete
+  - QuickAddTask modal supports subtask creation mode
+  - Subtasks inherit context and project from parent
+  - Independent completion (completing subtasks doesn't auto-complete parent)
+  - Files: `task-service.ts`, `tasks.ts`, `TaskCard.tsx`, `SubtaskList.tsx`, `QuickAddTask.tsx`
 
 ### January 10, 2026 - Vault App P2 Enhancements
 - **Dark Mode Support (P2-1)**: Complete dark mode implementation for vault app

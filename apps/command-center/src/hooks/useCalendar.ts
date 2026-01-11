@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as calendarApi from '../api/calendar';
 import { startOfWeek, endOfWeek, format } from 'date-fns';
+import type { CreateEventInput } from '../types/calendar';
 
 export function useCalendarEvents(startDate?: string, endDate?: string) {
   return useQuery({
@@ -32,5 +33,39 @@ export function useUpcomingEvents(days: number = 7) {
   return useQuery({
     queryKey: ['calendar', 'upcoming', days],
     queryFn: () => calendarApi.getUpcomingEvents(days),
+  });
+}
+
+export function useCreateEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateEventInput) => calendarApi.createEvent(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    },
+  });
+}
+
+export function useUpdateEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateEventInput> }) =>
+      calendarApi.updateEvent(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    },
+  });
+}
+
+export function useDeleteEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => calendarApi.deleteEvent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    },
   });
 }

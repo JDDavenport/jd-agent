@@ -1,0 +1,90 @@
+# Files To Archive After Consolidation
+# Generated: January 8, 2026
+#
+# These files will be superseded or moved during consolidation.
+# DO NOT delete until consolidation is complete and verified.
+
+## Contract Files to Consolidate
+# After merging rules into CLAUDE.md, rename this file:
+claude-code-prompt.md → IMPLEMENTATION_GUIDE.md (keep as reference, not contract)
+
+## Documentation Files to Move
+# These files should be reorganized per CONSOLIDATION_PLAN.md
+
+# Move to /docs/internal/prds/
+docs/jd-agent-prd.md → docs/internal/prds/jd-agent-prd.md
+docs/documentation-system-prd.md → docs/internal/prds/documentation-system-prd.md
+
+# Move to /docs/planning/plans/active/
+docs/vault-restructuring-plan.md → docs/planning/plans/active/vault-restructuring-plan.md
+docs/internal/goals-habits-implementation-plan.md → docs/planning/plans/active/goals-habits-implementation-plan.md
+docs/plans/plaud-integration-prd-v3.0.md → docs/planning/plans/active/plaud-integration-prd-v3.0.md
+docs/plans/llm-cost-optimization.md → docs/planning/plans/active/llm-cost-optimization.md
+
+# Move to /docs/planning/roadmap/
+docs/roadmap/index.md → docs/planning/roadmap/index.md
+docs/roadmap/backlog.md → docs/planning/roadmap/backlog.md
+docs/roadmap/changelog.md → docs/planning/roadmap/changelog.md
+
+## Files to Delete (After Verification)
+
+# Commented-out code - remove these lines from file:
+hub/src/migration/test-migration.ts:57-80 (commented Google Drive and Apple Notes migration)
+
+# Debug console.log statements - remove these lines:
+apps/vault/src/App.tsx:383 (console.log('Save journal entry:', entry))
+apps/vault/src/App.tsx:392 (console.log('Task clicked:', task))
+apps/tasks/src/components/SearchModal.tsx:42 (console.log('Complete:', id))
+
+## Directories to Create
+
+docs/planning/
+docs/planning/roadmap/
+docs/planning/plans/
+docs/planning/plans/active/
+docs/planning/plans/archive/
+docs/internal/prds/
+
+## Files That Should NOT Be Archived
+
+# These are the source of truth and must remain:
+CLAUDE.md - Master contract (will be enhanced)
+FEATURES.md - Feature inventory (will be simplified)
+README.md - Project overview
+docs/public/features/* - All feature documentation (excellent as-is)
+
+## Daily Journal App Files (Already Deleted in Git)
+
+# These appear in git status as deleted - confirm they should stay deleted:
+apps/daily-journal/bun.lock
+apps/daily-journal/index.html
+apps/daily-journal/package.json
+apps/daily-journal/postcss.config.js
+apps/daily-journal/src/App.tsx
+apps/daily-journal/src/api.ts
+apps/daily-journal/src/components/LoadingSpinner.tsx
+apps/daily-journal/src/components/MoodSelector.tsx
+apps/daily-journal/src/components/ProgressIndicator.tsx
+apps/daily-journal/src/components/ReviewWorkflow.tsx
+apps/daily-journal/src/components/StepNavigation.tsx
+apps/daily-journal/src/hooks/index.ts
+apps/daily-journal/src/hooks/useAutoSave.ts
+apps/daily-journal/src/hooks/useDailyReview.ts
+apps/daily-journal/src/index.css
+apps/daily-journal/src/main.tsx
+apps/daily-journal/src/steps/ClassesReview.tsx
+apps/daily-journal/src/steps/GoalsReview.tsx
+apps/daily-journal/src/steps/HabitsReview.tsx
+apps/daily-journal/src/steps/JournalEditor.tsx
+apps/daily-journal/src/steps/ReviewComplete.tsx
+apps/daily-journal/src/steps/TasksReview.tsx
+apps/daily-journal/src/steps/TomorrowPreview.tsx
+apps/daily-journal/src/views/HistoryView.tsx
+apps/daily-journal/tsconfig.json
+apps/daily-journal/tsconfig.tsbuildinfo
+apps/daily-journal/vite.config.ts
+
+# Note: Daily journal functionality appears to have been moved to command-center app
+# Verify journal features work in command-center before committing deletion
+
+## End of Archive List

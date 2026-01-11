@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
+import Calendar from './pages/Calendar';
 import VaultExplorer from './pages/VaultExplorer';
 import NoteEditor from './pages/NoteEditor';
 import SystemHealth from './pages/SystemHealth';
@@ -36,6 +37,7 @@ function App() {
             {/* Main app with sidebar layout */}
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/calendar" element={<Calendar />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/goals" element={<Goals />} />
               <Route path="/habits" element={<Habits />} />

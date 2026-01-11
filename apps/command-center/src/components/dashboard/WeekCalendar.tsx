@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useWeekOverview } from '../../hooks/useDashboardEnhanced';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { WorkloadIndicator, ProgressBar } from './shared';
@@ -188,16 +189,27 @@ function WeekCalendar() {
             {overview?.totalEvents || 0} events, {overview?.totalTasks || 0} tasks
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1 text-xs text-text-muted">
-            <span className="w-2 h-2 rounded-full bg-success" /> Light
-          </span>
-          <span className="flex items-center gap-1 text-xs text-text-muted">
-            <span className="w-2 h-2 rounded-full bg-warning" /> Moderate
-          </span>
-          <span className="flex items-center gap-1 text-xs text-text-muted">
-            <span className="w-2 h-2 rounded-full bg-error" /> Heavy
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-xs text-text-muted">
+              <span className="w-2 h-2 rounded-full bg-success" /> Light
+            </span>
+            <span className="flex items-center gap-1 text-xs text-text-muted">
+              <span className="w-2 h-2 rounded-full bg-warning" /> Moderate
+            </span>
+            <span className="flex items-center gap-1 text-xs text-text-muted">
+              <span className="w-2 h-2 rounded-full bg-error" /> Heavy
+            </span>
+          </div>
+          <Link
+            to="/calendar"
+            className="text-xs text-accent hover:text-accent-light transition-colors flex items-center gap-1"
+          >
+            View Full Calendar
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
         </div>
       </div>
 
