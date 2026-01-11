@@ -65,9 +65,12 @@ const listFiltersSchema = z.object({
 const listEventsHandler = async (c: any) => {
   try {
     const query = c.req.query();
+    console.log('[Calendar] List request query:', JSON.stringify(query));
+
     const parseResult = listFiltersSchema.safeParse(query);
 
     if (!parseResult.success) {
+      console.log('[Calendar] Validation failed:', parseResult.error.message);
       return c.json({
         success: false,
         error: {
@@ -77,7 +80,15 @@ const listEventsHandler = async (c: any) => {
       }, 400);
     }
 
+    console.log('[Calendar] Parsed filters:', JSON.stringify({
+      startDate: parseResult.data.startDate?.toISOString(),
+      endDate: parseResult.data.endDate?.toISOString(),
+      eventType: parseResult.data.eventType,
+      context: parseResult.data.context,
+    }));
+
     const events = await calendarService.list(parseResult.data);
+    console.log('[Calendar] Found', events.length, 'events');
 
     return c.json({
       success: true,
