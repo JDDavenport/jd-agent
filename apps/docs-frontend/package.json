@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5177",
+    "prebuild": "if [ -d ../../docs ]; then rm -rf ./docs && cp -r ../../docs ./docs; fi",
     "build": "next build",
     "start": "next start -p 5177",
     "lint": "next lint"
