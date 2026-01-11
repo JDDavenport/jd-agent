@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
 > **Last Updated:** January 10, 2026
-> **Version:** 0.3.10
+> **Version:** 0.3.11
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -1236,6 +1236,25 @@ See the Remarkable Integration PRD for detailed implementation plan.
 | `/api/vault/pages/para/:type` | GET | List pages under a PARA type |
 | `/api/vault/pages/:id/move-to-para` | POST | Move page to a PARA folder |
 
+### Vault Migration (vault_entries → vault_pages)
+
+**Purpose:** Migrate legacy vault_entries (markdown-based) to new vault_pages (block-based).
+
+**Features:**
+- Automatic markdown to blocks conversion (headings, lists, quotes, dividers, text)
+- PARA type mapping based on context and content type
+- Preserves creation/update timestamps
+- Links legacy entry via legacyEntryId field
+- Supports dry run for testing
+- Rollback capability for single entries or all
+
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/vault/migration/status` | GET | Get migration progress (total, migrated, pending, percentage) |
+| `/api/vault/migration/run` | POST | Run migration with options (limit, dryRun, skipExisting) |
+| `/api/vault/migration/rollback` | POST | Rollback single entry (legacyEntryId) or all (all: true) |
+
 ---
 
 ## Database Schema (Key Tables)
@@ -1378,6 +1397,15 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 11, 2026 - Vault Migration (ENH-016)
+- **Migration Service**: Converts vault_entries to vault_pages + vault_blocks
+- **Markdown Conversion**: Parses markdown into structured blocks (headings, lists, quotes, dividers, text)
+- **PARA Mapping**: Auto-assigns migrated pages to PARA folders based on context/contentType
+- **Dry Run**: Test migration without making changes
+- **Rollback**: Undo migration for single entries or all
+- **API Endpoints**: /migration/status, /migration/run, /migration/rollback
+- **Files**: `vault-migration-service.ts`, `vault.ts` (routes)
 
 ### January 11, 2026 - PARA Folder Structure (ENH-001)
 - **Root Folders**: 4 system PARA folders (Projects, Areas, Resources, Archive)
