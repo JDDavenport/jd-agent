@@ -1237,11 +1237,13 @@ bun run scheduler        # Start cron scheduler
 
 ## Documentation System
 
-**Location:** `/docs/`
+**Location:** `/docs/` (source of truth) → `/apps/docs-frontend/` (Next.js app)
+
+**Production URL:** https://docs-frontend-sigma.vercel.app
 
 **Structure:**
 ```
-/docs/
+/docs/                         # Source of truth for all documentation
 ├── public/                    # User-facing documentation
 │   ├── index.md               # Documentation home
 │   ├── getting-started/       # Installation, quick start, concepts
@@ -1258,7 +1260,25 @@ bun run scheduler        # Start cron scheduler
 │   ├── backlog.md             # Known issues & feature requests
 │   └── changelog.md           # Keep a Changelog format
 └── internal/                  # Developer docs
+
+/apps/docs-frontend/           # Next.js documentation site
+├── docs/                      # Synced copy of /docs/ (for Vercel)
+├── app/                       # Next.js app router pages
+├── components/                # React components
+└── lib/docs.ts                # Markdown parsing utilities
 ```
+
+**Docs Sync System:**
+
+The root `/docs/` folder is the single source of truth. It's synced to `/apps/docs-frontend/docs/` for Vercel deployments.
+
+| Command | Description |
+|---------|-------------|
+| `bun run docs` | Run docs site locally (port 5177) |
+| `bun run docs:sync` | Manually sync docs to docs-frontend |
+| `bun run docs:check` | Check if docs are in sync |
+
+**Auto-sync:** A git pre-commit hook automatically syncs when files in `/docs/` are staged. Both the source and synced files are committed together.
 
 **Documentation Rules:** After implementing ANY feature:
 1. Update feature docs in `/docs/public/features/`
@@ -1281,7 +1301,18 @@ See `CLAUDE.md` for full documentation requirements.
 
 ## Changelog
 
-### January 11, 2026 - Task Subtasks Support
+### January 11, 2026 - Task Subtasks Support & Docs Improvements
+- **Documentation Site Fixes**: Tested and fixed bugs in docs-frontend
+  - Added missing `/docs/reference` index page
+  - Changed calendar demo from "coming-soon" to "available"
+  - Made roadmap "last updated" date dynamic from markdown
+  - Added configurable app URL via `NEXT_PUBLIC_APP_URL` environment variable
+  - Production URL: https://docs-frontend-sigma.vercel.app
+- **Docs Sync System**: Auto-sync between root docs and docs-frontend
+  - Root `/docs/` is single source of truth
+  - Git pre-commit hook syncs to `/apps/docs-frontend/docs/` automatically
+  - Commands: `bun run docs:sync`, `bun run docs:check`, `bun run docs`
+  - Files: `scripts/sync-docs.sh`, `.git/hooks/pre-commit`
 - **Subtasks UI (ENH-020)**: Full subtask support for tasks
   - Backend: GET/POST /api/tasks/:id/subtasks endpoints
   - Service methods with depth validation (max 1 level)
