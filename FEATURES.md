@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
 > **Last Updated:** January 10, 2026
-> **Version:** 0.3.8
+> **Version:** 0.3.9
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -796,6 +796,7 @@ Extended `dailyReviews` table with:
 | `/api/logs` | GET | Activity and system logs |
 | `/api/whoop` | GET, POST | Whoop fitness data |
 | `/api/testing` | GET, POST | AI-powered testing agent |
+| `/api/labels` | GET, POST, PATCH, DELETE | Tag taxonomy with categories, suggestions, validation |
 
 **Web UIs served from Hub:**
 - `/setup` - Web-based setup wizard
@@ -1184,6 +1185,34 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - Entry linking and related entries (legacy)
 - File attachments (legacy)
 
+### Controlled Tag Taxonomy
+
+**Categories (5 default):**
+- `status` - Status indicators (active, archived, favorite, processed)
+- `type` - Content classification (project, reference, meeting, person)
+- `context` - GTD contexts (@computer, @home, @errands, @calls, @email)
+- `priority` - Priority levels (urgent, high, low)
+- `area` - Life areas (work, personal, family, health, finance, school)
+
+**Tag Features:**
+- Category grouping with icons and colors
+- Alias support (e.g., "work" has aliases "professional", "career")
+- Usage count tracking for popularity sorting
+- System tags protected from deletion/modification
+- Suggestions with match scoring (exact, prefix, alias, fuzzy)
+- Tag validation with optional auto-creation
+
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/labels/initialize` | POST | Initialize default categories and tags |
+| `/api/labels/suggest` | GET | Get tag suggestions with ?q=query&limit=10 |
+| `/api/labels/validate` | POST | Validate tags exist, optionally create missing |
+| `/api/labels/grouped` | GET | Get tags grouped by category |
+| `/api/labels/categories` | GET, POST | List/create categories |
+| `/api/labels/categories/:id` | GET, DELETE | Get/delete category |
+| `/api/labels/category/:id` | GET | Get tags by category |
+
 ---
 
 ## Database Schema (Key Tables)
@@ -1194,7 +1223,8 @@ See the Remarkable Integration PRD for detailed implementation plan.
 | `tasks` | Individual action items |
 | `sections` | Todoist-style project sections |
 | `contexts` | @context tags |
-| `labels` | Cross-cutting tags |
+| `labels` | Controlled tag taxonomy with categories |
+| `tag_categories` | Tag category groups (status, type, context, priority, area) |
 | `filters` | Saved search queries |
 | `vault_entries` | Knowledge base entries (legacy) |
 | `vault_embeddings` | Semantic search vectors |
@@ -1325,6 +1355,17 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 11, 2026 - Controlled Tag Taxonomy (ENH-002)
+- **Tag Categories**: 5 default categories (status, type, context, priority, area)
+- **System Tags**: 22 default tags with aliases and GTD contexts
+- **Tag Suggestions**: Autocomplete with match scoring (exact, prefix, alias, fuzzy)
+- **Tag Validation**: Validate existence with optional auto-creation
+- **Category Management**: Full CRUD for custom categories
+- **Usage Tracking**: Automatic usage count for popularity sorting
+- **API Endpoints**: /initialize, /suggest, /validate, /grouped, /categories, /category/:id
+- **Database**: `tag_categories` table, extended `labels` with categoryId, aliases, isSystem, usageCount
+- **Files**: `tag-service.ts`, `labels.ts` (routes), `schema.ts`
 
 ### January 11, 2026 - Task Subtasks Support & Docs Improvements
 - **Documentation Site Fixes**: Tested and fixed bugs in docs-frontend
