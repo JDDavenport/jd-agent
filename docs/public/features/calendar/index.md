@@ -10,7 +10,7 @@ JD Agent integrates with Google Calendar to provide a unified view of your sched
 
 ### Key Capabilities
 - **Bidirectional sync** with Google Calendar
-- **Event management** - create, update, delete
+- **Event management** - create, update, delete via Agent
 - **Conflict detection** - know when you're double-booked
 - **Time blocking** - schedule focused work time
 - **Integration** with tasks for scheduling
@@ -29,9 +29,12 @@ JD Agent integrates with Google Calendar to provide a unified view of your sched
 
 ### View Your Calendar
 
-**In Command Center:**
-- Dashboard shows today's events
-- Full calendar view available
+**In Command Center Dashboard:**
+- Week overview widget shows 7-day calendar with events
+- Density heatmap indicates busy days
+- Workload indicators (light/moderate/heavy)
+- Click any day to expand and see all events
+- Time allocation breakdown by event type
 
 **Via Agent:**
 ```
@@ -55,7 +58,7 @@ What meetings do I have this week?
 
 ### Creating Events
 
-**Via Agent:**
+Events are created via the AI Agent:
 ```
 Schedule a meeting with Sarah tomorrow at 2pm
 
@@ -184,26 +187,23 @@ Agent: Created event:
 
 ---
 
-## Calendar Views
+## Dashboard Week Calendar
 
-### Today View
-Shows:
-- All events for today
-- Time blocks
-- All-day events at top
-- Current time indicator
+The Command Center dashboard includes an enhanced week calendar widget:
 
-### Week View
-Shows:
-- 7-day overview
-- Events positioned by time
-- Easy navigation between weeks
+### Features
+- **7-day overview** with all events
+- **Density heatmap** - background color intensity shows busy days
+- **Workload indicators** - light (green), moderate (yellow), heavy (red)
+- **Expandable days** - click to see all events
+- **Event type colors** - meetings (purple), classes (blue), personal (green), focus (yellow)
+- **Time allocation breakdown** - see how time is distributed
 
-### Month View
-Shows:
-- Monthly overview
-- Event dots on dates
-- Quick date selection
+### Event Display
+- First 2 events shown per day
+- "+N more" indicator for additional events
+- Task count per day
+- Current day highlighted
 
 ---
 
@@ -212,36 +212,25 @@ Shows:
 ### Automatic Sync
 
 Calendar syncs automatically:
-- Every 5 minutes for changes
-- Immediately when you create events
+- Periodically for changes
+- Immediately when you create events via Agent
 - On app startup
 
 ### Manual Sync
 
-Force a sync:
+Force a sync via Agent:
 ```
 Sync my calendar now
 ```
-
-Or in Settings → Calendar → Sync Now
-
-### Multiple Calendars
-
-JD Agent can sync multiple Google calendars:
-- Work calendar
-- Personal calendar
-- Shared calendars
-
-Configure in Settings → Calendar → Calendars.
 
 ---
 
 ## Tips & Best Practices
 
 ### Planning Your Day
-1. Check calendar each morning
+1. Check dashboard calendar each morning
 2. Identify fixed commitments
-3. Block time for important tasks
+3. Block time for important tasks via Agent
 4. Leave buffer between events
 
 ### Avoiding Overload
@@ -253,18 +242,26 @@ Configure in Settings → Calendar → Calendars.
 ### Task Integration
 1. Schedule tasks, don't just set due dates
 2. Use time estimates for realistic blocking
-3. Review scheduled tasks in Today view
+3. Review dashboard for scheduled tasks
 
 ---
 
-## Keyboard Shortcuts
+## API Endpoints
 
-| Shortcut | Action |
-|----------|--------|
-| `G then C` | Go to Calendar |
-| `T` | Go to Today |
-| `←/→` | Previous/Next period |
-| `N` | New event |
+For developers and integrations:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/calendar` | GET | List events with filters |
+| `/api/calendar/today` | GET | Today's events |
+| `/api/calendar/upcoming` | GET | Upcoming events (default 7 days) |
+| `/api/calendar/sync` | GET | Trigger Google Calendar sync |
+| `/api/calendar/status` | GET | Integration status |
+| `/api/calendar/:id` | GET | Get single event |
+| `/api/calendar` | POST | Create event |
+| `/api/calendar/check-conflicts` | POST | Check for conflicts |
+| `/api/calendar/:id` | PATCH | Update event |
+| `/api/calendar/:id` | DELETE | Delete event |
 
 ---
 
@@ -272,9 +269,18 @@ Configure in Settings → Calendar → Calendars.
 
 - [Tasks](../tasks/index.md) - Task scheduling
 - [Agent](../agent/index.md) - Calendar via chat
-- [Google Integration](../integrations/google.md) - Setup details
 - [Ceremonies](../ceremonies/index.md) - Calendar in briefings
 
 ---
 
-*Last updated: January 8, 2026*
+## Roadmap
+
+Future enhancements planned:
+- Dedicated calendar page with month/week/day views
+- Event creation modal in UI
+- View navigation and switching
+- Keyboard shortcuts for calendar navigation
+
+---
+
+*Last updated: January 10, 2026*

@@ -2,7 +2,7 @@
 
 > See what we're building, what's next, and share your feedback
 
-**Last Updated:** January 9, 2026 | **Version:** 0.3.3
+**Last Updated:** January 10, 2026 | **Version:** 0.3.3
 
 ---
 
@@ -138,6 +138,18 @@ Committed for the near term.
 - Complex filter queries
 - Saved custom views
 - Filter sharing
+
+### Calendar Page
+- **Category:** Productivity
+- **Priority:** High
+- Dedicated `/calendar` route in Command Center
+- Month view with event dots and date selection
+- Week view with time-slot positioning
+- Day view with hourly breakdown
+- View switcher (Month/Week/Day)
+- Event creation modal from UI
+- Keyboard navigation shortcuts
+- Today indicator and quick navigation
 
 ### Brain Dump Enhancement
 - **Category:** Productivity

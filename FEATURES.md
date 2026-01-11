@@ -1225,6 +1225,15 @@ See `CLAUDE.md` for full documentation requirements.
 
 ## Changelog
 
+### January 10, 2026 - Calendar Documentation Update
+- **Documentation Accuracy**: Updated `/docs/public/features/calendar/index.md` to match actual implementation
+- **Removed Inaccurate Claims**: Removed references to Month/Week/Day view pages that don't exist
+- **Updated View Description**: Clarified that calendar is a dashboard widget, not a standalone page
+- **Removed Non-Functional Shortcuts**: Removed keyboard shortcuts (`G then C`, `T`, `N`) that aren't implemented
+- **Added API Reference**: Added table of all calendar API endpoints
+- **Added Roadmap Section**: Documented planned future enhancements for dedicated calendar page
+- **Dashboard Widget Documentation**: Added detailed section describing the actual WeekCalendar widget features
+
 ### January 8, 2026 - Journal Integration into Command Center
 - **Journal Page Integrated**: Moved Daily Journal from standalone app into Command Center
 - **New Route**: `/journal` in Command Center with full 7-step workflow
