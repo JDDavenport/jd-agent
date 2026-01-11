@@ -1,14 +1,20 @@
 # Railway Nixpacks Configuration for Bun
 # https://nixpacks.com/docs/configuration/file
 
+# Disable all auto-detected providers to prevent frozen-lockfile issues
+providers = []
+
 [phases.setup]
 nixPkgs = ["nodejs_20", "bun"]
 
 [phases.install]
-cmds = ["bun install --frozen-lockfile"]
+cmds = ["bun install"]
+dependsOn = ["setup"]
 
 [phases.build]
-cmds = ["echo 'Build phase - Bun handles runtime compilation'"]
+# No build step needed for Bun - it compiles at runtime
+cmds = ["echo 'Build complete'"]
+dependsOn = ["install"]
 
 [start]
 cmd = "bun run start"
