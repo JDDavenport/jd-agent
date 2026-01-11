@@ -138,6 +138,13 @@ export class CalendarService {
    * List events with optional filters
    */
   async list(filters: EventFilters = {}): Promise<CalendarEventRecord[]> {
+    console.log('[CalendarService] list() called with filters:', JSON.stringify({
+      startDate: filters.startDate?.toISOString(),
+      endDate: filters.endDate?.toISOString(),
+      eventType: filters.eventType,
+      context: filters.context,
+    }));
+
     const conditions = [];
 
     if (filters.startDate) {
@@ -156,14 +163,22 @@ export class CalendarService {
       conditions.push(eq(calendarEvents.context, filters.context));
     }
 
-    const events = await db
-      .select()
-      .from(calendarEvents)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(asc(calendarEvents.startTime))
-      .limit(100);
+    console.log('[CalendarService] Executing query with', conditions.length, 'conditions');
 
-    return events as CalendarEventRecord[];
+    try {
+      const events = await db
+        .select()
+        .from(calendarEvents)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(asc(calendarEvents.startTime))
+        .limit(100);
+
+      console.log('[CalendarService] Query returned', events.length, 'events');
+      return events as CalendarEventRecord[];
+    } catch (error) {
+      console.error('[CalendarService] Query error:', error);
+      throw error;
+    }
   }
 
   /**
