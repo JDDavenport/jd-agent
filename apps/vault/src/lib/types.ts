@@ -1,0 +1,426 @@
+// Task Types
+export type TaskStatus = 'inbox' | 'today' | 'upcoming' | 'waiting' | 'someday' | 'done' | 'archived';
+export type TaskSource = 'manual' | 'email' | 'canvas' | 'meeting' | 'recording' | 'chat';
+export type EnergyLevel = 'high' | 'low' | 'admin';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: number;
+  dueDate?: string;
+  dueDateIsHard: boolean;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  source: TaskSource;
+  sourceRef?: string;
+  context: string;
+  taskContexts?: string[];
+  taskLabels?: string[];
+  timeEstimateMinutes?: number;
+  energyLevel?: EnergyLevel;
+  blockedBy?: string;
+  waitingFor?: string;
+  waitingSince?: string;
+  projectId?: string;
+  parentTaskId?: string;
+  sectionId?: string;
+  calendarEventId?: string;
+  recurrenceRule?: string;
+  recurrenceParentId?: string;
+  completedBy?: string;
+  vaultEntryId?: string;
+  sortOrder?: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface CreateTaskInput {
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  dueDate?: string;
+  context: string;
+  source?: TaskSource;
+  timeEstimateMinutes?: number;
+  energyLevel?: EnergyLevel;
+  priority?: number;
+  projectId?: string;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  dueDate?: string | null;
+  context?: string;
+  timeEstimateMinutes?: number;
+  energyLevel?: EnergyLevel;
+  priority?: number;
+}
+
+export interface TaskFilters {
+  status?: TaskStatus;
+  context?: string;
+  source?: TaskSource;
+  dueBefore?: string;
+  dueAfter?: string;
+  projectId?: string;
+  includeCompleted?: boolean;
+}
+
+// Project Types
+export type ProjectView = 'list' | 'board' | 'calendar';
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  parentProjectId?: string;
+  area?: string;
+  isFavorite: boolean;
+  isArchived: boolean;
+  sortOrder?: number;
+  defaultView: ProjectView;
+  targetCompletionDate?: string;
+  vaultFolderId?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  archivedAt?: string;
+}
+
+export interface Section {
+  id: string;
+  projectId: string;
+  name: string;
+  sortOrder: number;
+  isCollapsed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectInput {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  parentProjectId?: string;
+  area?: string;
+  defaultView?: ProjectView;
+}
+
+export interface UpdateProjectInput {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  sortOrder?: number;
+  defaultView?: ProjectView;
+  targetCompletionDate?: string | null;
+}
+
+export interface CreateSectionInput {
+  projectId: string;
+  name: string;
+  sortOrder?: number;
+}
+
+// Calendar Types
+export type EventType = 'class' | 'meeting' | 'deadline' | 'personal' | 'blocked_time';
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  startTime: string;
+  endTime: string;
+  allDay: boolean;
+  eventType?: EventType;
+  context?: string;
+  googleEventId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCalendarEventInput {
+  title: string;
+  description?: string;
+  location?: string;
+  startTime: string;
+  endTime: string;
+  allDay?: boolean;
+  eventType?: EventType;
+  context?: string;
+}
+
+// Vault Entry Types (legacy)
+export type VaultContentType =
+  | 'note'
+  | 'recording_summary'
+  | 'lecture'
+  | 'meeting'
+  | 'article'
+  | 'reference'
+  | 'resume'
+  | 'document'
+  | 'journal'
+  | 'class_notes'
+  | 'meeting_notes'
+  | 'task_archive'
+  | 'snippet'
+  | 'template'
+  | 'other';
+
+export type VaultSource =
+  | 'remarkable'
+  | 'plaud'
+  | 'email'
+  | 'manual'
+  | 'web'
+  | 'canvas'
+  | 'notion'
+  | 'google_drive'
+  | 'google_docs'
+  | 'apple_notes';
+
+export interface VaultEntry {
+  id: string;
+  title: string;
+  content?: string;
+  contentType: VaultContentType;
+  source: VaultSource;
+  sourceRef?: string;
+  context: string;
+  tags: string[];
+  parentId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultTreeNode {
+  id: string;
+  title: string;
+  contentType: string;
+  context: string;
+  parentId: string | null;
+  children: VaultTreeNode[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultBreadcrumb {
+  id: string;
+  title: string;
+}
+
+export interface CreateVaultInput {
+  title: string;
+  content?: string;
+  contentType: VaultContentType;
+  source?: VaultSource;
+  context: string;
+  tags?: string[];
+  parentId?: string;
+}
+
+export interface VaultSearchParams {
+  query: string;
+  context?: string;
+  contentType?: VaultContentType;
+  limit?: number;
+}
+
+// Vault Pages (Notion-like)
+export interface VaultPage {
+  id: string;
+  parentId?: string | null;
+  title: string;
+  icon?: string | null;
+  coverImage?: string | null;
+  isFavorite: boolean;
+  isArchived: boolean;
+  sortOrder: number;
+  legacyEntryId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastViewedAt?: string | null;
+}
+
+export interface VaultPageTreeNode {
+  id: string;
+  title: string;
+  icon?: string | null;
+  parentId: string | null;
+  isFavorite: boolean;
+  children: VaultPageTreeNode[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultPageBreadcrumb {
+  id: string;
+  title: string;
+  icon?: string | null;
+}
+
+export interface CreateVaultPageInput {
+  title?: string;
+  parentId?: string | null;
+  icon?: string | null;
+  coverImage?: string | null;
+}
+
+export interface UpdateVaultPageInput {
+  title?: string;
+  icon?: string | null;
+  coverImage?: string | null;
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  parentId?: string | null;
+  sortOrder?: number;
+}
+
+// Vault Blocks
+export type VaultBlockType =
+  | 'text'
+  | 'heading_1'
+  | 'heading_2'
+  | 'heading_3'
+  | 'bulleted_list'
+  | 'numbered_list'
+  | 'todo'
+  | 'toggle'
+  | 'quote'
+  | 'callout'
+  | 'divider'
+  | 'code'
+  | 'image'
+  | 'file'
+  | 'bookmark'
+  | 'page_link'
+  | 'task_link'
+  | 'goal_link';
+
+export interface TextBlockContent {
+  text: string;
+  marks?: Array<{
+    type: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code' | 'link';
+    attrs?: { href?: string };
+  }>;
+}
+
+export interface HeadingBlockContent {
+  text: string;
+  level: 1 | 2 | 3;
+}
+
+export interface TodoBlockContent {
+  text: string;
+  checked: boolean;
+}
+
+export interface CalloutBlockContent {
+  text: string;
+  emoji?: string;
+  color?: 'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'red';
+}
+
+export interface CodeBlockContent {
+  code: string;
+  language?: string;
+  caption?: string;
+}
+
+export interface ImageBlockContent {
+  url: string;
+  caption?: string;
+  width?: number;
+}
+
+export interface FileBlockContent {
+  url: string;
+  filename: string;
+  size?: number;
+  mimeType?: string;
+}
+
+export interface BookmarkBlockContent {
+  url: string;
+  title?: string;
+  description?: string;
+  favicon?: string;
+  image?: string;
+}
+
+export interface PageLinkBlockContent {
+  pageId: string;
+  title?: string;
+}
+
+export interface TaskLinkBlockContent {
+  taskId: string;
+  title?: string;
+  status?: string;
+}
+
+export interface GoalLinkBlockContent {
+  goalId: string;
+  title?: string;
+}
+
+export type VaultBlockContent =
+  | TextBlockContent
+  | HeadingBlockContent
+  | TodoBlockContent
+  | CalloutBlockContent
+  | CodeBlockContent
+  | ImageBlockContent
+  | FileBlockContent
+  | BookmarkBlockContent
+  | PageLinkBlockContent
+  | TaskLinkBlockContent
+  | GoalLinkBlockContent
+  | Record<string, unknown>;
+
+export interface VaultBlock {
+  id: string;
+  pageId: string;
+  parentBlockId?: string | null;
+  type: VaultBlockType;
+  content: VaultBlockContent;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateVaultBlockInput {
+  type: VaultBlockType;
+  content: VaultBlockContent;
+  parentBlockId?: string | null;
+  afterBlockId?: string | null;
+}
+
+export interface UpdateVaultBlockInput {
+  type?: VaultBlockType;
+  content?: VaultBlockContent;
+}
+
+export interface MoveVaultBlockInput {
+  pageId?: string;
+  parentBlockId?: string | null;
+  afterBlockId?: string | null;
+}
+
+export interface BatchBlockOperation {
+  op: 'create' | 'update' | 'delete' | 'move';
+  blockId?: string;
+  data?: CreateVaultBlockInput | UpdateVaultBlockInput | MoveVaultBlockInput;
+}

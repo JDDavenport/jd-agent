@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { PageTree } from './PageTreeItem';
-import type { VaultTreeNode } from '@jd-agent/types';
+import type { VaultTreeNode } from '../api';
 
 export type ViewType =
   | 'search'

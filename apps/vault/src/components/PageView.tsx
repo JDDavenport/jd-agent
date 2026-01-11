@@ -16,7 +16,7 @@ import {
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
-import type { VaultEntry } from '@jd-agent/types';
+import type { VaultEntry } from '../api';
 
 interface PageViewProps {
   entry: VaultEntry;

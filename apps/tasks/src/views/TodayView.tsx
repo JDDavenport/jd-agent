@@ -4,7 +4,7 @@ import { ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/ou
 import { TaskCard } from '../components/TaskCard';
 import { InlineAddTask } from '../components/InlineAddTask';
 import { useTodayTasks, useCompleteTask } from '../hooks/useTasks';
-import type { Task } from '@jd-agent/types';
+import type { Task } from '../api';
 
 export function TodayView() {
   const { data: tasks, isLoading } = useTodayTasks();

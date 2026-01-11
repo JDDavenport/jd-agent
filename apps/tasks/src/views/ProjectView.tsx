@@ -9,7 +9,7 @@ import {
 import { TaskCard } from '../components/TaskCard';
 import { InlineAddTask } from '../components/InlineAddTask';
 import { useTasks, useCompleteTask, useProjects } from '../hooks/useTasks';
-import type { Task } from '@jd-agent/types';
+import type { Task } from '../api';
 
 interface ProjectViewProps {
   projectId: string;

@@ -7,7 +7,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useVaultPageQuickFind } from '../hooks/useVaultPages';
 import { useVaultSearch } from '../hooks/useVault';
-import type { VaultEntry, VaultPage } from '@jd-agent/types';
+import type { VaultEntry, VaultPage } from '../api';
 
 interface CommandPaletteProps {
   isOpen: boolean;

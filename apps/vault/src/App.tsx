@@ -27,7 +27,7 @@ import {
   useVaultPageFavorites,
   useCreateVaultPage,
 } from './hooks/useVaultPages';
-import type { VaultEntry } from '@jd-agent/types';
+import type { VaultEntry } from './api';
 import './editor/editor.css';
 
 const queryClient = new QueryClient({

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { PlusIcon, XMarkIcon, FolderIcon } from '@heroicons/react/24/outline';
 import { useCreateVaultEntry, useVaultBreadcrumb } from '../hooks/useVault';
-import type { VaultContentType } from '@jd-agent/types';
+import type { VaultContentType } from '../api';
 
 interface NewEntryModalProps {
   isOpen: boolean;

@@ -5,7 +5,7 @@ import {
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid';
-import type { VaultPage, VaultPageBreadcrumb } from '@jd-agent/types';
+import type { VaultPage, VaultPageBreadcrumb } from '../api';
 
 interface PageHeaderProps {
   page: VaultPage;

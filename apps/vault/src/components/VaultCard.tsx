@@ -1,7 +1,7 @@
 import { DocumentTextIcon, AcademicCapIcon, BookOpenIcon, ClipboardDocumentIcon, DocumentIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { clsx } from 'clsx';
-import type { VaultEntry, VaultContentType } from '@jd-agent/types';
+import type { VaultEntry, VaultContentType } from '../api';
 
 interface VaultCardProps {
   entry: VaultEntry;

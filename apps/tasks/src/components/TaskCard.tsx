@@ -9,7 +9,7 @@ import {
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import { format, isToday, isTomorrow, isPast, isThisWeek } from 'date-fns';
 import { clsx } from 'clsx';
-import type { Task } from '@jd-agent/types';
+import type { Task } from '../api';
 
 interface TaskCardProps {
   task: Task;

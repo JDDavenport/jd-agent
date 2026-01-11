@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
-import type { CreateVaultInput, VaultSearchParams } from '@jd-agent/types';
+import type { CreateVaultInput, VaultSearchParams } from '../api';
 
 export function useVaultEntries() {
   return useQuery({

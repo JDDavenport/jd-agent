@@ -1,5 +1,5 @@
 import { ChevronRightIcon, HomeIcon } from '@heroicons/react/24/outline';
-import type { VaultBreadcrumb } from '@jd-agent/types';
+import type { VaultBreadcrumb } from '../api';
 
 interface BreadcrumbProps {
   items: VaultBreadcrumb[];
