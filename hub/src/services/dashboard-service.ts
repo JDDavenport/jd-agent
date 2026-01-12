@@ -277,17 +277,44 @@ export interface AIInsightsData {
 class DashboardService {
   /**
    * Get enhanced dashboard data for all metric cards
+   *
+   * OPTIMIZED: Uses Promise.allSettled() to ensure partial data is returned
+   * even if some metrics fail. This prevents a single failing integration
+   * (like Whoop) from breaking the entire dashboard.
    */
   async getEnhanced(): Promise<EnhancedDashboardData> {
-    const [tasksMetric, eventsMetric, goalsMetric, habitsMetric, vaultMetric, wellnessMetric] =
-      await Promise.all([
-        this.getTasksMetric(),
-        this.getEventsMetric(),
-        this.getGoalsMetric(),
-        this.getHabitsMetric(),
-        this.getVaultMetric(),
-        this.getWellnessMetric(),
-      ]);
+    // Use allSettled so one failure doesn't break everything
+    const results = await Promise.allSettled([
+      this.getTasksMetric(),
+      this.getEventsMetric(),
+      this.getGoalsMetric(),
+      this.getHabitsMetric(),
+      this.getVaultMetric(),
+      this.getWellnessMetric(),
+    ]);
+
+    // Extract results with defaults for failures
+    const defaultTasks: TasksMetric = { today: 0, overdue: 0, completed: 0, byPriority: { high: 0, medium: 0, low: 0 }, completionRate: 0 };
+    const defaultEvents: EventsMetric = { today: 0, nextEvent: null, byType: { meeting: 0, class: 0, personal: 0, other: 0 } };
+    const defaultGoals: GoalsMetric = { active: 0, completed: 0, overallProgress: 0, byArea: {}, needsAttention: 0 };
+    const defaultHabits: HabitsMetric = { completedToday: 0, totalDueToday: 0, completionRate: 0, longestStreak: null, weekCalendar: [false, false, false, false, false, false, false] };
+    const defaultVault: VaultMetric = { totalEntries: 0, recentCount: 0, byType: { notes: 0, recordings: 0, documents: 0, other: 0 } };
+    const defaultWellness: WellnessMetric = { recoveryScore: null, sleepHours: null, status: 'unknown', recommendation: null };
+
+    const tasksMetric = results[0].status === 'fulfilled' ? results[0].value : defaultTasks;
+    const eventsMetric = results[1].status === 'fulfilled' ? results[1].value : defaultEvents;
+    const goalsMetric = results[2].status === 'fulfilled' ? results[2].value : defaultGoals;
+    const habitsMetric = results[3].status === 'fulfilled' ? results[3].value : defaultHabits;
+    const vaultMetric = results[4].status === 'fulfilled' ? results[4].value : defaultVault;
+    const wellnessMetric = results[5].status === 'fulfilled' ? results[5].value : defaultWellness;
+
+    // Log failures for debugging (but don't crash)
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const metricNames = ['tasks', 'events', 'goals', 'habits', 'vault', 'wellness'];
+        console.error(`[Dashboard] ${metricNames[index]} metric failed:`, result.reason);
+      }
+    });
 
     return {
       tasks: tasksMetric,
@@ -302,247 +329,271 @@ class DashboardService {
 
   /**
    * Get tasks metric for dashboard card
+   * Uses composite index (status, due_date) for efficient queries
    */
   async getTasksMetric(): Promise<TasksMetric> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
 
-    // Get all task counts in parallel
-    const [todayResult, overdueResult, completedResult, priorityResult] = await Promise.all([
-      // Today's tasks (status = 'today' or due today)
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(tasks)
-        .where(
-          and(
-            sql`${tasks.status} not in ('done', 'archived')`,
-            sql`(${tasks.status} = 'today' OR (${tasks.dueDate} >= ${todayStart} AND ${tasks.dueDate} < ${todayEnd}))`
-          )
-        ),
-      // Overdue tasks
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(tasks)
-        .where(
-          and(
-            sql`${tasks.status} not in ('done', 'archived')`,
-            lte(tasks.dueDate, todayStart)
-          )
-        ),
-      // Completed today
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(tasks)
-        .where(
-          and(
-            eq(tasks.status, 'done'),
-            gte(tasks.completedAt, todayStart),
-            lte(tasks.completedAt, todayEnd)
-          )
-        ),
-      // By priority (for active tasks)
-      db
-        .select({
-          priority: tasks.priority,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(tasks)
-        .where(sql`${tasks.status} not in ('done', 'archived')`)
-        .groupBy(tasks.priority),
-    ]);
+      // Get all task counts in parallel
+      const [todayResult, overdueResult, completedResult, priorityResult] = await Promise.all([
+        // Today's tasks (status = 'today' or due today)
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(tasks)
+          .where(
+            and(
+              sql`${tasks.status} not in ('done', 'archived')`,
+              sql`(${tasks.status} = 'today' OR (${tasks.dueDate} >= ${todayStart} AND ${tasks.dueDate} < ${todayEnd}))`
+            )
+          ),
+        // Overdue tasks
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(tasks)
+          .where(
+            and(
+              sql`${tasks.status} not in ('done', 'archived')`,
+              lte(tasks.dueDate, todayStart)
+            )
+          ),
+        // Completed today
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(tasks)
+          .where(
+            and(
+              eq(tasks.status, 'done'),
+              gte(tasks.completedAt, todayStart),
+              lte(tasks.completedAt, todayEnd)
+            )
+          ),
+        // By priority (for active tasks)
+        db
+          .select({
+            priority: tasks.priority,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(tasks)
+          .where(sql`${tasks.status} not in ('done', 'archived')`)
+          .groupBy(tasks.priority),
+      ]);
 
-    const today = todayResult[0]?.count || 0;
-    const overdue = overdueResult[0]?.count || 0;
-    const completed = completedResult[0]?.count || 0;
+      const today = todayResult[0]?.count || 0;
+      const overdue = overdueResult[0]?.count || 0;
+      const completed = completedResult[0]?.count || 0;
 
-    // Calculate priority breakdown
-    const byPriority = { high: 0, medium: 0, low: 0 };
-    for (const row of priorityResult) {
-      if (row.priority >= 3) {
-        byPriority.high += row.count;
-      } else if (row.priority === 2) {
-        byPriority.medium += row.count;
-      } else {
-        byPriority.low += row.count;
+      // Calculate priority breakdown
+      const byPriority = { high: 0, medium: 0, low: 0 };
+      for (const row of priorityResult) {
+        if (row.priority >= 3) {
+          byPriority.high += row.count;
+        } else if (row.priority === 2) {
+          byPriority.medium += row.count;
+        } else {
+          byPriority.low += row.count;
+        }
       }
+
+      const totalTodayTasks = today + completed;
+      const completionRate = totalTodayTasks > 0
+        ? Math.round((completed / totalTodayTasks) * 100)
+        : 0;
+
+      return {
+        today,
+        overdue,
+        completed,
+        byPriority,
+        completionRate,
+      };
+    } catch (error) {
+      console.error('[Dashboard] getTasksMetric error:', error);
+      return { today: 0, overdue: 0, completed: 0, byPriority: { high: 0, medium: 0, low: 0 }, completionRate: 0 };
     }
-
-    const totalTodayTasks = today + completed;
-    const completionRate = totalTodayTasks > 0
-      ? Math.round((completed / totalTodayTasks) * 100)
-      : 0;
-
-    return {
-      today,
-      overdue,
-      completed,
-      byPriority,
-      completionRate,
-    };
   }
 
   /**
    * Get events metric for dashboard card
    */
   async getEventsMetric(): Promise<EventsMetric> {
-    const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
+    try {
+      const now = new Date();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
 
-    // Get today's events and next event in parallel
-    const [todayEventsResult, typeResult, nextEventResult] = await Promise.all([
-      // Total today
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(calendarEvents)
-        .where(
-          and(
-            gte(calendarEvents.startTime, todayStart),
-            lte(calendarEvents.startTime, todayEnd)
+      // Get today's events and next event in parallel
+      const [todayEventsResult, typeResult, nextEventResult] = await Promise.all([
+        // Total today
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(calendarEvents)
+          .where(
+            and(
+              gte(calendarEvents.startTime, todayStart),
+              lte(calendarEvents.startTime, todayEnd)
+            )
+          ),
+        // By type
+        db
+          .select({
+            eventType: calendarEvents.eventType,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(calendarEvents)
+          .where(
+            and(
+              gte(calendarEvents.startTime, todayStart),
+              lte(calendarEvents.startTime, todayEnd)
+            )
           )
-        ),
-      // By type
-      db
-        .select({
-          eventType: calendarEvents.eventType,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(calendarEvents)
-        .where(
-          and(
-            gte(calendarEvents.startTime, todayStart),
-            lte(calendarEvents.startTime, todayEnd)
-          )
-        )
-        .groupBy(calendarEvents.eventType),
-      // Next upcoming event
-      db
-        .select({
-          title: calendarEvents.title,
-          startTime: calendarEvents.startTime,
-        })
-        .from(calendarEvents)
-        .where(gte(calendarEvents.startTime, now))
-        .orderBy(asc(calendarEvents.startTime))
-        .limit(1),
-    ]);
+          .groupBy(calendarEvents.eventType),
+        // Next upcoming event - only select needed columns
+        db
+          .select({
+            title: calendarEvents.title,
+            startTime: calendarEvents.startTime,
+          })
+          .from(calendarEvents)
+          .where(gte(calendarEvents.startTime, now))
+          .orderBy(asc(calendarEvents.startTime))
+          .limit(1),
+      ]);
 
-    const today = todayEventsResult[0]?.count || 0;
+      const today = todayEventsResult[0]?.count || 0;
 
-    // Calculate by type
-    const byType = { meeting: 0, class: 0, personal: 0, other: 0 };
-    for (const row of typeResult) {
-      const type = row.eventType?.toLowerCase() || 'other';
-      if (type === 'meeting') byType.meeting += row.count;
-      else if (type === 'class') byType.class += row.count;
-      else if (type === 'personal') byType.personal += row.count;
-      else byType.other += row.count;
-    }
+      // Calculate by type
+      const byType = { meeting: 0, class: 0, personal: 0, other: 0 };
+      for (const row of typeResult) {
+        const type = row.eventType?.toLowerCase() || 'other';
+        if (type === 'meeting') byType.meeting += row.count;
+        else if (type === 'class') byType.class += row.count;
+        else if (type === 'personal') byType.personal += row.count;
+        else byType.other += row.count;
+      }
 
-    // Next event
-    let nextEvent: EventsMetric['nextEvent'] = null;
-    if (nextEventResult[0]) {
-      const event = nextEventResult[0];
-      const startTime = new Date(event.startTime);
-      const startsIn = Math.round((startTime.getTime() - now.getTime()) / (1000 * 60));
-      nextEvent = {
-        title: event.title,
-        startsIn,
-        startTime: startTime.toISOString(),
+      // Next event
+      let nextEvent: EventsMetric['nextEvent'] = null;
+      if (nextEventResult[0]) {
+        const event = nextEventResult[0];
+        const startTime = new Date(event.startTime);
+        const startsIn = Math.round((startTime.getTime() - now.getTime()) / (1000 * 60));
+        nextEvent = {
+          title: event.title,
+          startsIn,
+          startTime: startTime.toISOString(),
+        };
+      }
+
+      return {
+        today,
+        nextEvent,
+        byType,
       };
+    } catch (error) {
+      console.error('[Dashboard] getEventsMetric error:', error);
+      return { today: 0, nextEvent: null, byType: { meeting: 0, class: 0, personal: 0, other: 0 } };
     }
-
-    return {
-      today,
-      nextEvent,
-      byType,
-    };
   }
 
   /**
    * Get goals metric for dashboard card
+   * Now uses optimized getGoalsNeedingAttention() with single-query pattern
    */
   async getGoalsMetric(): Promise<GoalsMetric> {
-    // Get goal stats
-    const [statusResult, areaResult, needsAttentionResult] = await Promise.all([
-      // By status
-      db
-        .select({
-          status: goals.status,
-          count: sql<number>`count(*)::int`,
-          avgProgress: sql<number>`coalesce(avg(${goals.progressPercentage}), 0)::real`,
-        })
-        .from(goals)
-        .groupBy(goals.status),
-      // By life area (active only)
-      db
-        .select({
-          lifeArea: goals.lifeArea,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(goals)
-        .where(eq(goals.status, 'active'))
-        .groupBy(goals.lifeArea),
-      // Needs attention (active goals that are behind or stalled)
-      progressService.getGoalsNeedingAttention(),
-    ]);
+    try {
+      // Get goal stats
+      const [statusResult, areaResult, needsAttentionResult] = await Promise.all([
+        // By status
+        db
+          .select({
+            status: goals.status,
+            count: sql<number>`count(*)::int`,
+            avgProgress: sql<number>`coalesce(avg(${goals.progressPercentage}), 0)::real`,
+          })
+          .from(goals)
+          .groupBy(goals.status),
+        // By life area (active only)
+        db
+          .select({
+            lifeArea: goals.lifeArea,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(goals)
+          .where(eq(goals.status, 'active'))
+          .groupBy(goals.lifeArea),
+        // Needs attention (active goals that are behind or stalled)
+        // Now uses optimized single-query implementation
+        progressService.getGoalsNeedingAttention(),
+      ]);
 
-    let active = 0;
-    let completed = 0;
-    let totalProgress = 0;
-    let activeCount = 0;
+      let active = 0;
+      let completed = 0;
+      let totalProgress = 0;
 
-    for (const row of statusResult) {
-      if (row.status === 'active') {
-        active = row.count;
-        totalProgress = row.avgProgress;
-        activeCount = row.count;
-      } else if (row.status === 'completed') {
-        completed = row.count;
+      for (const row of statusResult) {
+        if (row.status === 'active') {
+          active = row.count;
+          totalProgress = row.avgProgress;
+        } else if (row.status === 'completed') {
+          completed = row.count;
+        }
       }
-    }
 
-    const byArea: Record<string, number> = {};
-    for (const row of areaResult) {
-      if (row.lifeArea) {
-        byArea[row.lifeArea] = row.count;
+      const byArea: Record<string, number> = {};
+      for (const row of areaResult) {
+        if (row.lifeArea) {
+          byArea[row.lifeArea] = row.count;
+        }
       }
-    }
 
-    return {
-      active,
-      completed,
-      overallProgress: Math.round(totalProgress),
-      byArea,
-      needsAttention: needsAttentionResult.length,
-    };
+      return {
+        active,
+        completed,
+        overallProgress: Math.round(totalProgress),
+        byArea,
+        needsAttention: needsAttentionResult.length,
+      };
+    } catch (error) {
+      console.error('[Dashboard] getGoalsMetric error:', error);
+      return { active: 0, completed: 0, overallProgress: 0, byArea: {}, needsAttention: 0 };
+    }
   }
 
   /**
    * Get habits metric for dashboard card
    */
   async getHabitsMetric(): Promise<HabitsMetric> {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    try {
+      // Get today's habits progress and top streak
+      const [todaysProgress, topStreak, weekCalendar] = await Promise.all([
+        progressService.getTodaysHabitsProgress(),
+        this.getTopHabitStreak(),
+        this.getWeekCompletionCalendar(),
+      ]);
 
-    // Get today's habits progress and top streak
-    const [todaysProgress, topStreak, weekCalendar] = await Promise.all([
-      progressService.getTodaysHabitsProgress(),
-      this.getTopHabitStreak(),
-      this.getWeekCompletionCalendar(),
-    ]);
-
-    return {
-      completedToday: todaysProgress.completed,
-      totalDueToday: todaysProgress.total,
-      completionRate: todaysProgress.percentage,
-      longestStreak: topStreak,
-      weekCalendar,
-    };
+      return {
+        completedToday: todaysProgress.completed,
+        totalDueToday: todaysProgress.total,
+        completionRate: todaysProgress.percentage,
+        longestStreak: topStreak,
+        weekCalendar,
+      };
+    } catch (error) {
+      console.error('[Dashboard] getHabitsMetric error:', error);
+      return {
+        completedToday: 0,
+        totalDueToday: 0,
+        completionRate: 0,
+        longestStreak: null,
+        weekCalendar: [false, false, false, false, false, false, false],
+      };
+    }
   }
 
   /**
@@ -610,50 +661,56 @@ class DashboardService {
 
   /**
    * Get vault metric for dashboard card
+   * Now uses vault_entries_created_at_idx for recent entries query
    */
   async getVaultMetric(): Promise<VaultMetric> {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
 
-    const [totalResult, recentResult, typeResult] = await Promise.all([
-      // Total entries
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(vaultEntries),
-      // Recent (last 24 hours)
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(vaultEntries)
-        .where(gte(vaultEntries.createdAt, yesterday)),
-      // By type
-      db
-        .select({
-          contentType: vaultEntries.contentType,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(vaultEntries)
-        .groupBy(vaultEntries.contentType),
-    ]);
+      const [totalResult, recentResult, typeResult] = await Promise.all([
+        // Total entries
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(vaultEntries),
+        // Recent (last 24 hours) - uses new created_at index
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(vaultEntries)
+          .where(gte(vaultEntries.createdAt, yesterday)),
+        // By type
+        db
+          .select({
+            contentType: vaultEntries.contentType,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(vaultEntries)
+          .groupBy(vaultEntries.contentType),
+      ]);
 
-    const byType = { notes: 0, recordings: 0, documents: 0, other: 0 };
-    for (const row of typeResult) {
-      const type = row.contentType?.toLowerCase() || 'other';
-      if (type === 'note' || type === 'journal' || type === 'class_notes') {
-        byType.notes += row.count;
-      } else if (type === 'recording' || type === 'recording_summary' || type === 'lecture') {
-        byType.recordings += row.count;
-      } else if (type === 'document' || type === 'article') {
-        byType.documents += row.count;
-      } else {
-        byType.other += row.count;
+      const byType = { notes: 0, recordings: 0, documents: 0, other: 0 };
+      for (const row of typeResult) {
+        const type = row.contentType?.toLowerCase() || 'other';
+        if (type === 'note' || type === 'journal' || type === 'class_notes') {
+          byType.notes += row.count;
+        } else if (type === 'recording' || type === 'recording_summary' || type === 'lecture') {
+          byType.recordings += row.count;
+        } else if (type === 'document' || type === 'article') {
+          byType.documents += row.count;
+        } else {
+          byType.other += row.count;
+        }
       }
-    }
 
-    return {
-      totalEntries: totalResult[0]?.count || 0,
-      recentCount: recentResult[0]?.count || 0,
-      byType,
-    };
+      return {
+        totalEntries: totalResult[0]?.count || 0,
+        recentCount: recentResult[0]?.count || 0,
+        byType,
+      };
+    } catch (error) {
+      console.error('[Dashboard] getVaultMetric error:', error);
+      return { totalEntries: 0, recentCount: 0, byType: { notes: 0, recordings: 0, documents: 0, other: 0 } };
+    }
   }
 
   /**

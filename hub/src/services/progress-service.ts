@@ -266,20 +266,43 @@ class ProgressService {
 
   /**
    * Get goals that need attention (behind schedule, stalled, etc.)
+   *
+   * OPTIMIZED: Uses a single query with LEFT JOIN to fetch goals and their
+   * latest reflection in one round-trip, eliminating N+1 query pattern.
    */
   async getGoalsNeedingAttention(): Promise<GoalAlert[]> {
     const alerts: GoalAlert[] = [];
     const today = new Date();
 
-    // Get active goals with target dates
-    const activeGoals = await db
-      .select()
+    // Single query: Get active goals with only needed columns + latest reflection date
+    // Uses a lateral join pattern via subquery to get the most recent reflection per goal
+    const activeGoalsWithReflections = await db
+      .select({
+        // Only select columns we actually need (not SELECT *)
+        id: goals.id,
+        title: goals.title,
+        lifeArea: goals.lifeArea,
+        progressPercentage: goals.progressPercentage,
+        targetDate: goals.targetDate,
+        startDate: goals.startDate,
+        createdAt: goals.createdAt,
+        updatedAt: goals.updatedAt,
+        // Subquery to get latest reflection date for each goal
+        lastReflectionAt: sql<Date | null>`(
+          SELECT created_at FROM goal_reflections
+          WHERE goal_id = ${goals.id}
+          ORDER BY created_at DESC
+          LIMIT 1
+        )`.as('last_reflection_at'),
+      })
       .from(goals)
       .where(eq(goals.status, 'active'));
 
-    for (const goal of activeGoals) {
+    // Process all goals in memory (no additional DB calls)
+    for (const goal of activeGoalsWithReflections) {
       const progress = goal.progressPercentage || 0;
       let daysRemaining: number | null = null;
+      let addedAlert = false;
 
       if (goal.targetDate) {
         const targetDate = new Date(goal.targetDate);
@@ -305,6 +328,7 @@ class ProgressService {
             progressPercentage: progress,
             daysRemaining,
           });
+          addedAlert = true;
         } else if (daysRemaining <= 7 && progress < 80) {
           // Due soon but not close to completion
           alerts.push({
@@ -316,6 +340,7 @@ class ProgressService {
             progressPercentage: progress,
             daysRemaining,
           });
+          addedAlert = true;
         } else if (behindBy > 25) {
           // Significantly behind schedule
           alerts.push({
@@ -327,20 +352,16 @@ class ProgressService {
             progressPercentage: progress,
             daysRemaining,
           });
+          addedAlert = true;
         }
       }
 
       // Check for stalled goals (no progress in 14+ days)
-      if (!goal.targetDate || alerts.find((a) => a.goalId === goal.id)) continue;
+      // Skip if we already added an alert for this goal or if it has a target date alert
+      if (addedAlert) continue;
 
-      const lastReflection = await db
-        .select()
-        .from(goalReflections)
-        .where(eq(goalReflections.goalId, goal.id))
-        .orderBy(desc(goalReflections.createdAt))
-        .limit(1);
-
-      const lastActivity = lastReflection[0]?.createdAt || goal.updatedAt;
+      // Use the pre-fetched lastReflectionAt instead of another DB query
+      const lastActivity = goal.lastReflectionAt || goal.updatedAt;
       const daysSinceActivity = Math.ceil((today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysSinceActivity > 14 && progress < 100) {
