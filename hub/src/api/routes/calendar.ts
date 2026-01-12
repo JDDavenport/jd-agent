@@ -116,6 +116,12 @@ const listEventsHandler = async (c: any) => {
   }
 };
 
+// Simple test endpoint to verify routing works
+calendarRouter.get('/test', (c) => {
+  console.log('[Calendar] Test endpoint hit');
+  return c.json({ success: true, message: 'Calendar routing works' });
+});
+
 calendarRouter.get('/', listEventsHandler);
 calendarRouter.get('/events', listEventsHandler);
 
