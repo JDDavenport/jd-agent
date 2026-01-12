@@ -555,6 +555,8 @@ OPENAI_API_KEY=sk-xxx
 
 **Habit Tracking:**
 - Frequency: daily, weekly, specific days
+- **Day Selector UI**: Interactive day picker (S M T W T F S) for specific days frequency
+- Habits with specific days only appear in Today view and Journal on selected days
 - Time of day preference (morning, afternoon, evening)
 - Current and longest streak tracking
 - 2-day grace period for streak protection
@@ -2027,6 +2029,15 @@ See `CLAUDE.md` for full documentation requirements.
 - Listed all API endpoints and their capabilities
 - Catalogued database schema
 - Documented tech stack and development commands
+
+### January 12, 2026 - Habit Specific Days UI Fix
+- **Day Selector UI**: Added interactive day picker (S M T W T F S) buttons for selecting specific days when creating habits
+- **Goals Page Integration**: Day selector now appears in habit creation form within Goal detail panel
+- **Habits Page Integration**: Day selector now appears in standalone habit creation modal
+- **Smart Display**: Habits show formatted day names (e.g., "Mon, Wed, Fri" or "Weekdays") instead of raw frequency
+- **Journal Integration**: Habits with specific days only appear in daily journal on selected days
+- **Validation**: Submit button disabled until at least one day is selected for specific_days frequency
+- **Files Modified**: `Goals.tsx`, `Habits.tsx`, `types/goals.ts` in command-center app
 
 ---
 
