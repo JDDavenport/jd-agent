@@ -459,7 +459,8 @@ class CanvasIntegrityService {
           sql`(${canvasScheduleTracking.isScheduled} IS NULL OR ${canvasScheduleTracking.isScheduled} = false)`
         )
       )
-      .orderBy(canvasItems.dueAt);
+      .orderBy(canvasItems.dueAt)
+      .limit(50);
 
     return results.map((r) => ({
       canvasItemId: r.canvasItemId,
