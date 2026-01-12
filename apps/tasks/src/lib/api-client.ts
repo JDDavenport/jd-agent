@@ -71,6 +71,15 @@ export class ApiClient {
     return this.request('DELETE', `/api/tasks/${id}`);
   }
 
+  // Subtasks
+  async getSubtasks(parentTaskId: string): Promise<Task[]> {
+    return this.request('GET', `/api/tasks/${parentTaskId}/subtasks`);
+  }
+
+  async createSubtask(parentTaskId: string, input: CreateTaskInput): Promise<Task> {
+    return this.request('POST', `/api/tasks/${parentTaskId}/subtasks`, input);
+  }
+
   // Projects
   async listProjects(): Promise<Project[]> {
     return this.request('GET', '/api/projects');

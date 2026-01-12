@@ -78,3 +78,25 @@ export function useDeleteTask() {
     },
   });
 }
+
+// Subtask hooks
+export function useSubtasks(parentTaskId: string) {
+  return useQuery({
+    queryKey: ['tasks', parentTaskId, 'subtasks'],
+    queryFn: () => api.getSubtasks(parentTaskId),
+    enabled: !!parentTaskId,
+  });
+}
+
+export function useCreateSubtask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ parentTaskId, input }: { parentTaskId: string; input: CreateTaskInput }) =>
+      api.createSubtask(parentTaskId, input),
+    onSuccess: (_, { parentTaskId }) => {
+      // Invalidate both the subtasks list and all task queries (for counts)
+      queryClient.invalidateQueries({ queryKey: ['tasks', parentTaskId, 'subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
