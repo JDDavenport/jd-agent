@@ -65,19 +65,31 @@ const listFiltersSchema = z.object({
 const listEventsHandler = async (c: any) => {
   try {
     const query = c.req.query();
-    const parseResult = listFiltersSchema.safeParse(query);
+    console.log('[Calendar] List handler - query params:', JSON.stringify(query));
 
-    if (!parseResult.success) {
+    // If date params are provided, use getInRange instead of list with filters
+    // This avoids potential Drizzle ORM issues with Date objects from query params
+    if (query.startDate || query.endDate) {
+      const startDate = query.startDate
+        ? new Date(query.startDate + 'T00:00:00.000Z')
+        : new Date();
+      const endDate = query.endDate
+        ? new Date(query.endDate + 'T23:59:59.999Z')
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      console.log('[Calendar] Using getInRange with:', startDate.toISOString(), 'to', endDate.toISOString());
+
+      const events = await calendarService.getInRange(startDate, endDate);
+
       return c.json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: parseResult.error.message,
-        },
-      }, 400);
+        success: true,
+        data: events,
+        count: events.length,
+      });
     }
 
-    const events = await calendarService.list(parseResult.data);
+    // No date params - use regular list without filters
+    const events = await calendarService.list({});
 
     return c.json({
       success: true,
@@ -86,6 +98,7 @@ const listEventsHandler = async (c: any) => {
     });
   } catch (error) {
     console.error('[Calendar] List events error:', error);
+    console.error('[Calendar] Error stack:', error instanceof Error ? error.stack : 'no stack');
     return c.json({
       success: false,
       error: {
