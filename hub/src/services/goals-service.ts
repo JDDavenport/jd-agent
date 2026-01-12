@@ -144,7 +144,7 @@ class GoalsService {
       query = query.where(and(...conditions)) as typeof query;
     }
 
-    const result = await query.orderBy(asc(goals.priority), asc(goals.targetDate), asc(goals.title));
+    const result = await query.orderBy(asc(goals.priority), asc(goals.targetDate), asc(goals.title)).limit(100);
     return result as Goal[];
   }
 
