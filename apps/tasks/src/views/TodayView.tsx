@@ -6,7 +6,11 @@ import { InlineAddTask } from '../components/InlineAddTask';
 import { useTodayTasks, useCompleteTask } from '../hooks/useTasks';
 import type { Task } from '../api';
 
-export function TodayView() {
+interface TodayViewProps {
+  onSelectTask?: (task: Task) => void;
+}
+
+export function TodayView({ onSelectTask }: TodayViewProps) {
   const { data: tasks, isLoading } = useTodayTasks();
   const completeTask = useCompleteTask();
 
@@ -100,7 +104,7 @@ export function TodayView() {
           </div>
           <div>
             {overdue.map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+              <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
             ))}
           </div>
         </section>
@@ -116,7 +120,7 @@ export function TodayView() {
           </div>
           <div>
             {scheduled.map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+              <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
             ))}
           </div>
         </section>
@@ -133,7 +137,7 @@ export function TodayView() {
             </div>
             <div>
               {anytime.map((task) => (
-                <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+                <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
               ))}
             </div>
           </>
@@ -155,7 +159,7 @@ export function TodayView() {
           </div>
           <div>
             {completed.map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+              <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
             ))}
           </div>
         </section>

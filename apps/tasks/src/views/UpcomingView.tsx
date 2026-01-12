@@ -17,7 +17,11 @@ interface DayGroup {
   tasks: Task[];
 }
 
-export function UpcomingView() {
+interface UpcomingViewProps {
+  onSelectTask?: (task: Task) => void;
+}
+
+export function UpcomingView({ onSelectTask }: UpcomingViewProps) {
   const { data: tasks, isLoading } = useTasks();
   const completeTask = useCompleteTask();
 
@@ -129,7 +133,7 @@ export function UpcomingView() {
           {group.tasks.length > 0 ? (
             <div>
               {group.tasks.map((task) => (
-                <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+                <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
               ))}
             </div>
           ) : (

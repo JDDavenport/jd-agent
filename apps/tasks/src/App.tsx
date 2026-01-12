@@ -9,7 +9,9 @@ import { ProjectView } from './views/ProjectView';
 import { FiltersView } from './views/FiltersView';
 import { QuickAddTask } from './components/QuickAddTask';
 import { SearchModal } from './components/SearchModal';
-import { useTodayTasks, useInboxTasks, useProjects } from './hooks/useTasks';
+import { TaskDetailPanel } from './components/TaskDetailPanel';
+import { useTodayTasks, useTasks, useProjects } from './hooks/useTasks';
+import type { Task } from './api';
 
 const queryClient = new QueryClient();
 
@@ -20,10 +22,21 @@ function TasksApp() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [quickAddProjectId, setQuickAddProjectId] = useState<string | undefined>();
   const [quickAddProjectName, setQuickAddProjectName] = useState<string | undefined>();
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const todayQuery = useTodayTasks();
-  const inboxQuery = useInboxTasks();
+  const allTasksQuery = useTasks();
   const projectsQuery = useProjects();
+
+  // Calculate inbox count (tasks without projects, due dates, or scheduled dates)
+  const inboxCount = (allTasksQuery.data || []).filter(
+    (task) =>
+      task.status !== 'done' &&
+      task.status !== 'archived' &&
+      !task.projectId &&
+      !task.dueDate &&
+      !task.scheduledStart
+  ).length;
 
   const handleSelectView = useCallback((viewId: string, type: ViewType) => {
     setSelectedView(viewId);
@@ -74,10 +87,11 @@ function TasksApp() {
         setTimeout(() => window.removeEventListener('keydown', handleNextKey), 1000);
       }
 
-      // Escape to close modals
+      // Escape to close modals and panels
       if (e.key === 'Escape') {
         setIsQuickAddOpen(false);
         setIsSearchOpen(false);
+        setSelectedTask(null);
       }
     };
 
@@ -102,21 +116,25 @@ function TasksApp() {
     }
   };
 
+  const handleSelectTask = useCallback((task: Task) => {
+    setSelectedTask(task);
+  }, []);
+
   const renderMainContent = () => {
     switch (viewType) {
       case 'inbox':
-        return <InboxView />;
+        return <InboxView onSelectTask={handleSelectTask} />;
       case 'today':
-        return <TodayView />;
+        return <TodayView onSelectTask={handleSelectTask} />;
       case 'upcoming':
-        return <UpcomingView />;
+        return <UpcomingView onSelectTask={handleSelectTask} />;
       case 'project':
-        return <ProjectView projectId={selectedView} />;
+        return <ProjectView projectId={selectedView} onSelectProject={(id) => handleSelectView(id, 'project')} onSelectTask={handleSelectTask} />;
       case 'filter':
       case 'label':
         return <FiltersView />;
       default:
-        return <TodayView />;
+        return <TodayView onSelectTask={handleSelectTask} />;
     }
   };
 
@@ -134,7 +152,7 @@ function TasksApp() {
       <Sidebar
         selectedView={selectedView}
         onSelectView={handleSelectView}
-        inboxCount={inboxQuery.data?.length || 0}
+        inboxCount={inboxCount}
         todayCount={todayQuery.data?.length || 0}
         projects={projects}
         onAddTaskToProject={handleAddTaskToProject}
@@ -190,6 +208,14 @@ function TasksApp() {
         defaultProjectName={quickAddProjectName}
       />
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
+      {/* Task Detail Panel */}
+      {selectedTask && (
+        <TaskDetailPanel
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
     </div>
   );
 }
