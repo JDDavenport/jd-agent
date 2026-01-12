@@ -63,20 +63,11 @@ const listFiltersSchema = z.object({
  * List calendar events with optional filters
  */
 const listEventsHandler = async (c: any) => {
-  console.log('[Calendar] List handler called');
   try {
-    let query: Record<string, string> = {};
-    try {
-      query = c.req.query() || {};
-      console.log('[Calendar] List request query:', JSON.stringify(query));
-    } catch (queryError) {
-      console.error('[Calendar] Error getting query params:', queryError);
-    }
-
+    const query = c.req.query();
     const parseResult = listFiltersSchema.safeParse(query);
 
     if (!parseResult.success) {
-      console.log('[Calendar] Validation failed:', parseResult.error.message);
       return c.json({
         success: false,
         error: {
@@ -86,17 +77,7 @@ const listEventsHandler = async (c: any) => {
       }, 400);
     }
 
-    const filters = parseResult.data;
-    console.log('[Calendar] Parsed filters:', JSON.stringify({
-      startDate: filters.startDate?.toISOString?.() || filters.startDate,
-      endDate: filters.endDate?.toISOString?.() || filters.endDate,
-      eventType: filters.eventType,
-      context: filters.context,
-    }));
-
-    console.log('[Calendar] Calling calendarService.list()');
-    const events = await calendarService.list(filters);
-    console.log('[Calendar] Found', events.length, 'events');
+    const events = await calendarService.list(parseResult.data);
 
     return c.json({
       success: true,
@@ -105,7 +86,6 @@ const listEventsHandler = async (c: any) => {
     });
   } catch (error) {
     console.error('[Calendar] List events error:', error);
-    console.error('[Calendar] Error stack:', error instanceof Error ? error.stack : 'no stack');
     return c.json({
       success: false,
       error: {
@@ -115,12 +95,6 @@ const listEventsHandler = async (c: any) => {
     }, 500);
   }
 };
-
-// Simple test endpoint to verify routing works
-calendarRouter.get('/test', (c) => {
-  console.log('[Calendar] Test endpoint hit');
-  return c.json({ success: true, message: 'Calendar routing works' });
-});
 
 calendarRouter.get('/', listEventsHandler);
 calendarRouter.get('/events', listEventsHandler);
