@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, asc, sql, gt, lt } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { calendarEvents } from '../db/schema';
 import { getGoogleCalendar, type CalendarEventInput } from '../integrations/google-calendar';
@@ -136,63 +136,34 @@ export class CalendarService {
 
   /**
    * List events with optional filters
-   * If no date range is provided, defaults to current date + 30 days
    */
   async list(filters: EventFilters = {}): Promise<CalendarEventRecord[]> {
-    console.log('[CalendarService] list() starting');
+    const conditions = [];
 
-    try {
-      // Default to current date range if no dates provided
-      const effectiveFilters = { ...filters };
-      if (!effectiveFilters.startDate && !effectiveFilters.endDate) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        effectiveFilters.startDate = now;
-        const future = new Date(now);
-        future.setDate(future.getDate() + 30);
-        effectiveFilters.endDate = future;
-      }
-
-      console.log('[CalendarService] list() called with filters:', JSON.stringify({
-        startDate: effectiveFilters.startDate?.toISOString(),
-        endDate: effectiveFilters.endDate?.toISOString(),
-        eventType: effectiveFilters.eventType,
-        context: effectiveFilters.context,
-      }));
-
-      // Use simple query without date filters first to test
-      console.log('[CalendarService] Executing simplified query');
-
-      const events = await db
-        .select()
-        .from(calendarEvents)
-        .orderBy(asc(calendarEvents.startTime))
-        .limit(100);
-
-      console.log('[CalendarService] Query returned', events.length, 'events');
-
-      // Filter in-memory if date filters provided
-      let filtered = events as CalendarEventRecord[];
-      if (effectiveFilters.startDate) {
-        filtered = filtered.filter(e => new Date(e.startTime) >= effectiveFilters.startDate!);
-      }
-      if (effectiveFilters.endDate) {
-        filtered = filtered.filter(e => new Date(e.startTime) <= effectiveFilters.endDate!);
-      }
-      if (effectiveFilters.eventType) {
-        filtered = filtered.filter(e => e.eventType === effectiveFilters.eventType);
-      }
-      if (effectiveFilters.context) {
-        filtered = filtered.filter(e => e.context === effectiveFilters.context);
-      }
-
-      console.log('[CalendarService] After filtering:', filtered.length, 'events');
-      return filtered;
-    } catch (error) {
-      console.error('[CalendarService] Query error:', error);
-      console.error('[CalendarService] Query error message:', error instanceof Error ? error.message : 'unknown');
-      throw error;
+    if (filters.startDate) {
+      conditions.push(gte(calendarEvents.startTime, filters.startDate));
     }
+
+    if (filters.endDate) {
+      conditions.push(lte(calendarEvents.startTime, filters.endDate));
+    }
+
+    if (filters.eventType) {
+      conditions.push(eq(calendarEvents.eventType, filters.eventType));
+    }
+
+    if (filters.context) {
+      conditions.push(eq(calendarEvents.context, filters.context));
+    }
+
+    const events = await db
+      .select()
+      .from(calendarEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(calendarEvents.startTime))
+      .limit(100);
+
+    return events as CalendarEventRecord[];
   }
 
   /**
