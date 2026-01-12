@@ -1,11 +1,30 @@
+import { useMemo } from 'react';
 import { InboxIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { TaskCard } from '../components/TaskCard';
 import { InlineAddTask } from '../components/InlineAddTask';
-import { useInboxTasks, useCompleteTask } from '../hooks/useTasks';
+import { useTasks, useCompleteTask } from '../hooks/useTasks';
+import type { Task } from '../api';
 
-export function InboxView() {
-  const { data: tasks, isLoading } = useInboxTasks();
+interface InboxViewProps {
+  onSelectTask?: (task: Task) => void;
+}
+
+export function InboxView({ onSelectTask }: InboxViewProps) {
+  const { data: allTasks, isLoading } = useTasks();
   const completeTask = useCompleteTask();
+
+  // Inbox = tasks without projects, due dates, or scheduled dates (unprocessed tasks)
+  const tasks = useMemo(() => {
+    if (!allTasks) return [];
+    return allTasks.filter(
+      (task) =>
+        task.status !== 'done' &&
+        task.status !== 'archived' &&
+        !task.projectId &&
+        !task.dueDate &&
+        !task.scheduledStart
+    );
+  }, [allTasks]);
 
   const handleComplete = (id: string) => {
     completeTask.mutate(id);
@@ -57,7 +76,7 @@ export function InboxView() {
       {/* Task list */}
       <div data-testid="inbox-task-list">
         {tasks.map((task, index) => (
-          <TaskCard key={task.id} task={task} index={index} onComplete={handleComplete} />
+          <TaskCard key={task.id} task={task} index={index} onComplete={handleComplete} onSelect={onSelectTask} />
         ))}
         <InlineAddTask
           status="inbox"

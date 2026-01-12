@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
-  PlusIcon,
   FolderIcon,
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/outline';
@@ -13,6 +12,8 @@ import type { Task } from '../api';
 
 interface ProjectViewProps {
   projectId: string;
+  onSelectProject?: (projectId: string) => void;
+  onSelectTask?: (task: Task) => void;
 }
 
 interface SectionGroup {
@@ -22,13 +23,16 @@ interface SectionGroup {
   isCollapsed: boolean;
 }
 
-export function ProjectView({ projectId }: ProjectViewProps) {
+export function ProjectView({ projectId, onSelectProject, onSelectTask }: ProjectViewProps) {
   const { data: allTasks, isLoading: tasksLoading } = useTasks();
   const { data: projects } = useProjects();
   const completeTask = useCompleteTask();
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const project = projects?.find((p) => p.id === projectId);
+
+  // Get child projects for this parent project
+  const childProjects = projects?.filter((p) => p.parentProjectId === projectId) || [];
 
   const { sections, completedTasks } = useMemo(() => {
     if (!allTasks) return { sections: [], completedTasks: [] };
@@ -116,6 +120,36 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         )}
       </div>
 
+      {/* Child Projects */}
+      {childProjects.length > 0 && (
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Sub-Projects ({childProjects.length})
+          </h2>
+          <div className="grid gap-2">
+            {childProjects.map((child) => (
+              <button
+                key={child.id}
+                onClick={() => onSelectProject?.(child.id)}
+                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors text-left"
+              >
+                <span
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: child.color || '#6366f1' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-gray-900 truncate block">{child.name}</span>
+                  {child.description && (
+                    <span className="text-sm text-gray-500 truncate block">{child.description}</span>
+                  )}
+                </div>
+                <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Sections */}
       {sections.map((section) => (
         <section key={section.id || 'none'} className="border-b border-gray-100">
@@ -142,7 +176,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
               {section.tasks.length > 0 && (
                 <div>
                   {section.tasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+                    <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
                   ))}
                 </div>
               )}
@@ -161,14 +195,6 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         </section>
       ))}
 
-      {/* Add Section Button */}
-      <div className="px-6 py-3 border-b border-gray-100">
-        <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-          <PlusIcon className="w-4 h-4" />
-          Add Section
-        </button>
-      </div>
-
       {/* Completed Tasks */}
       {completedTasks.length > 0 && (
         <section>
@@ -179,7 +205,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           </div>
           <div>
             {completedTasks.slice(0, 5).map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+              <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
             ))}
             {completedTasks.length > 5 && (
               <div className="px-6 py-3 text-center text-sm text-gray-500">
