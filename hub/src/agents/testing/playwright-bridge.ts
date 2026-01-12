@@ -5,9 +5,20 @@
  * Provides simplified methods for the testing agent.
  */
 
-import { chromium, type Browser, type Page, type BrowserContext } from 'playwright';
+import type { Browser, Page, BrowserContext } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Lazy-load playwright to reduce startup memory
+let playwrightModule: typeof import('playwright') | null = null;
+
+async function getPlaywright() {
+  if (!playwrightModule) {
+    console.log('[PlaywrightBridge] Loading playwright module...');
+    playwrightModule = await import('playwright');
+  }
+  return playwrightModule;
+}
 import type {
   NavigateInput,
   ClickInput,
@@ -59,6 +70,7 @@ export class PlaywrightBridge {
       fs.mkdirSync(this.screenshotDir, { recursive: true });
     }
 
+    const { chromium } = await getPlaywright();
     this.browser = await chromium.launch({
       headless: this.headless,
     });
