@@ -572,28 +572,37 @@ class DashboardService {
   /**
    * Get a 7-day calendar showing habit completion status
    * Returns array of 7 booleans (oldest to newest)
+   * Optimized: Single query instead of 7 separate queries
    */
   private async getWeekCompletionCalendar(): Promise<boolean[]> {
-    const calendar: boolean[] = [];
     const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 6);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T')[0];
 
+    // Single query to get all completion dates in the past week
+    const completions = await db
+      .select({ date: habitCompletions.date })
+      .from(habitCompletions)
+      .where(
+        and(
+          gte(habitCompletions.date, weekAgoStr),
+          lte(habitCompletions.date, todayStr),
+          eq(habitCompletions.skipped, false)
+        )
+      )
+      .groupBy(habitCompletions.date);
+
+    const completionDates = new Set(completions.map(c => c.date));
+
+    // Build calendar array
+    const calendar: boolean[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
-
-      // Check if any habits were completed on this day
-      const result = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(habitCompletions)
-        .where(
-          and(
-            eq(habitCompletions.date, dateStr),
-            eq(habitCompletions.skipped, false)
-          )
-        );
-
-      calendar.push((result[0]?.count || 0) > 0);
+      calendar.push(completionDates.has(dateStr));
     }
 
     return calendar;
@@ -958,7 +967,7 @@ class DashboardService {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);
 
-    // Get all events for the week
+    // Get events for the week (limited to prevent memory issues)
     const events = await db
       .select()
       .from(calendarEvents)
@@ -968,7 +977,8 @@ class DashboardService {
           lt(calendarEvents.startTime, weekEnd)
         )
       )
-      .orderBy(asc(calendarEvents.startTime));
+      .orderBy(asc(calendarEvents.startTime))
+      .limit(100);
 
     // Get task counts per day
     const taskCounts = await db
