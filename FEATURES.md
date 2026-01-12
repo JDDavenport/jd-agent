@@ -1,6 +1,6 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 10, 2026
+> **Last Updated:** January 12, 2026
 > **Version:** 0.3.11
 > **Phase:** Phase 3 - Verify & Coach
 
@@ -1397,6 +1397,18 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 12, 2026 - Calendar Page Production Fix
+- **API Fix**: Fixed calendar API returning 502 timeout with date parameters
+  - Root cause: Zod schema transforms creating Date objects that crashed Drizzle ORM queries
+  - Solution: Bypass Zod transforms, handle date params directly in route handler
+  - Use `getInRange()` instead of `list()` with Zod-parsed filters
+- **Production Verified**: Calendar page fully working at https://command-center-plum.vercel.app/calendar
+  - Week view displays 50+ events correctly
+  - Month/Week/Day views all functional
+  - Event creation modal working
+  - Navigation and keyboard shortcuts working
+- **Files**: `calendar.ts` (routes)
 
 ### January 11, 2026 - Vault Migration (ENH-016)
 - **Migration Service**: Converts vault_entries to vault_pages + vault_blocks
