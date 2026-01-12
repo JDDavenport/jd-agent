@@ -752,15 +752,17 @@ class DashboardService {
 
   /**
    * Get today's tasks grouped by priority
+   * Wrapped in try-catch for resilience in memory-constrained environments
    */
   async getGroupedTodayTasks(): Promise<GroupedTodayTasks> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
 
-    // Get all today's tasks with project info
-    const result = await db
+      // Get all today's tasks with project info
+      const result = await db
       .select({
         task: tasks,
         project: {
@@ -865,13 +867,27 @@ class DashboardService {
       grouped.stats.totalMinutes += task.timeEstimateMinutes || 0;
     }
 
-    return grouped;
+      return grouped;
+    } catch (error) {
+      console.error('[Dashboard] getGroupedTodayTasks error:', error);
+      return {
+        overdue: [],
+        high: [],
+        medium: [],
+        low: [],
+        noPriority: [],
+        completed: [],
+        stats: { total: 0, completed: 0, totalMinutes: 0, completedMinutes: 0 },
+      };
+    }
   }
 
   /**
    * Get deadlines grouped by urgency
+   * Wrapped in try-catch for resilience in memory-constrained environments
    */
   async getGroupedDeadlines(): Promise<GroupedDeadlines> {
+    try {
     const now = new Date();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -949,7 +965,18 @@ class DashboardService {
       }
     }
 
-    return grouped;
+      return grouped;
+    } catch (error) {
+      console.error('[Dashboard] getGroupedDeadlines error:', error);
+      return {
+        overdue: [],
+        today: [],
+        thisWeek: [],
+        nextWeek: [],
+        later: [],
+        stats: { total: 0, overdue: 0, urgent: 0 },
+      };
+    }
   }
 
   /**
@@ -1283,9 +1310,11 @@ class DashboardService {
 
   /**
    * Get System Monitor data (integration health)
+   * Wrapped in try-catch for resilience in memory-constrained environments
    */
   async getSystemMonitor(): Promise<SystemMonitorData> {
-    const integrationNames = [
+    try {
+      const integrationNames = [
       { name: 'google_calendar', displayName: 'Google Calendar' },
       { name: 'canvas', displayName: 'Canvas LMS' },
       { name: 'whoop', displayName: 'Whoop' },
@@ -1342,13 +1371,23 @@ class DashboardService {
       overallStatus = 'degraded';
     }
 
-    return {
-      integrations: healthStatuses,
-      overallStatus,
-      healthyCount,
-      totalCount,
-      lastUpdated: new Date().toISOString(),
-    };
+      return {
+        integrations: healthStatuses,
+        overallStatus,
+        healthyCount,
+        totalCount,
+        lastUpdated: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('[Dashboard] getSystemMonitor error:', error);
+      return {
+        integrations: [],
+        overallStatus: 'down',
+        healthyCount: 0,
+        totalCount: 0,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
   }
 
   /**
@@ -1377,12 +1416,14 @@ class DashboardService {
 
   /**
    * Get AI Insights data
+   * Wrapped in try-catch for resilience in memory-constrained environments
    */
   async getAIInsights(): Promise<AIInsightsData> {
-    const now = new Date();
+    try {
+      const now = new Date();
 
-    // Get active insights (not dismissed, not expired)
-    const result = await db
+      // Get active insights (not dismissed, not expired)
+      const result = await db
       .select()
       .from(aiInsights)
       .where(
@@ -1417,12 +1458,21 @@ class DashboardService {
     const criticalCount = insights.filter(i => i.severity === 'critical').length;
     const warningCount = insights.filter(i => i.severity === 'warning').length;
 
-    return {
-      insights,
-      totalCount: insights.length,
-      criticalCount,
-      warningCount,
-    };
+      return {
+        insights,
+        totalCount: insights.length,
+        criticalCount,
+        warningCount,
+      };
+    } catch (error) {
+      console.error('[Dashboard] getAIInsights error:', error);
+      return {
+        insights: [],
+        totalCount: 0,
+        criticalCount: 0,
+        warningCount: 0,
+      };
+    }
   }
 
   /**
