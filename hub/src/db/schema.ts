@@ -238,6 +238,8 @@ export const tasks = pgTable(
     index('tasks_context_idx').on(table.context),
     index('tasks_project_idx').on(table.projectId),
     index('tasks_section_idx').on(table.sectionId),
+    // Composite index for dashboard queries filtering on status + due_date
+    index('tasks_status_due_idx').on(table.status, table.dueDate),
   ]
 );
 
@@ -503,6 +505,8 @@ export const vaultEntries = pgTable(
     index('vault_parent_idx').on(table.parentId),
     index('vault_is_processed_idx').on(table.isProcessed),
     index('vault_needs_review_idx').on(table.needsReview),
+    // Index for dashboard "recent entries" queries
+    index('vault_entries_created_at_idx').on(table.createdAt),
   ]
 );
 
@@ -1163,6 +1167,8 @@ export const habitCompletions = pgTable(
     index('habit_completions_date_idx').on(table.date),
     // Unique constraint: one completion record per habit per day
     index('habit_completions_unique_idx').on(table.habitId, table.date),
+    // Composite index for efficient habit completion range queries (habit + date lookups)
+    index('habit_completions_habit_date_idx').on(table.habitId, table.date),
   ]
 );
 
@@ -1273,6 +1279,8 @@ export const goalReflections = pgTable(
     index('goal_reflections_goal_idx').on(table.goalId),
     index('goal_reflections_type_idx').on(table.reflectionType),
     index('goal_reflections_created_idx').on(table.createdAt),
+    // Composite index for efficient "latest reflection per goal" lookups
+    index('goal_reflections_goal_created_idx').on(table.goalId, table.createdAt),
   ]
 );
 
