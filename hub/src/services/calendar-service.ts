@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, sql, gt, lt } from 'drizzle-orm';
 import { db } from '../db/client';
 import { calendarEvents } from '../db/schema';
 import { getGoogleCalendar, type CalendarEventInput } from '../integrations/google-calendar';
@@ -178,17 +178,27 @@ export class CalendarService {
     console.log('[CalendarService] Executing query with', conditions.length, 'conditions');
 
     try {
-      const events = await db
+      // Try using a simple query with explicit timeout handling
+      const queryPromise = db
         .select()
         .from(calendarEvents)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(asc(calendarEvents.startTime))
         .limit(100);
 
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
+      });
+
+      const events = await Promise.race([queryPromise, timeoutPromise]);
+
       console.log('[CalendarService] Query returned', events.length, 'events');
       return events as CalendarEventRecord[];
     } catch (error) {
       console.error('[CalendarService] Query error:', error);
+      console.error('[CalendarService] Query error message:', error instanceof Error ? error.message : 'unknown');
+      console.error('[CalendarService] Query error stack:', error instanceof Error ? error.stack : 'no stack');
       throw error;
     }
   }
