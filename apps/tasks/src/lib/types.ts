@@ -32,6 +32,8 @@ export interface Task {
   completedBy?: string;
   vaultEntryId?: string;
   sortOrder?: number;
+  subtaskCount?: number;
+  completedSubtaskCount?: number;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -48,6 +50,8 @@ export interface CreateTaskInput {
   energyLevel?: EnergyLevel;
   priority?: number;
   projectId?: string;
+  parentTaskId?: string; // For creating subtasks
+  recurrenceRule?: string; // RRULE format
 }
 
 export interface UpdateTaskInput {
@@ -59,6 +63,8 @@ export interface UpdateTaskInput {
   timeEstimateMinutes?: number;
   energyLevel?: EnergyLevel;
   priority?: number;
+  parentTaskId?: string | null; // For subtasks, null to clear
+  recurrenceRule?: string | null; // RRULE format, null to clear
 }
 
 export interface TaskFilters {

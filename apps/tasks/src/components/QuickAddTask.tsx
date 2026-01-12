@@ -1,14 +1,25 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog } from '@headlessui/react';
-import { PlusIcon, XMarkIcon, SparklesIcon } from '@heroicons/react/24/outline';
-import { useCreateTask } from '../hooks/useTasks';
-import { parseNaturalLanguage, formatParsedPreview } from '../utils/parseNaturalLanguage';
+import { PlusIcon, XMarkIcon, SparklesIcon, ArrowPathIcon, ListBulletIcon } from '@heroicons/react/24/outline';
+import { useCreateTask, useCreateSubtask } from '../hooks/useTasks';
+import { parseNaturalLanguage, formatParsedPreview, rruleToText } from '../utils/parseNaturalLanguage';
+
+const RECURRENCE_PRESETS = [
+  { label: 'None', value: '' },
+  { label: 'Daily', value: 'FREQ=DAILY' },
+  { label: 'Weekdays', value: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' },
+  { label: 'Weekly', value: 'FREQ=WEEKLY' },
+  { label: 'Bi-weekly', value: 'FREQ=WEEKLY;INTERVAL=2' },
+  { label: 'Monthly', value: 'FREQ=MONTHLY' },
+] as const;
 
 interface QuickAddTaskProps {
   isOpen: boolean;
   onClose: () => void;
   defaultProjectId?: string;
   defaultProjectName?: string;
+  parentTaskId?: string;
+  parentTaskTitle?: string;
 }
 
 const CONTEXTS = ['Personal', 'Work', 'MBA', 'Health', 'Admin'];
@@ -20,15 +31,25 @@ const PRIORITY_TO_LEVEL = {
   1: 'low',
 } as const;
 
-export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProjectName }: QuickAddTaskProps) {
+export function QuickAddTask({
+  isOpen,
+  onClose,
+  defaultProjectId,
+  defaultProjectName,
+  parentTaskId,
+  parentTaskTitle,
+}: QuickAddTaskProps) {
   const [input, setInput] = useState('');
   const [context, setContext] = useState('Personal');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [manualDueDate, setManualDueDate] = useState('');
+  const [manualRecurrence, setManualRecurrence] = useState('');
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projectName, setProjectName] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const createTask = useCreateTask();
+  const createSubtask = useCreateSubtask();
+  const isSubtask = !!parentTaskId;
 
   const parsed = useMemo(() => parseNaturalLanguage(input), [input]);
   const preview = useMemo(() => formatParsedPreview(parsed), [parsed]);
@@ -43,6 +64,7 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
       // Reset state when closed
       setInput('');
       setManualDueDate('');
+      setManualRecurrence('');
       setShowAdvanced(false);
       setProjectId(undefined);
       setProjectName(undefined);
@@ -66,22 +88,36 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
     if (!parsed.title.trim()) return;
 
     const dueDate = manualDueDate || parsed.dueDate;
+    const recurrence = manualRecurrence || parsed.recurrence;
 
-    await createTask.mutateAsync({
+    const taskInput = {
       title: parsed.title.trim(),
       context,
       dueDate: dueDate || undefined,
-      source: 'manual',
+      source: 'manual' as const,
       priority: parsed.priority,
       timeEstimateMinutes: parsed.timeEstimate,
       energyLevel: parsed.priority
         ? PRIORITY_TO_LEVEL[parsed.priority as keyof typeof PRIORITY_TO_LEVEL]
         : undefined,
       projectId: projectId || undefined,
-    });
+      recurrenceRule: recurrence || undefined,
+    };
+
+    if (isSubtask && parentTaskId) {
+      // Create subtask
+      await createSubtask.mutateAsync({
+        parentTaskId,
+        input: taskInput,
+      });
+    } else {
+      // Create regular task
+      await createTask.mutateAsync(taskInput);
+    }
 
     setInput('');
     setManualDueDate('');
+    setManualRecurrence('');
     onClose();
   };
 
@@ -100,11 +136,15 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
           <form data-testid="quick-add-form" onSubmit={handleSubmit}>
             <div className="p-4">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <PlusIcon className="w-5 h-5 text-blue-600" />
+                <div className={`w-10 h-10 ${isSubtask ? 'bg-purple-100' : 'bg-blue-100'} rounded-full flex items-center justify-center`}>
+                  {isSubtask ? (
+                    <ListBulletIcon className="w-5 h-5 text-purple-600" />
+                  ) : (
+                    <PlusIcon className="w-5 h-5 text-blue-600" />
+                  )}
                 </div>
                 <Dialog.Title data-testid="quick-add-title" className="text-lg font-semibold">
-                  Quick Add Task
+                  {isSubtask ? 'Add Subtask' : 'Quick Add Task'}
                 </Dialog.Title>
                 <button
                   type="button"
@@ -115,6 +155,16 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
                   <XMarkIcon className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
+
+              {/* Parent task banner (when adding subtask) */}
+              {isSubtask && parentTaskTitle && (
+                <div className="mb-4 p-3 bg-purple-50 rounded-lg flex items-center gap-2">
+                  <ListBulletIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                  <span className="text-sm text-purple-900">
+                    Adding subtask to: <strong>{parentTaskTitle}</strong>
+                  </span>
+                </div>
+              )}
 
               <input
                 ref={inputRef}
@@ -203,17 +253,42 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
 
               {showAdvanced && (
                 <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Due Date (overrides parsed date)
-                    </label>
-                    <input
-                      type="date"
-                      value={manualDueDate}
-                      onChange={(e) => setManualDueDate(e.target.value)}
-                      className="px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">
+                        Due Date
+                      </label>
+                      <input
+                        type="date"
+                        value={manualDueDate}
+                        onChange={(e) => setManualDueDate(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">
+                        <ArrowPathIcon className="w-3 h-3 inline mr-1" />
+                        Repeat
+                      </label>
+                      <select
+                        value={manualRecurrence || parsed.recurrence || ''}
+                        onChange={(e) => setManualRecurrence(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        {RECURRENCE_PRESETS.map((preset) => (
+                          <option key={preset.value} value={preset.value}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+                  {(manualRecurrence || parsed.recurrence) && (
+                    <div className="flex items-center gap-2 text-xs text-green-600">
+                      <ArrowPathIcon className="w-3 h-3" />
+                      <span>{rruleToText(manualRecurrence || parsed.recurrence || '')}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -226,13 +301,15 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
                   <code className="bg-gray-100 px-1 rounded">jan 15</code> for dates
                 </p>
                 <p>
-                  <code className="bg-gray-100 px-1 rounded">@work</code> for context,{' '}
-                  <code className="bg-gray-100 px-1 rounded">#urgent</code> for labels
+                  <code className="bg-gray-100 px-1 rounded">daily</code>,{' '}
+                  <code className="bg-gray-100 px-1 rounded">every monday</code>,{' '}
+                  <code className="bg-gray-100 px-1 rounded">weekly</code> for recurrence
                 </p>
                 <p>
+                  <code className="bg-gray-100 px-1 rounded">@work</code> for context,{' '}
+                  <code className="bg-gray-100 px-1 rounded">#urgent</code> for labels,{' '}
                   <code className="bg-gray-100 px-1 rounded">p1</code>-
-                  <code className="bg-gray-100 px-1 rounded">p4</code> for priority,{' '}
-                  <code className="bg-gray-100 px-1 rounded">30min</code> for time estimate
+                  <code className="bg-gray-100 px-1 rounded">p4</code> for priority
                 </p>
               </div>
             </div>
@@ -249,10 +326,14 @@ export function QuickAddTask({ isOpen, onClose, defaultProjectId, defaultProject
               <button
                 type="submit"
                 data-testid="quick-add-submit"
-                disabled={!parsed.title.trim() || createTask.isPending}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!parsed.title.trim() || createTask.isPending || createSubtask.isPending}
+                className={`px-4 py-2 ${isSubtask ? 'bg-purple-500 hover:bg-purple-600' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {createTask.isPending ? 'Adding...' : 'Add Task'}
+                {createTask.isPending || createSubtask.isPending
+                  ? 'Adding...'
+                  : isSubtask
+                    ? 'Add Subtask'
+                    : 'Add Task'}
               </button>
             </div>
           </form>

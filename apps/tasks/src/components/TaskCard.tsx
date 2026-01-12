@@ -5,11 +5,18 @@ import {
   CalendarIcon,
   FlagIcon,
   EllipsisHorizontalIcon,
+  ArrowPathIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  ListBulletIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import { format, isToday, isTomorrow, isPast, isThisWeek } from 'date-fns';
 import { clsx } from 'clsx';
 import type { Task } from '../api';
+import { rruleToText } from '../utils/parseNaturalLanguage';
+import { SubtaskList } from './SubtaskList';
 
 interface TaskCardProps {
   task: Task;
@@ -17,7 +24,9 @@ interface TaskCardProps {
   onComplete: (id: string) => void;
   onSelect?: (task: Task) => void;
   onSchedule?: (task: Task) => void;
+  onAddSubtask?: (parentTask: Task) => void;
   showProject?: boolean;
+  showSubtasks?: boolean;
 }
 
 const priorityConfig = {
@@ -43,10 +52,15 @@ export function TaskCard({
   onComplete,
   onSelect,
   onSchedule,
+  onAddSubtask,
   showProject = true,
+  showSubtasks = true,
 }: TaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const isCompleted = task.status === 'done';
+  const hasSubtasks = (task.subtaskCount ?? 0) > 0;
+  const isSubtask = !!task.parentTaskId;
   const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate)) && !isCompleted;
   const priority = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig[0];
   const contextStyle = contextColors[task.context] || contextColors.default;
@@ -72,13 +86,20 @@ export function TaskCard({
     <div
       data-testid={index !== undefined ? `task-card-${index}` : `task-card-${task.id}`}
       className={clsx(
-        'group flex items-start gap-3 px-4 py-3 border-b border-gray-100 transition-all',
-        isCompleted ? 'opacity-50' : 'hover:bg-gray-50',
+        'border-b border-gray-100',
+        isCompleted ? 'opacity-50' : '',
         isOverdue && !isCompleted && 'bg-red-50/50'
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Main task row */}
+      <div
+        className={clsx(
+          'group flex items-start gap-3 px-4 py-3 transition-all',
+          !isCompleted && 'hover:bg-gray-50'
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
       {/* Priority Flag + Checkbox */}
       <div className="flex items-center gap-1 pt-0.5">
         <button
@@ -135,6 +156,14 @@ export function TaskCard({
             </span>
           )}
 
+          {/* Recurrence indicator */}
+          {task.recurrenceRule && (
+            <span className="flex items-center gap-1 text-xs text-purple-600" title={rruleToText(task.recurrenceRule)}>
+              <ArrowPathIcon className="w-3.5 h-3.5" />
+              {rruleToText(task.recurrenceRule)}
+            </span>
+          )}
+
           {/* Time estimate */}
           {task.timeEstimateMinutes && (
             <span className="flex items-center gap-1 text-xs text-gray-400">
@@ -188,6 +217,27 @@ export function TaskCard({
               )}
             </div>
           )}
+
+          {/* Subtask indicator */}
+          {hasSubtasks && showSubtasks && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {isExpanded ? (
+                <ChevronDownIcon className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRightIcon className="w-3.5 h-3.5" />
+              )}
+              <ListBulletIcon className="w-3.5 h-3.5" />
+              <span>
+                {task.completedSubtaskCount ?? 0}/{task.subtaskCount} subtasks
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -198,26 +248,48 @@ export function TaskCard({
         </div>
       )}
 
-      {/* Actions (on hover) */}
-      {isHovered && !isCompleted && (
-        <div className="flex-shrink-0 flex items-center gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSchedule?.(task);
-            }}
-            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-            title="Schedule"
-          >
-            <CalendarIcon className="w-4 h-4" />
-          </button>
-          <button
-            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-            title="More actions"
-          >
-            <EllipsisHorizontalIcon className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Actions (on hover) */}
+        {isHovered && !isCompleted && (
+          <div className="flex-shrink-0 flex items-center gap-1">
+            {/* Add subtask button - only show for non-subtasks */}
+            {!isSubtask && onAddSubtask && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddSubtask(task);
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                title="Add subtask"
+              >
+                <PlusIcon className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSchedule?.(task);
+              }}
+              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+              title="Schedule"
+            >
+              <CalendarIcon className="w-4 h-4" />
+            </button>
+            <button
+              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+              title="More actions"
+            >
+              <EllipsisHorizontalIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded subtasks list */}
+      {isExpanded && hasSubtasks && showSubtasks && (
+        <SubtaskList
+          parentTaskId={task.id}
+          onComplete={onComplete}
+        />
       )}
     </div>
   );
