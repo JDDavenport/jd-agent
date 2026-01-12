@@ -1,6 +1,19 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+// Use type-only imports for TypeScript - these don't load the module at runtime
+import type { Browser, BrowserContext, Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Lazy-load playwright to reduce startup memory
+let playwrightModule: typeof import('playwright') | null = null;
+
+async function getPlaywright() {
+  if (!playwrightModule) {
+    console.log('[BrowserManager] Loading playwright module...');
+    playwrightModule = await import('playwright');
+    console.log('[BrowserManager] Playwright module loaded');
+  }
+  return playwrightModule;
+}
 
 // ============================================
 // Types
@@ -89,6 +102,7 @@ export class BrowserManager {
 
     console.log('[BrowserManager] Initializing browser...');
 
+    const { chromium } = await getPlaywright();
     this.browser = await chromium.launch({
       headless: this.config.headless,
     });

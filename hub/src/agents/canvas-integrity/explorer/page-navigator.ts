@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import type { Page } from 'playwright';
 import { BrowserManager } from '../browser-manager';
 
 // ============================================

@@ -1,6 +1,17 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Lazy-load playwright to reduce startup memory
+let playwrightModule: typeof import('playwright') | null = null;
+
+async function getPlaywright() {
+  if (!playwrightModule) {
+    console.log('[JobAdapter] Loading playwright module...');
+    playwrightModule = await import('playwright');
+  }
+  return playwrightModule;
+}
 
 // ============================================
 // Types
@@ -91,6 +102,7 @@ export abstract class BaseJobAdapter {
 
     console.log(`[${this.platform}Adapter] Initializing browser...`);
 
+    const { chromium } = await getPlaywright();
     this.browser = await chromium.launch({
       headless: this.config.headless,
       slowMo: this.config.slowMo,
