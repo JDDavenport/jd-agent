@@ -2,6 +2,33 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
+// Process-level error handlers - MUST be first to catch all errors
+process.on('uncaughtException', (error) => {
+  console.error('[FATAL] Uncaught Exception:', error);
+  console.error('[FATAL] Stack:', error.stack);
+  // Give time for logs to flush
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise);
+  console.error('[FATAL] Reason:', reason);
+  if (reason instanceof Error) {
+    console.error('[FATAL] Stack:', reason.stack);
+  }
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
+  process.exit(0);
+});
+
 const rootEnvPath = join(import.meta.dir, '../../.env');
 if (existsSync(rootEnvPath)) {
   const envContent = readFileSync(rootEnvPath, 'utf-8');
@@ -59,9 +86,11 @@ import { jobsRouter } from './api/routes/jobs';
 import { oauthRouter } from './api/routes/oauth';
 import { journalRouter } from './api/routes/journal';
 import { voiceProfilesRouter } from './api/routes/voice-profiles';
+import { financeRouter } from './api/routes/finance';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
+import { plaudIntegration } from './integrations/plaud';
 
 // Create Hono app
 const app = new Hono();
@@ -137,6 +166,7 @@ app.get('/', (c) => {
       canvasIntegrity: '/api/canvas-integrity',
       oauth: '/api/oauth',
       voiceProfiles: '/api/voice-profiles',
+      finance: '/api/finance',
     },
     privacyPolicy: '/privacy',
     setupWizard: '/setup',
@@ -179,6 +209,7 @@ app.route('/api/canvas-integrity', canvasIntegrityRouter);
 app.route('/api/oauth', oauthRouter);
 app.route('/api/journal', journalRouter);
 app.route('/api/voice-profiles', voiceProfilesRouter);
+app.route('/api/finance', financeRouter);
 
 // Web UI
 app.route('/setup', setupUI);
@@ -250,6 +281,12 @@ const server = Bun.serve({
 });
 
 console.log(`✅ Server listening on ${server.hostname}:${server.port}`);
+
+// Auto-start Plaud file watcher
+if (plaudIntegration.isConfigured()) {
+  plaudIntegration.startWatching();
+  console.log('🎙️  Plaud file watcher started - auto-syncing recordings');
+}
 
 // Also export for module compatibility
 export default server;

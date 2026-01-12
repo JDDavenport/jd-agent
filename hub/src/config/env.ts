@@ -16,7 +16,7 @@ const envSchema = z.object({
   // Database - Neon PostgreSQL
   DATABASE_URL: z.string().url().startsWith('postgres'),
   DATABASE_SSL: z.string().transform(val => val === 'true').default('true'),
-  DATABASE_POOL_SIZE: z.string().transform(Number).default('10'),
+  DATABASE_POOL_SIZE: z.string().transform(Number).default('5'),
 
   // Redis/Queue (optional in some environments)
   REDIS_URL: z.string().optional(),

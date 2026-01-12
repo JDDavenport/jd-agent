@@ -18,6 +18,17 @@ const pool = new Pool({
   connectionTimeoutMillis: dbConfig.connectionTimeoutMillis,
 });
 
+// Handle pool errors to prevent crashes
+pool.on('error', (err) => {
+  console.error('[Database] Pool error:', err.message);
+  console.error('[Database] Pool error stack:', err.stack);
+  // Don't crash the process, let the connection be retried
+});
+
+pool.on('connect', () => {
+  console.log('[Database] New client connected to pool');
+});
+
 // Log connection info (without sensitive data)
 const environment = getCurrentEnvironment();
 console.log(`[Database] Connecting to ${getEnvironmentLabel()}`);
