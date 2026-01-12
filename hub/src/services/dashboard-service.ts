@@ -665,7 +665,7 @@ class DashboardService {
 
       const [recovery, sleep] = await Promise.all([
         whoop.getTodayRecovery().catch(() => null),
-        whoop.getTodaySleep().catch(() => null),
+        whoop.getLastNightSleep().catch(() => null),
       ]);
 
       let status: WellnessMetric['status'] = 'unknown';
