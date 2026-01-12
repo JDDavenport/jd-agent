@@ -954,31 +954,39 @@ class DashboardService {
 
   /**
    * Get week overview with events and workload
+   * Optimized for low memory environments
    */
   async getWeekOverview(): Promise<WeekOverview> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    // Get start of week (Monday)
-    const dayOfWeek = today.getDay();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      // Get start of week (Monday)
+      const dayOfWeek = today.getDay();
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
 
-    // Get events for the week (limited to prevent memory issues)
-    const events = await db
-      .select()
-      .from(calendarEvents)
-      .where(
-        and(
-          gte(calendarEvents.startTime, weekStart),
-          lt(calendarEvents.startTime, weekEnd)
+      // Get events for the week - only select needed columns, strict limit
+      const events = await db
+        .select({
+          id: calendarEvents.id,
+          title: calendarEvents.title,
+          startTime: calendarEvents.startTime,
+          endTime: calendarEvents.endTime,
+          eventType: calendarEvents.eventType,
+        })
+        .from(calendarEvents)
+        .where(
+          and(
+            gte(calendarEvents.startTime, weekStart),
+            lt(calendarEvents.startTime, weekEnd)
+          )
         )
-      )
-      .orderBy(asc(calendarEvents.startTime))
-      .limit(100);
+        .orderBy(asc(calendarEvents.startTime))
+        .limit(50);
 
     // Get task counts per day
     const taskCounts = await db
@@ -1067,6 +1075,35 @@ class DashboardService {
       totalEvents,
       totalTasks,
     };
+    } catch (error) {
+      console.error('[Dashboard] Week overview failed:', error);
+      // Return empty data to prevent crash
+      const emptyDays: WeekDay[] = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        emptyDays.push({
+          date: date.toISOString().split('T')[0],
+          dayName: dayNames[date.getDay()],
+          events: [],
+          taskCount: 0,
+          workloadLevel: 'light',
+          density: 0,
+        });
+      }
+      return {
+        days: emptyDays,
+        timeAllocation: { meetings: 0, classes: 0, focus: 0, personal: 0 },
+        totalEvents: 0,
+        totalTasks: 0,
+      };
+    }
   }
 
   // ============================================
@@ -1077,9 +1114,10 @@ class DashboardService {
    * Get Canvas Hub data (classes, assignments)
    */
   async getCanvasHub(): Promise<CanvasHubData> {
-    const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    try {
+      const now = new Date();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setDate(todayEnd.getDate() + 1);
     const weekEnd = new Date(todayStart);
@@ -1185,6 +1223,15 @@ class DashboardService {
       missingSubmissions: missingResult[0]?.count || 0,
       nextClass,
     };
+    } catch (error) {
+      console.error('[Dashboard] Canvas hub failed:', error);
+      return {
+        todaysClasses: [],
+        upcomingAssignments: [],
+        missingSubmissions: 0,
+        nextClass: null,
+      };
+    }
   }
 
   /**
