@@ -16,6 +16,16 @@ import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import EmptyState from '../components/common/EmptyState';
 
+// Helper to format frequency days for display
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const formatFrequencyDays = (days: number[] | null | undefined): string => {
+  if (!days || days.length === 0) return 'No days selected';
+  if (days.length === 7) return 'Every day';
+  if (JSON.stringify(days.sort()) === JSON.stringify([1, 2, 3, 4, 5])) return 'Weekdays';
+  if (JSON.stringify(days.sort()) === JSON.stringify([0, 6])) return 'Weekends';
+  return days.map(d => DAY_NAMES[d]).join(', ');
+};
+
 function Habits() {
   const [selectedArea, setSelectedArea] = useState<LifeArea | undefined>();
   const [selectedHabitId, setSelectedHabitId] = useState<string | undefined>();
@@ -265,7 +275,11 @@ function HabitCard({
             </h3>
           </div>
           <div className="flex items-center gap-3 text-sm text-text-muted mt-1">
-            <span>{habit.frequency}</span>
+            <span className="capitalize">
+              {habit.frequency === 'specific_days'
+                ? formatFrequencyDays(habit.frequencyDays)
+                : habit.frequency}
+            </span>
             {habit.timeOfDay && habit.timeOfDay !== 'anytime' && (
               <span className="capitalize">{habit.timeOfDay}</span>
             )}
@@ -349,8 +363,31 @@ function HabitDetailPanel({ habitId, onClose }: { habitId: string; onClose: () =
         <div className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-text-muted">Frequency</span>
-            <span className="capitalize">{habit.frequency}</span>
+            <span className="capitalize">
+              {habit.frequency === 'specific_days'
+                ? formatFrequencyDays(habit.frequencyDays)
+                : habit.frequency}
+            </span>
           </div>
+          {habit.frequency === 'specific_days' && habit.frequencyDays && habit.frequencyDays.length > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted">Schedule</span>
+              <div className="flex gap-1">
+                {DAY_NAMES.map((day, index) => (
+                  <span
+                    key={day}
+                    className={`w-6 h-6 text-xs flex items-center justify-center rounded ${
+                      habit.frequencyDays?.includes(index)
+                        ? 'bg-accent text-white'
+                        : 'bg-dark-bg text-text-muted'
+                    }`}
+                  >
+                    {day.charAt(0)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-text-muted">Time of Day</span>
             <span className="capitalize">{habit.timeOfDay || 'Anytime'}</span>
@@ -494,7 +531,15 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
               <select
                 data-testid="habit-select-frequency"
                 value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value as HabitFrequency })}
+                onChange={(e) => {
+                  const newFrequency = e.target.value as HabitFrequency;
+                  setFormData({
+                    ...formData,
+                    frequency: newFrequency,
+                    // Clear frequencyDays if not specific_days
+                    frequencyDays: newFrequency === 'specific_days' ? (formData.frequencyDays || []) : undefined
+                  });
+                }}
                 className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
               >
                 <option value="daily">Daily</option>
@@ -519,6 +564,42 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
+          {/* Day Selector - shown only for specific_days frequency */}
+          {formData.frequency === 'specific_days' && (
+            <div>
+              <label className="block text-sm text-text-muted mb-2">Select Days</label>
+              <div data-testid="habit-day-selector" className="flex gap-2 justify-between">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                  const isSelected = formData.frequencyDays?.includes(index) ?? false;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      data-testid={`habit-day-${day.toLowerCase()}`}
+                      onClick={() => {
+                        const currentDays = formData.frequencyDays || [];
+                        const newDays = isSelected
+                          ? currentDays.filter(d => d !== index)
+                          : [...currentDays, index].sort((a, b) => a - b);
+                        setFormData({ ...formData, frequencyDays: newDays });
+                      }}
+                      className={`flex-1 py-2 px-1 rounded-lg text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'bg-accent text-white'
+                          : 'bg-dark-bg border border-dark-border hover:border-accent/50'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              {formData.frequencyDays?.length === 0 && (
+                <p className="text-xs text-warning mt-2">Please select at least one day</p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm text-text-muted mb-1">Description (optional)</label>
             <textarea
@@ -531,7 +612,15 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button data-testid="habit-submit" type="submit" disabled={createHabit.isPending || !formData.title.trim()}>
+            <Button
+              data-testid="habit-submit"
+              type="submit"
+              disabled={
+                createHabit.isPending ||
+                !formData.title.trim() ||
+                (formData.frequency === 'specific_days' && (!formData.frequencyDays || formData.frequencyDays.length === 0))
+              }
+            >
               {createHabit.isPending ? 'Creating...' : 'Create Habit'}
             </Button>
             <Button data-testid="habit-cancel" type="button" variant="secondary" onClick={onClose}>

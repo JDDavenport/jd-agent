@@ -243,6 +243,7 @@ function GoalDetailPanel({ goalId, onClose }: { goalId: string; onClose: () => v
   const [reflectionType, setReflectionType] = useState<ReflectionType>('progress');
   const [habitTitle, setHabitTitle] = useState('');
   const [habitFrequency, setHabitFrequency] = useState<HabitFrequency>('daily');
+  const [habitFrequencyDays, setHabitFrequencyDays] = useState<number[]>([]);
   const [habitTimeOfDay, setHabitTimeOfDay] = useState<TimeOfDay>('morning');
   const [milestoneTitle, setMilestoneTitle] = useState('');
   const [milestoneDate, setMilestoneDate] = useState('');
@@ -287,15 +288,18 @@ function GoalDetailPanel({ goalId, onClose }: { goalId: string; onClose: () => v
 
   const handleCreateHabit = () => {
     if (!habitTitle.trim()) return;
+    if (habitFrequency === 'specific_days' && habitFrequencyDays.length === 0) return;
     createHabit.mutate({
       title: habitTitle,
       lifeArea: goal.lifeArea,
       frequency: habitFrequency,
+      frequencyDays: habitFrequency === 'specific_days' ? habitFrequencyDays : undefined,
       timeOfDay: habitTimeOfDay,
       goalId: goalId,
     }, {
       onSuccess: () => {
         setHabitTitle('');
+        setHabitFrequencyDays([]);
         setShowHabitForm(false);
       },
     });
@@ -505,7 +509,13 @@ function GoalDetailPanel({ goalId, onClose }: { goalId: string; onClose: () => v
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={habitFrequency}
-                onChange={(e) => setHabitFrequency(e.target.value as HabitFrequency)}
+                onChange={(e) => {
+                  const newFrequency = e.target.value as HabitFrequency;
+                  setHabitFrequency(newFrequency);
+                  if (newFrequency !== 'specific_days') {
+                    setHabitFrequencyDays([]);
+                  }
+                }}
                 className="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm"
               >
                 <option value="daily">Daily</option>
@@ -523,8 +533,50 @@ function GoalDetailPanel({ goalId, onClose }: { goalId: string; onClose: () => v
                 <option value="anytime">Anytime</option>
               </select>
             </div>
+            {/* Day Selector - shown only for specific_days frequency */}
+            {habitFrequency === 'specific_days' && (
+              <div>
+                <label className="block text-xs text-text-muted mb-1">Select Days</label>
+                <div className="flex gap-1">
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => {
+                    const isSelected = habitFrequencyDays.includes(index);
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          setHabitFrequencyDays(
+                            isSelected
+                              ? habitFrequencyDays.filter(d => d !== index)
+                              : [...habitFrequencyDays, index].sort((a, b) => a - b)
+                          );
+                        }}
+                        className={`flex-1 py-1.5 rounded text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'bg-accent text-white'
+                            : 'bg-dark-card border border-dark-border hover:border-accent/50'
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+                {habitFrequencyDays.length === 0 && (
+                  <p className="text-xs text-warning mt-1">Select at least one day</p>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleCreateHabit} disabled={createHabit.isPending}>
+              <Button
+                size="sm"
+                onClick={handleCreateHabit}
+                disabled={
+                  createHabit.isPending ||
+                  !habitTitle.trim() ||
+                  (habitFrequency === 'specific_days' && habitFrequencyDays.length === 0)
+                }
+              >
                 Add Habit
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setShowHabitForm(false)}>
