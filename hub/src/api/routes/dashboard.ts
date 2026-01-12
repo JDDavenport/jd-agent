@@ -3,6 +3,8 @@
  *
  * API endpoints for the enhanced Command Center dashboard.
  * Provides aggregated data for metric cards and widgets.
+ *
+ * Uses in-memory caching to prevent server overload from concurrent requests.
  */
 
 import { Hono } from 'hono';
@@ -11,9 +13,31 @@ import { ValidationError } from '../middleware/error-handler';
 
 const dashboardRouter = new Hono();
 
+// Simple in-memory cache to prevent server overload
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const cache = new Map<string, CacheEntry<unknown>>();
+const CACHE_TTL_MS = 30000; // 30 second cache
+
+async function withCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const cached = cache.get(key) as CacheEntry<T> | undefined;
+
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const data = await fetcher();
+  cache.set(key, { data, expiresAt: now + CACHE_TTL_MS });
+  return data;
+}
+
 // GET /api/dashboard/enhanced - Get all enhanced dashboard data
 dashboardRouter.get('/enhanced', async (c) => {
-  const data = await dashboardService.getEnhanced();
+  const data = await withCache('enhanced', () => dashboardService.getEnhanced());
   return c.json({ success: true, data });
 });
 
@@ -74,19 +98,19 @@ dashboardRouter.get('/wellness', async (c) => {
 
 // GET /api/dashboard/tasks/grouped - Today's tasks grouped by priority
 dashboardRouter.get('/tasks/grouped', async (c) => {
-  const data = await dashboardService.getGroupedTodayTasks();
+  const data = await withCache('tasks-grouped', () => dashboardService.getGroupedTodayTasks());
   return c.json({ success: true, data });
 });
 
 // GET /api/dashboard/deadlines/grouped - Deadlines grouped by urgency
 dashboardRouter.get('/deadlines/grouped', async (c) => {
-  const data = await dashboardService.getGroupedDeadlines();
+  const data = await withCache('deadlines-grouped', () => dashboardService.getGroupedDeadlines());
   return c.json({ success: true, data });
 });
 
 // GET /api/dashboard/week-overview - Week overview with events and workload
 dashboardRouter.get('/week-overview', async (c) => {
-  const data = await dashboardService.getWeekOverview();
+  const data = await withCache('week-overview', () => dashboardService.getWeekOverview());
   return c.json({ success: true, data });
 });
 
@@ -96,25 +120,25 @@ dashboardRouter.get('/week-overview', async (c) => {
 
 // GET /api/dashboard/canvas - Canvas Hub data (classes, assignments)
 dashboardRouter.get('/canvas', async (c) => {
-  const data = await dashboardService.getCanvasHub();
+  const data = await withCache('canvas', () => dashboardService.getCanvasHub());
   return c.json({ success: true, data });
 });
 
 // GET /api/dashboard/fitness - Fitness Dashboard data (Whoop)
 dashboardRouter.get('/fitness', async (c) => {
-  const data = await dashboardService.getFitness();
+  const data = await withCache('fitness', () => dashboardService.getFitness());
   return c.json({ success: true, data });
 });
 
 // GET /api/dashboard/system - System Monitor data (integration health)
 dashboardRouter.get('/system', async (c) => {
-  const data = await dashboardService.getSystemMonitor();
+  const data = await withCache('system', () => dashboardService.getSystemMonitor());
   return c.json({ success: true, data });
 });
 
 // GET /api/dashboard/insights - AI Insights list
 dashboardRouter.get('/insights', async (c) => {
-  const data = await dashboardService.getAIInsights();
+  const data = await withCache('insights', () => dashboardService.getAIInsights());
   return c.json({ success: true, data });
 });
 
