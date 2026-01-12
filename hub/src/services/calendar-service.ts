@@ -139,66 +139,58 @@ export class CalendarService {
    * If no date range is provided, defaults to current date + 30 days
    */
   async list(filters: EventFilters = {}): Promise<CalendarEventRecord[]> {
-    // Default to current date range if no dates provided
-    const effectiveFilters = { ...filters };
-    if (!effectiveFilters.startDate && !effectiveFilters.endDate) {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      effectiveFilters.startDate = now;
-      const future = new Date(now);
-      future.setDate(future.getDate() + 30);
-      effectiveFilters.endDate = future;
-    }
-
-    console.log('[CalendarService] list() called with filters:', JSON.stringify({
-      startDate: effectiveFilters.startDate?.toISOString(),
-      endDate: effectiveFilters.endDate?.toISOString(),
-      eventType: effectiveFilters.eventType,
-      context: effectiveFilters.context,
-    }));
-
-    const conditions = [];
-
-    if (effectiveFilters.startDate) {
-      conditions.push(gte(calendarEvents.startTime, effectiveFilters.startDate));
-    }
-
-    if (effectiveFilters.endDate) {
-      conditions.push(lte(calendarEvents.startTime, effectiveFilters.endDate));
-    }
-
-    if (effectiveFilters.eventType) {
-      conditions.push(eq(calendarEvents.eventType, effectiveFilters.eventType));
-    }
-
-    if (effectiveFilters.context) {
-      conditions.push(eq(calendarEvents.context, effectiveFilters.context));
-    }
-
-    console.log('[CalendarService] Executing query with', conditions.length, 'conditions');
+    console.log('[CalendarService] list() starting');
 
     try {
-      // Try using a simple query with explicit timeout handling
-      const queryPromise = db
+      // Default to current date range if no dates provided
+      const effectiveFilters = { ...filters };
+      if (!effectiveFilters.startDate && !effectiveFilters.endDate) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        effectiveFilters.startDate = now;
+        const future = new Date(now);
+        future.setDate(future.getDate() + 30);
+        effectiveFilters.endDate = future;
+      }
+
+      console.log('[CalendarService] list() called with filters:', JSON.stringify({
+        startDate: effectiveFilters.startDate?.toISOString(),
+        endDate: effectiveFilters.endDate?.toISOString(),
+        eventType: effectiveFilters.eventType,
+        context: effectiveFilters.context,
+      }));
+
+      // Use simple query without date filters first to test
+      console.log('[CalendarService] Executing simplified query');
+
+      const events = await db
         .select()
         .from(calendarEvents)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(asc(calendarEvents.startTime))
         .limit(100);
 
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
-      });
-
-      const events = await Promise.race([queryPromise, timeoutPromise]);
-
       console.log('[CalendarService] Query returned', events.length, 'events');
-      return events as CalendarEventRecord[];
+
+      // Filter in-memory if date filters provided
+      let filtered = events as CalendarEventRecord[];
+      if (effectiveFilters.startDate) {
+        filtered = filtered.filter(e => new Date(e.startTime) >= effectiveFilters.startDate!);
+      }
+      if (effectiveFilters.endDate) {
+        filtered = filtered.filter(e => new Date(e.startTime) <= effectiveFilters.endDate!);
+      }
+      if (effectiveFilters.eventType) {
+        filtered = filtered.filter(e => e.eventType === effectiveFilters.eventType);
+      }
+      if (effectiveFilters.context) {
+        filtered = filtered.filter(e => e.context === effectiveFilters.context);
+      }
+
+      console.log('[CalendarService] After filtering:', filtered.length, 'events');
+      return filtered;
     } catch (error) {
       console.error('[CalendarService] Query error:', error);
       console.error('[CalendarService] Query error message:', error instanceof Error ? error.message : 'unknown');
-      console.error('[CalendarService] Query error stack:', error instanceof Error ? error.stack : 'no stack');
       throw error;
     }
   }
