@@ -110,7 +110,7 @@ export interface Habit {
   description?: string;
   lifeArea?: LifeArea | null;
   frequency: HabitFrequency;
-  specificDays?: string[];
+  frequencyDays?: number[] | null; // 0=Sunday, 1=Monday, ..., 6=Saturday
   timeOfDay: TimeOfDay;
   currentStreak: number;
   longestStreak: number;
@@ -139,7 +139,7 @@ export interface CreateHabitInput {
   description?: string;
   lifeArea: LifeArea;
   frequency: HabitFrequency;
-  specificDays?: string[];
+  frequencyDays?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
   timeOfDay?: TimeOfDay;
   goalId?: string;
 }
