@@ -2063,6 +2063,33 @@ See `CLAUDE.md` for full documentation requirements.
   - `hub/src/services/dashboard-service.ts` - Error handling and resilience
   - `hub/src/services/progress-service.ts` - N+1 query fix
 
+### January 13, 2026 - Dashboard Widget Performance Fixes
+- **Grouped Tasks Query Optimization**: Rewrote `getGroupedTodayTasks()` in dashboard-service.ts
+  - Combined two separate queries (today's tasks + overdue) into single optimized query
+  - SELECT only needed columns instead of `SELECT *`
+  - Added LIMIT 200 to prevent memory issues with large datasets
+  - Result: 15s+ timeout → 0.47s response time
+- **Grouped Deadlines Query Optimization**: Rewrote `getGroupedDeadlines()` in dashboard-service.ts
+  - Removed LEFT JOIN with projects table (was causing OOM crashes on Railway)
+  - Added bounded date range filter (-30 to +90 days) for efficient index usage
+  - Reduced LIMIT to 50 for safety margin on memory-constrained environments
+  - SELECT only essential columns (id, title, dueDate, priority, source, context)
+  - Result: 15s+ timeout/OOM crash → 0.55s response time
+- **CORS Configuration**: Updated `hub/src/index.ts` with function-based origin matching
+  - Supports localhost development (any port)
+  - Supports all Vercel deployments (*.vercel.app)
+  - Supports production domains (jdagent.app)
+  - Credentials properly enabled for cross-origin requests
+- **Production Performance Summary**:
+  | Endpoint | Before | After |
+  |----------|--------|-------|
+  | `/api/dashboard/tasks/grouped` | 15s+ timeout | 0.47s |
+  | `/api/dashboard/deadlines/grouped` | OOM crash | 0.55s |
+  | `/api/dashboard/enhanced` | 30s+ timeout | ~1s |
+- **Files Modified**:
+  - `hub/src/services/dashboard-service.ts` - Query optimizations for grouped endpoints
+  - `hub/src/index.ts` - CORS configuration
+
 ---
 
 *When updating this document, add your changes to the Changelog section with the date and a brief description of what was added or modified.*
