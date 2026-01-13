@@ -161,7 +161,7 @@ export class CalendarService {
       .from(calendarEvents)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(asc(calendarEvents.startTime))
-      .limit(50);
+      .limit(500); // High enough for month views, prevents OOM on huge queries
 
     return events as CalendarEventRecord[];
   }
