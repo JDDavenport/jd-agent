@@ -36,7 +36,13 @@ export type JobType =
   // Remarkable Pipeline jobs
   | 'remarkable-sync'
   | 'remarkable-ocr'
-  | 'remarkable-merge';
+  | 'remarkable-merge'
+  | 'remarkable-mba-sync'
+  // Testing Pipeline
+  | 'testing-session'
+  // Recurrence Pipeline
+  | 'recurrence-generate'
+  | 'recurrence-batch';
 
 export interface TranscriptionJobData {
   recordingId: string;
@@ -142,6 +148,25 @@ export interface RemarkableMergeJobData {
   remarkableNoteId?: string;
 }
 
+export interface RemarkableMbaSyncJobData {
+  force?: boolean; // Re-sync even if already synced
+}
+
+// Testing Pipeline Job Data
+export interface TestingSessionJobData {
+  sessionId: string;
+}
+
+// Recurrence Pipeline Job Data
+export interface RecurrenceGenerateJobData {
+  taskId: string;
+  trigger: 'completion' | 'manual' | 'batch';
+}
+
+export interface RecurrenceBatchJobData {
+  force?: boolean; // Process all recurring tasks even if they have active instances
+}
+
 export type JobData =
   | TranscriptionJobData
   | SummarizationJobData
@@ -160,7 +185,11 @@ export type JobData =
   | VipSpeakerEmbeddingJobData
   | RemarkableSyncJobData
   | RemarkableOcrJobData
-  | RemarkableMergeJobData;
+  | RemarkableMergeJobData
+  | RemarkableMbaSyncJobData
+  | TestingSessionJobData
+  | RecurrenceGenerateJobData
+  | RecurrenceBatchJobData;
 
 // ============================================
 // Redis Connection Options
@@ -367,6 +396,57 @@ export async function addRemarkableMergeJob(data: RemarkableMergeJobData): Promi
   return queue.add('remarkable-merge', data, {
     priority: 3,
     jobId: `remarkable-merge-${data.classCode}-${data.noteDate}`,
+  });
+}
+
+export async function addRemarkableMbaSyncJob(data: RemarkableMbaSyncJobData = {}): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('remarkable-mba-sync', data, {
+    priority: 2,
+    jobId: `remarkable-mba-sync-${Date.now()}`,
+    timeout: 30 * 60 * 1000, // 30 minute timeout - lots of files to process
+  });
+}
+
+// ============================================
+// Testing Pipeline Jobs
+// ============================================
+
+export async function addTestingSessionJob(data: TestingSessionJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('testing-session', data, {
+    priority: 3, // Medium priority
+    attempts: 1, // No retries - testing should be atomic
+    timeout: 30 * 60 * 1000, // 30 minute timeout
+    jobId: `testing-${data.sessionId}`, // Unique job ID for deduplication
+    removeOnComplete: {
+      count: 50, // Keep fewer test results
+      age: 7 * 24 * 60 * 60, // Keep for 7 days
+    },
+  });
+}
+
+// ============================================
+// Recurrence Pipeline Jobs
+// ============================================
+
+export async function addRecurrenceGenerateJob(data: RecurrenceGenerateJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('recurrence-generate', data, {
+    priority: 3,
+    jobId: `recurrence-${data.taskId}-${Date.now()}`,
+  });
+}
+
+export async function addRecurrenceBatchJob(data: RecurrenceBatchJobData = {}): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('recurrence-batch', data, {
+    priority: 4, // Lower priority - batch job
+    jobId: `recurrence-batch-${new Date().toISOString().split('T')[0]}`, // One per day
+    removeOnComplete: {
+      count: 30,
+      age: 7 * 24 * 60 * 60, // Keep for 7 days
+    },
   });
 }
 

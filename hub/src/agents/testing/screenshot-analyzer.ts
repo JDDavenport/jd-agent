@@ -1,63 +1,44 @@
 /**
  * JD Agent - Screenshot Analyzer
  *
- * Uses OpenAI's GPT-4 Vision capabilities to analyze screenshots
+ * Uses multi-provider LLM vision capabilities to analyze screenshots
  * and understand the current UI state.
+ *
+ * Supports: OpenAI GPT-4o, Anthropic Claude, Google Gemini, Ollama (llava)
  */
 
-import OpenAI from 'openai';
+import { VisionProvider, type VisionProviderConfig, type ImageContent } from './vision-provider';
 import type { AnalysisResult } from './types';
 
 export class ScreenshotAnalyzer {
-  private client: OpenAI;
-  private model: string = 'gpt-4o';
+  private visionProvider: VisionProvider;
 
-  constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required for ScreenshotAnalyzer');
+  constructor(config?: VisionProviderConfig) {
+    this.visionProvider = new VisionProvider(config);
+    if (!this.visionProvider.isAvailable()) {
+      throw new Error(
+        'No vision provider available for ScreenshotAnalyzer. Set one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_AI_API_KEY, or OLLAMA_HOST'
+      );
     }
-    this.client = new OpenAI({ apiKey });
+    console.log(`[ScreenshotAnalyzer] Using provider: ${this.visionProvider.getProviderName()}`);
   }
 
   /**
    * Analyze a screenshot with a specific question
    */
   async analyze(base64Image: string, question: string): Promise<AnalysisResult> {
-    try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                  detail: 'low',
-                },
-              },
-              {
-                type: 'text',
-                text: question,
-              },
-            ],
-          },
-        ],
-      });
+    const images: ImageContent[] = [{ base64: base64Image }];
+    const result = await this.visionProvider.analyzeImage(images, question);
 
-      const analysis = response.choices[0]?.message?.content || '';
-
+    if (result.success) {
       return {
         success: true,
-        data: { analysis },
+        data: { analysis: result.analysis || '' },
       };
-    } catch (error) {
+    } else {
       return {
         success: false,
-        error: String(error),
+        error: result.error,
       };
     }
   }
@@ -78,46 +59,21 @@ export class ScreenshotAnalyzer {
 
 Be specific and exhaustive in your analysis.`;
 
-    try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        max_tokens: 2048,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                  detail: 'low',
-                },
-              },
-              {
-                type: 'text',
-                text: question,
-              },
-            ],
-          },
-        ],
-      });
+    const images: ImageContent[] = [{ base64: base64Image }];
+    const result = await this.visionProvider.analyzeImage(images, question);
 
-      const analysis = response.choices[0]?.message?.content || '';
-
-      // Try to extract structured data from the response
+    if (result.success) {
+      const analysis = result.analysis || '';
       const elements = this.parseElementsFromAnalysis(analysis);
 
       return {
         success: true,
-        data: {
-          analysis,
-          elements,
-        },
+        data: { analysis, elements },
       };
-    } catch (error) {
+    } else {
       return {
         success: false,
-        error: String(error),
+        error: result.error,
       };
     }
   }
@@ -144,59 +100,39 @@ Return in this format:
 ERRORS: [list each error, or "none"]
 WARNINGS: [list each warning, or "none"]`;
 
-    try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                  detail: 'low',
-                },
-              },
-              {
-                type: 'text',
-                text: question,
-              },
-            ],
-          },
-        ],
-      });
+    const images: ImageContent[] = [{ base64: base64Image }];
+    const result = await this.visionProvider.analyzeImage(images, question);
 
-      const analysis = response.choices[0]?.message?.content || '';
-
-      // Parse errors and warnings from the response
-      const errors: string[] = [];
-      const warnings: string[] = [];
-
-      const errorMatch = analysis.match(/ERRORS?:\s*([^\n]+(?:\n(?!WARNINGS?:)[^\n]+)*)/i);
-      const warningMatch = analysis.match(/WARNINGS?:\s*([^\n]+(?:\n(?!ERRORS?:)[^\n]+)*)/i);
-
-      if (errorMatch && !errorMatch[1].toLowerCase().includes('none')) {
-        errors.push(...this.parseListItems(errorMatch[1]));
-      }
-
-      if (warningMatch && !warningMatch[1].toLowerCase().includes('none')) {
-        warnings.push(...this.parseListItems(warningMatch[1]));
-      }
-
-      return {
-        hasErrors: errors.length > 0,
-        errors,
-        warnings,
-      };
-    } catch (error) {
+    if (!result.success) {
       return {
         hasErrors: false,
         errors: [],
-        warnings: [`Analysis failed: ${error}`],
+        warnings: [`Analysis failed: ${result.error}`],
       };
     }
+
+    const analysis = result.analysis || '';
+
+    // Parse errors and warnings from the response
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const errorMatch = analysis.match(/ERRORS?:\s*([^\n]+(?:\n(?!WARNINGS?:)[^\n]+)*)/i);
+    const warningMatch = analysis.match(/WARNINGS?:\s*([^\n]+(?:\n(?!ERRORS?:)[^\n]+)*)/i);
+
+    if (errorMatch && !errorMatch[1].toLowerCase().includes('none')) {
+      errors.push(...this.parseListItems(errorMatch[1]));
+    }
+
+    if (warningMatch && !warningMatch[1].toLowerCase().includes('none')) {
+      warnings.push(...this.parseListItems(warningMatch[1]));
+    }
+
+    return {
+      hasErrors: errors.length > 0,
+      errors,
+      warnings,
+    };
   }
 
   /**
@@ -212,69 +148,37 @@ WARNINGS: [list each warning, or "none"]`;
   }> {
     const question = `I performed this action: "${action}"
 
-Compare the BEFORE and AFTER screenshots. Describe:
+The first image is BEFORE and the second image is AFTER. Compare them and describe:
 1. What changed visually between the two screenshots?
 2. Did the action appear to have the expected effect?
 3. Are there any unexpected changes or issues?
 
 Be specific about what elements changed.`;
 
-    try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'BEFORE:',
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${before}`,
-                  detail: 'low',
-                },
-              },
-              {
-                type: 'text',
-                text: 'AFTER:',
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${after}`,
-                  detail: 'low',
-                },
-              },
-              {
-                type: 'text',
-                text: question,
-              },
-            ],
-          },
-        ],
-      });
+    const images: ImageContent[] = [
+      { base64: before },
+      { base64: after },
+    ];
+    const result = await this.visionProvider.analyzeImage(images, question);
 
-      const description = response.choices[0]?.message?.content || '';
-
-      // Determine if there were changes (if the description mentions "same" or "no change", likely no changes)
-      const changed = !description.toLowerCase().includes('no change') &&
-                     !description.toLowerCase().includes('identical') &&
-                     !description.toLowerCase().includes('same as before');
-
-      return {
-        changed,
-        description,
-      };
-    } catch (error) {
+    if (!result.success) {
       return {
         changed: false,
-        description: `Comparison failed: ${error}`,
+        description: `Comparison failed: ${result.error}`,
       };
     }
+
+    const description = result.analysis || '';
+
+    // Determine if there were changes (if the description mentions "same" or "no change", likely no changes)
+    const changed = !description.toLowerCase().includes('no change') &&
+                   !description.toLowerCase().includes('identical') &&
+                   !description.toLowerCase().includes('same as before');
+
+    return {
+      changed,
+      description,
+    };
   }
 
   // ============================================

@@ -20,7 +20,11 @@ import { timeTrackingService } from './services/time-tracking-service';
 import { canvasIntegration } from './integrations/canvas';
 import { gmailIntegration } from './integrations/gmail';
 import { remarkableIntegration } from './integrations/remarkable';
+import { remarkableGDriveSync } from './services/remarkable-gdrive-sync';
+import { remarkableCloudSync } from './services/remarkable-cloud-sync';
 import { plaudIntegration } from './integrations/plaud';
+import { plaudApiClient } from './integrations/plaud-api';
+import { plaudGDriveSync } from './services/plaud-gdrive-sync';
 
 // ============================================
 // Schedule Configuration
@@ -258,13 +262,142 @@ const intervalJobs: IntervalJob[] = [
     },
   },
   {
-    name: 'plaud-sync',
-    intervalMinutes: 30, // Every 30 minutes
+    name: 'remarkable-gdrive-sync',
+    intervalMinutes: 30, // Every 30 minutes - downloads PDFs from Google Drive
     run: async () => {
-      if (!plaudIntegration.isConfigured()) return;
-      console.log('[Scheduler] Syncing Plaud recordings...');
-      const result = await plaudIntegration.syncAll();
-      console.log(`[Scheduler] Plaud: ${result.uploaded} uploaded, ${result.queued} queued`);
+      if (!remarkableGDriveSync.isConfigured()) return;
+      console.log('[Scheduler] Syncing Remarkable from Google Drive...');
+      const result = await remarkableGDriveSync.sync();
+      console.log(`[Scheduler] Remarkable GDrive: ${result.downloaded} downloaded, ${result.skipped} skipped`);
+      if (result.errors.length > 0) {
+        console.error(`[Scheduler] Remarkable GDrive errors: ${result.errors.join(', ')}`);
+      }
+    },
+  },
+  {
+    name: 'remarkable-cloud-sync',
+    intervalMinutes: 30, // Every 30 minutes - monitor Remarkable Cloud for changes
+    run: async () => {
+      if (!remarkableCloudSync.isConfigured()) return;
+      console.log('[Scheduler] Syncing with Remarkable Cloud...');
+      const result = await remarkableCloudSync.sync();
+      console.log(`[Scheduler] Remarkable Cloud: ${result.documentsFound} documents, ${result.changes.length} changes`);
+
+      // Automatically process changes - download, render PDF, store in vault
+      if (result.changes.length > 0) {
+        const { VaultService } = await import('./services/vault-service');
+        const vaultService = new VaultService();
+        const processedDocs: string[] = [];
+        const failedDocs: string[] = [];
+
+        for (const change of result.changes) {
+          try {
+            console.log(`[Scheduler] Processing Remarkable document: ${change.document.name}`);
+
+            // Download, render to PDF, and extract text via OCR
+            const { pdfPath, pdfUrl, documentName, ocrText } = await remarkableCloudSync.downloadAndRenderPdf(change.document.id);
+            console.log(`[Scheduler] Rendered PDF: ${pdfPath}`);
+            console.log(`[Scheduler] PDF URL: ${pdfUrl}`);
+            if (ocrText) {
+              console.log(`[Scheduler] OCR extracted ${ocrText.length} characters`);
+            }
+
+            // Build content with OCR text
+            let content = `Handwritten notes from Remarkable tablet.\n\n`;
+            content += `Document ID: ${change.document.id}\n`;
+            content += `Last modified: ${new Date(change.document.lastModified).toISOString()}\n`;
+
+            if (ocrText) {
+              content += `\n---\n\n## Extracted Text (OCR)\n\n${ocrText}`;
+            }
+
+            // Create vault entry for the document
+            const entry = await vaultService.create({
+              title: documentName,
+              content,
+              contentType: 'class_notes',
+              context: 'Remarkable Notes',
+              tags: ['remarkable', 'handwritten', change.changeType === 'new' ? 'new' : 'updated', ocrText ? 'ocr' : 'no-ocr'],
+              source: 'remarkable',
+              sourceRef: change.document.id,
+              sourceDate: new Date(change.document.lastModified),
+            });
+
+            // Add PDF as attachment
+            const fs = await import('fs');
+            const stats = fs.statSync(pdfPath);
+            const pdfFilename = pdfPath.split('/').pop() || `${documentName}.pdf`;
+
+            await vaultService.addAttachment({
+              entryId: entry.id,
+              filename: pdfFilename,
+              mimeType: 'application/pdf',
+              size: stats.size,
+              storagePath: pdfUrl, // URL path for serving
+              extractedText: ocrText || undefined,
+            });
+
+            processedDocs.push(documentName);
+            console.log(`[Scheduler] Stored in vault: ${documentName}`);
+          } catch (error) {
+            console.error(`[Scheduler] Failed to process ${change.document.name}:`, error);
+            failedDocs.push(change.document.name);
+          }
+        }
+
+        // Send notification with results
+        const { notificationService } = await import('./services/notification-service');
+        let message = '📝 *Remarkable Notes Synced*\n\n';
+
+        if (processedDocs.length > 0) {
+          message += `*Processed (${processedDocs.length}):* `;
+          message += processedDocs.slice(0, 3).join(', ');
+          if (processedDocs.length > 3) message += ` +${processedDocs.length - 3} more`;
+          message += '\n';
+        }
+        if (failedDocs.length > 0) {
+          message += `*Failed (${failedDocs.length}):* `;
+          message += failedDocs.slice(0, 3).join(', ');
+          if (failedDocs.length > 3) message += ` +${failedDocs.length - 3} more`;
+          message += '\n';
+        }
+        message += '\n_Notes have been automatically synced to your vault._';
+
+        await notificationService.send(message);
+        remarkableCloudSync.markNotified(result.changes.map(c => c.document.id));
+      }
+    },
+  },
+  {
+    name: 'plaud-sync',
+    intervalMinutes: 15, // Every 15 minutes
+    run: async () => {
+      // Try API sync first (fully automatic, no manual export needed)
+      if (plaudApiClient.isConfigured()) {
+        console.log('[Scheduler] Syncing Plaud recordings via API...');
+        const apiResult = await plaudApiClient.syncNewRecordings();
+        console.log(`[Scheduler] Plaud API: ${apiResult.synced} synced, ${apiResult.skipped} skipped`);
+        if (apiResult.newRecordings.length > 0) {
+          console.log(`[Scheduler] New recordings: ${apiResult.newRecordings.join(', ')}`);
+        }
+      }
+
+      // Try Google Drive sync (for Plaud app → Save to Drive exports)
+      if (plaudGDriveSync.isConfigured()) {
+        console.log('[Scheduler] Syncing Plaud from Google Drive...');
+        const gdriveResult = await plaudGDriveSync.sync();
+        console.log(`[Scheduler] Plaud GDrive: ${gdriveResult.processed} processed, ${gdriveResult.skipped} skipped`);
+        if (gdriveResult.newRecordings.length > 0) {
+          console.log(`[Scheduler] New from Drive: ${gdriveResult.newRecordings.join(', ')}`);
+        }
+      }
+
+      // Also check local folder (for AirDrop/manual drops)
+      if (plaudIntegration.isConfigured()) {
+        console.log('[Scheduler] Syncing Plaud local folder...');
+        const result = await plaudIntegration.syncAll();
+        console.log(`[Scheduler] Plaud Local: ${result.uploaded} uploaded, ${result.queued} queued`);
+      }
     },
   },
 ];
@@ -368,7 +501,11 @@ console.log('\nIntegration status:');
 console.log(`  - Canvas: ${canvasIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
 console.log(`  - Gmail: ${gmailIntegration.isReady() ? '✓ Ready' : '✗ Not configured'}`);
 console.log(`  - Remarkable: ${remarkableIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
-console.log(`  - Plaud: ${plaudIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
+console.log(`  - Remarkable GDrive: ${remarkableGDriveSync.isConfigured() ? '✓ Configured (auto-sync from Google Drive)' : '✗ Not configured'}`);
+console.log(`  - Remarkable Cloud: ${remarkableCloudSync.isConfigured() ? '✓ Configured (change detection)' : '✗ Not configured'}`);
+console.log(`  - Plaud Local: ${plaudIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
+console.log(`  - Plaud GDrive: ${plaudGDriveSync.isConfigured() ? '✓ Configured (auto-sync from Google Drive)' : '✗ Not configured'}`);
+console.log(`  - Plaud API: ${plaudApiClient.isConfigured() ? '✓ Configured (auto-sync)' : '✗ Not configured'}`);
 
 console.log('\n[Scheduler] Starting... checking every minute.');
 

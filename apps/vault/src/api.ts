@@ -20,9 +20,11 @@ export type {
   UpdateTaskInput,
   Project,
   Section,
+  Goal,
   VaultEntry,
   VaultTreeNode,
   VaultBreadcrumb,
+  VaultAttachment,
   CalendarEvent,
   VaultPage,
   VaultPageTreeNode,
@@ -52,4 +54,16 @@ export type {
   ImageBlockContent,
   FileBlockContent,
   BookmarkBlockContent,
+  // Journal types
+  ReviewMood,
+  DailyReviewData,
+  DailyReview,
+  SaveReviewInput,
+  CompleteReviewInput,
+  ReviewHistoryItem,
+  HabitForReview,
+  GoalForReview,
+  CompletedTaskForReview,
+  // Archive types
+  ArchivedTask,
 } from './lib/types';

@@ -132,6 +132,31 @@ export interface CreateSectionInput {
   sortOrder?: number;
 }
 
+// Goal Types
+export type GoalStatus = 'active' | 'completed' | 'paused' | 'abandoned';
+export type GoalMetricType = 'boolean' | 'numeric' | 'percentage' | 'milestone';
+export type LifeArea = 'spiritual' | 'personal' | 'fitness' | 'family' | 'professional' | 'school';
+
+export interface Goal {
+  id: string;
+  title: string;
+  description?: string;
+  status: GoalStatus;
+  metricType?: GoalMetricType;
+  targetValue?: number;
+  currentValue?: number;
+  progressPercentage: number;
+  lifeArea?: LifeArea;
+  targetDate?: string;
+  startDate?: string;
+  priority: number;
+  motivation?: string;
+  vision?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
 // Calendar Types
 export type EventType = 'class' | 'meeting' | 'deadline' | 'personal' | 'blocked_time';
 
@@ -219,6 +244,17 @@ export interface VaultTreeNode {
 export interface VaultBreadcrumb {
   id: string;
   title: string;
+}
+
+export interface VaultAttachment {
+  id: string;
+  entryId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  storagePath: string;
+  extractedText?: string;
+  uploadedAt: string;
 }
 
 export interface CreateVaultInput {
@@ -423,4 +459,163 @@ export interface BatchBlockOperation {
   op: 'create' | 'update' | 'delete' | 'move';
   blockId?: string;
   data?: CreateVaultBlockInput | UpdateVaultBlockInput | MoveVaultBlockInput;
+}
+
+// ============================================
+// Journal Types
+// ============================================
+
+export type ReviewMood = 'great' | 'good' | 'okay' | 'difficult' | 'terrible';
+
+export interface HabitForReview {
+  id: string;
+  name: string;
+  emoji?: string;
+  frequency: string;
+  targetDays?: string[];
+  currentStreak: number;
+  longestStreak: number;
+  isCompletedToday: boolean;
+  completionId?: string;
+}
+
+export interface GoalForReview {
+  id: string;
+  title: string;
+  lifeArea: string;
+  progress: number;
+  targetDate?: string;
+  status: string;
+}
+
+export interface CompletedTaskForReview {
+  id: string;
+  title: string;
+  completedAt: string;
+  projectName?: string;
+  context: string;
+}
+
+export interface ClassNoteForReview {
+  id: string;
+  className: string;
+  pageId?: string;
+  noteDate: string;
+}
+
+export interface TomorrowEvent {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  eventType?: string;
+}
+
+export interface TomorrowTask {
+  id: string;
+  title: string;
+  dueDate?: string;
+  priority: number;
+}
+
+export interface TomorrowHabit {
+  id: string;
+  name: string;
+  emoji?: string;
+}
+
+export interface DailyReviewData {
+  date: string;
+  review: DailyReview | null;
+  habits: HabitForReview[];
+  goals: GoalForReview[];
+  completedTasks: CompletedTaskForReview[];
+  classNotes: ClassNoteForReview[];
+  tomorrow: {
+    events: TomorrowEvent[];
+    tasks: TomorrowTask[];
+    habits: TomorrowHabit[];
+  };
+}
+
+export interface DailyReview {
+  id: string;
+  date: string;
+  journalText?: string;
+  mood?: ReviewMood;
+  tags: string[];
+  tasksReviewed: TaskReflection[];
+  classesReviewed: ClassReflection[];
+  currentStep: number;
+  reviewCompleted: boolean;
+  habitsCompletedCount: number;
+  habitsTotalCount: number;
+  goalsReviewedCount: number;
+  tomorrowEventsCount: number;
+  tomorrowTasksCount: number;
+  reviewDurationSeconds?: number;
+  vaultPageId?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskReflection {
+  taskId: string;
+  taskTitle: string;
+  completedAt?: string;
+  projectName?: string;
+  reflectionNote?: string;
+}
+
+export interface ClassReflection {
+  classId: string;
+  className: string;
+  pageId?: string;
+  reflectionNote?: string;
+}
+
+export interface SaveReviewInput {
+  id: string;
+  journalText?: string;
+  mood?: ReviewMood;
+  tags?: string[];
+  tasksReviewed?: TaskReflection[];
+  classesReviewed?: ClassReflection[];
+  currentStep?: number;
+}
+
+export interface CompleteReviewInput {
+  id: string;
+  journalText: string;
+  mood: ReviewMood;
+  tags: string[];
+  reviewDurationSeconds: number;
+}
+
+export interface ReviewHistoryItem {
+  id: string;
+  date: string;
+  mood?: ReviewMood;
+  journalText?: string;
+  wordCount: number;
+  tags: string[];
+  habitsCompletedCount: number;
+  habitsTotalCount: number;
+  completedAt?: string;
+}
+
+// ============================================
+// Archive Types
+// ============================================
+
+export interface ArchivedTask {
+  id: string;
+  title: string;
+  content?: string;
+  context: string;
+  sourceDate: string;
+  tags: string[];
+  sourceRef?: string;
 }

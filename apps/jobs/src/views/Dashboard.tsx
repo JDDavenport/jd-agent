@@ -6,7 +6,7 @@ import { CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 
 export function Dashboard() {
-  const { data: statsData, isLoading: statsLoading } = useJobStats();
+  const { data: statsData } = useJobStats();
   const { data: jobsData } = useJobs({ statuses: 'applied,interviewing,phone_screen' });
   const { data: followUpsData } = useFollowUps();
 

@@ -1,16 +1,22 @@
 /**
  * JD Agent - AI-Powered Testing Agent
  *
- * Autonomous testing agent that uses OpenAI's GPT-4 Vision capabilities
- * to explore and test the application like a human would.
+ * Autonomous testing agent that uses vision-capable LLMs to explore
+ * and test the application like a human would.
+ *
+ * Supports multiple providers with automatic fallback:
+ * - OpenAI GPT-4o (OPENAI_API_KEY)
+ * - Anthropic Claude (ANTHROPIC_API_KEY)
+ * - Google Gemini (GOOGLE_AI_API_KEY)
+ * - Ollama local models (OLLAMA_HOST)
  */
 
-import OpenAI from 'openai';
 import { PlaywrightBridge } from './playwright-bridge';
 import { ScreenshotAnalyzer } from './screenshot-analyzer';
 import { ReportGenerator } from './report-generator';
 import { ALL_TESTING_TOOLS, type TestingToolName } from './testing-tools';
 import { buildSystemPrompt } from './prompts/testing-system';
+import { VisionProvider, type VisionMessage, type VisionProviderConfig } from './vision-provider';
 import type {
   TestingConfig,
   TestResult,
@@ -37,20 +43,8 @@ import type {
   ScrollInput,
 } from './types';
 
-// Convert Anthropic tool format to OpenAI function format
-function convertToolsToOpenAI(): OpenAI.Chat.Completions.ChatCompletionTool[] {
-  return ALL_TESTING_TOOLS.map((tool) => ({
-    type: 'function' as const,
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.input_schema as Record<string, unknown>,
-    },
-  }));
-}
-
 export class TestingAgent {
-  private client: OpenAI;
+  private visionProvider: VisionProvider;
   private browser: PlaywrightBridge;
   private analyzer: ScreenshotAnalyzer;
   private reportGenerator: ReportGenerator;
@@ -58,12 +52,12 @@ export class TestingAgent {
 
   // Agent state
   private state: AgentState;
-  private conversationHistory: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+  private conversationHistory: VisionMessage[] = [];
   private testingComplete = false;
   private finalSummary = '';
   private finalRecommendations: string[] = [];
 
-  constructor(config: TestingConfig) {
+  constructor(config: TestingConfig & { visionConfig?: VisionProviderConfig }) {
     this.config = {
       maxIterations: 50,
       screenshotDir: './test-screenshots',
@@ -73,12 +67,19 @@ export class TestingAgent {
       ...config,
     };
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required');
+    // Initialize vision provider with multi-provider support
+    this.visionProvider = new VisionProvider(config.visionConfig);
+
+    if (!this.visionProvider.isAvailable()) {
+      const providers = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GOOGLE_AI_API_KEY', 'OLLAMA_HOST'];
+      throw new Error(
+        `No vision provider available. Set one of: ${providers.join(', ')}`
+      );
     }
 
-    this.client = new OpenAI({ apiKey });
+    console.log(`[TestingAgent] Using vision provider: ${this.visionProvider.getProviderName()}`);
+    console.log(`[TestingAgent] Available providers: ${this.visionProvider.getAvailableProviders().join(', ')}`);
+
     this.browser = new PlaywrightBridge({
       baseUrl: this.config.baseUrl,
       apiBaseUrl: this.config.apiBaseUrl,
@@ -86,7 +87,7 @@ export class TestingAgent {
       headless: this.config.headless,
       viewport: this.config.viewport,
     });
-    this.analyzer = new ScreenshotAnalyzer();
+    this.analyzer = new ScreenshotAnalyzer(config.visionConfig);
     this.reportGenerator = new ReportGenerator(this.config.screenshotDir!);
 
     this.state = {
@@ -141,20 +142,15 @@ export class TestingAgent {
           // Retry logic with exponential backoff for rate limits
           let retries = 0;
           const maxRetries = 3;
-          let response: OpenAI.Chat.Completions.ChatCompletion | null = null;
+          let response = null;
 
           while (retries <= maxRetries && !response) {
             try {
-              response = await this.client.chat.completions.create({
-                model: 'gpt-4o',
-                max_tokens: 2048,
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  ...this.conversationHistory,
-                ],
-                tools: convertToolsToOpenAI(),
-                tool_choice: 'auto',
-              });
+              response = await this.visionProvider.chat(
+                systemPrompt,
+                this.conversationHistory,
+                ALL_TESTING_TOOLS
+              );
             } catch (apiError: unknown) {
               const isRateLimit = apiError instanceof Error &&
                 (apiError.message.includes('429') || apiError.message.includes('rate_limit'));
@@ -214,25 +210,30 @@ export class TestingAgent {
   }
 
   /**
-   * Process OpenAI's response
+   * Process the vision provider's response
    */
-  private async processResponse(response: OpenAI.Chat.Completions.ChatCompletion): Promise<void> {
-    const message = response.choices[0]?.message;
-    if (!message) return;
+  private async processResponse(response: { content: string | null; toolCalls: Array<{ id: string; name: string; arguments: string }> }): Promise<void> {
+    let { content, toolCalls } = response;
 
-    // Check for tool calls
-    const toolCalls = message.tool_calls;
+    // If no native tool calls, try to parse from text content (for Ollama/fallback scenarios)
+    if ((!toolCalls || toolCalls.length === 0) && content) {
+      const parsedCalls = this.parseToolCallsFromText(content);
+      if (parsedCalls.length > 0) {
+        toolCalls = parsedCalls;
+        console.log(`[TestingAgent] Parsed ${parsedCalls.length} tool call(s) from text response`);
+      }
+    }
 
     if (!toolCalls || toolCalls.length === 0) {
       // No tools used, just text response
-      if (message.content) {
-        console.log(`[TestingAgent] ${message.content.slice(0, 100)}...`);
+      if (content) {
+        console.log(`[TestingAgent] ${content.slice(0, 100)}...`);
       }
 
       // Add assistant message to history
       this.conversationHistory.push({
         role: 'assistant',
-        content: message.content || '',
+        content: content || '',
       });
 
       return;
@@ -241,30 +242,30 @@ export class TestingAgent {
     // Add assistant message with tool calls to history
     this.conversationHistory.push({
       role: 'assistant',
-      content: message.content || null,
-      tool_calls: toolCalls,
+      content: content,
+      toolCalls: toolCalls,
     });
 
     // Execute each tool and collect results
     for (const toolCall of toolCalls) {
-      console.log(`[TestingAgent] Executing tool: ${toolCall.function.name}`);
+      console.log(`[TestingAgent] Executing tool: ${toolCall.name}`);
 
       let input: Record<string, unknown> = {};
       try {
-        input = JSON.parse(toolCall.function.arguments);
+        input = JSON.parse(toolCall.arguments);
       } catch {
         input = {};
       }
 
       const result = await this.executeTool(
-        toolCall.function.name as TestingToolName,
+        toolCall.name as TestingToolName,
         input
       );
 
       // Add tool result to history
       this.conversationHistory.push({
         role: 'tool',
-        tool_call_id: toolCall.id,
+        toolCallId: toolCall.id,
         content: JSON.stringify(result),
       });
     }
@@ -521,9 +522,91 @@ export class TestingAgent {
   }
 
   /**
+   * Parse tool calls from text content (for providers like Ollama that don't use native function calling)
+   * Supports multiple formats including multi-line JSON
+   */
+  private parseToolCallsFromText(content: string): Array<{ id: string; name: string; arguments: string }> {
+    const toolCalls: Array<{ id: string; name: string; arguments: string }> = [];
+
+    // Pattern 1: JSON in code blocks (multi-line)
+    const codeBlockPattern = /```(?:json)?\s*([\s\S]*?)\s*```/g;
+    let match;
+
+    while ((match = codeBlockPattern.exec(content)) !== null) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (parsed.tool && typeof parsed.tool === 'string') {
+          toolCalls.push({
+            id: `parsed-${Date.now()}-${toolCalls.length}`,
+            name: parsed.tool,
+            arguments: JSON.stringify(parsed.arguments || {}),
+          });
+        }
+      } catch {
+        // Not valid JSON, skip
+      }
+    }
+
+    // Pattern 2: Multi-line JSON objects starting with {"tool" or { "tool"
+    // This handles formatted JSON output from the model
+    if (toolCalls.length === 0) {
+      // Find JSON objects by matching balanced braces
+      const jsonObjects = this.extractJsonObjects(content);
+      for (const jsonStr of jsonObjects) {
+        try {
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.tool && typeof parsed.tool === 'string') {
+            toolCalls.push({
+              id: `parsed-${Date.now()}-${toolCalls.length}`,
+              name: parsed.tool,
+              arguments: JSON.stringify(parsed.arguments || parsed.args || {}),
+            });
+          }
+        } catch {
+          // Not valid JSON, skip
+        }
+      }
+    }
+
+    return toolCalls;
+  }
+
+  /**
+   * Extract JSON objects from text by matching balanced braces
+   */
+  private extractJsonObjects(content: string): string[] {
+    const objects: string[] = [];
+    let depth = 0;
+    let start = -1;
+
+    for (let i = 0; i < content.length; i++) {
+      const char = content[i];
+
+      if (char === '{') {
+        if (depth === 0) {
+          start = i;
+        }
+        depth++;
+      } else if (char === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          const candidate = content.slice(start, i + 1);
+          // Only include if it looks like a tool call
+          if (candidate.includes('"tool"')) {
+            objects.push(candidate);
+          }
+          start = -1;
+        }
+      }
+    }
+
+    return objects;
+  }
+
+  /**
    * Trim conversation history to prevent token overflow
    * Keeps only the most recent messages and truncates large tool results
-   * IMPORTANT: Maintains OpenAI message structure (tool messages must follow tool_calls)
+   * IMPORTANT: Maintains message structure (tool messages must follow tool_calls)
    */
   private trimConversationHistory(): void {
     const MAX_MESSAGES = 16; // Keep last 16 messages
@@ -559,15 +642,15 @@ export class TestingAgent {
       // Start from the target position and look for a safe cut point
       let cutIndex = this.conversationHistory.length - MAX_MESSAGES + 1;
 
-      // Move forward to find a safe cut point (user message or assistant without tool_calls)
+      // Move forward to find a safe cut point (user message or assistant without toolCalls)
       while (cutIndex < this.conversationHistory.length - 1) {
         const msg = this.conversationHistory[cutIndex];
         // Safe to cut before: user messages
         if (msg.role === 'user') {
           break;
         }
-        // Safe to cut before: assistant messages that don't have tool_calls
-        if (msg.role === 'assistant' && !('tool_calls' in msg)) {
+        // Safe to cut before: assistant messages that don't have toolCalls
+        if (msg.role === 'assistant' && !msg.toolCalls?.length) {
           break;
         }
         cutIndex++;
@@ -589,13 +672,18 @@ export class TestingAgent {
       case 'smoke':
         return `Run a smoke test of the JD Agent Command Center application.
 
-Your goals:
-1. Visit each major page (Dashboard, Vault, Chat, Settings, Health)
-2. Verify each page loads without errors
-3. Check that key UI elements are visible
-4. Report any obvious issues
+IMPORTANT: Follow the MANDATORY workflow for EACH page:
+1. Call start_test_scenario with the page name (e.g., "Dashboard Page Tests")
+2. Call take_screenshot to capture initial state
+3. Call verify_text_visible to check page loaded
+4. Call log_finding with type "pass" or "bug" based on result
+5. Test 1-2 interactions and log_finding for each
+6. Call take_screenshot for final state
+7. Call end_test_scenario with passed=true/false and summary
 
-Start by taking a screenshot of the current page (Dashboard) and analyzing what you see.`;
+Pages to test: Dashboard (/), Vault (/vault), Settings (/settings), Health (/health)
+
+START NOW: Call start_test_scenario for "Dashboard Page Tests", then take_screenshot.`;
 
       case 'specific':
         return `Test the following specific pages thoroughly: ${this.config.specificPages?.join(', ')}
@@ -610,16 +698,37 @@ For each page:
 Start with the first page.`;
 
       default:
-        return `Perform comprehensive testing of the JD Agent Command Center application.
+        return `You are an AUTONOMOUS testing agent. You MUST test ALL pages without asking questions or waiting for instructions.
 
-Your goals:
-1. Systematically visit and test all major pages
-2. Test core functionality on each page
-3. Try edge cases where appropriate
-4. Document all findings (bugs, warnings, and passes)
-5. Generate a thorough test report
+CRITICAL RULES:
+- NEVER ask "what to do next" - just proceed to the next page
+- NEVER repeat the same page - test each page ONCE then move on
+- ALWAYS use tool calls - every response must include at least one tool call
+- After end_test_scenario, IMMEDIATELY call navigate_to_page for the next page
 
-Start by taking a screenshot of the Dashboard and analyzing what's visible. Then begin your systematic testing.`;
+MANDATORY WORKFLOW for each page:
+1. navigate_to_page - go to the page URL
+2. start_test_scenario - name it "PageName Tests" (e.g., "Vault Tests")
+3. take_screenshot - capture initial state
+4. verify_text_visible - check page content loaded
+5. log_finding - type "pass" if loaded, "bug" if not
+6. click_element or fill_input - test 1-2 interactions
+7. log_finding - for each interaction result
+8. end_test_scenario - passed=true/false
+9. IMMEDIATELY navigate_to_page for NEXT page (do not stop!)
+
+PAGE SEQUENCE (test in this exact order):
+1. Dashboard (/) - verify stats cards visible
+2. Vault (/vault) - verify search input visible
+3. Settings (/settings) - verify tabs visible
+4. Health (/health) - verify status cards visible
+
+After testing ALL 4 pages, call complete_testing.
+
+START NOW with multiple tool calls:
+- start_test_scenario name="Dashboard Tests"
+- take_screenshot name="dashboard-initial"
+- verify_text_visible text="Dashboard"`;
     }
   }
 }
@@ -628,6 +737,6 @@ Start by taking a screenshot of the Dashboard and analyzing what's visible. Then
 // Factory Function
 // ============================================
 
-export function createTestingAgent(config: TestingConfig): TestingAgent {
+export function createTestingAgent(config: TestingConfig & { visionConfig?: VisionProviderConfig }): TestingAgent {
   return new TestingAgent(config);
 }

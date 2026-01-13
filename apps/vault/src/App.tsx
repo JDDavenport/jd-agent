@@ -96,6 +96,7 @@ function VaultApp() {
     setAppMode('notion');
   }, []);
 
+  // Notion-style instant page creation - creates "Untitled" and navigates immediately
   const handleCreatePage = useCallback(
     async (parentId?: string) => {
       try {
@@ -104,6 +105,7 @@ function VaultApp() {
           parentId: parentId || null,
         });
         setSelectedPageId(newPage.id);
+        setAppMode('notion');
       } catch (error) {
         console.error('Failed to create page:', error);
       }
@@ -213,14 +215,10 @@ function VaultApp() {
         return;
       }
 
-      // New page: ⌘N
+      // New page: ⌘N - Always use Notion-style instant creation
       if (e.key === 'n' && (e.metaKey || e.ctrlKey) && !isInput) {
         e.preventDefault();
-        if (appMode === 'notion') {
-          handleCreatePage();
-        } else {
-          handleNewEntry();
-        }
+        handleCreatePage();
         return;
       }
 
@@ -454,9 +452,9 @@ function VaultApp() {
           setAppMode('legacy');
         }}
         onCreatePage={handleCreatePage}
-        onCreateEntry={handleNewEntry}
         onMoveEntry={handleMoveEntry}
         onOpenSearch={handleOpenSearch}
+        onOpenChat={() => setShowChat(true)}
         pageTree={pageTree}
         legacyTree={legacyTree}
         favorites={favorites}
@@ -489,20 +487,6 @@ function VaultApp() {
         onNavigateToPage={handleSelectPage}
       />
 
-
-      {/* Chat Toggle Button (bottom-right) */}
-      <button
-        data-testid="vault-chat-toggle"
-        onClick={() => setShowChat(true)}
-        className={`fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-all hover:scale-105 ${
-          showChat ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        <span className="text-sm font-medium">Ask AI</span>
-      </button>
     </div>
   );
 }

@@ -10,7 +10,11 @@
 import { Hono } from 'hono';
 import { canvasIntegration } from '../../integrations/canvas';
 import { remarkableIntegration } from '../../integrations/remarkable';
+import { remarkableGDriveSync } from '../../services/remarkable-gdrive-sync';
+import { remarkableCloudSync } from '../../services/remarkable-cloud-sync';
 import { plaudIntegration } from '../../integrations/plaud';
+import { plaudApiClient } from '../../integrations/plaud-api';
+import { plaudGDriveSync } from '../../services/plaud-gdrive-sync';
 import { gmailIntegration } from '../../integrations/gmail';
 import { db } from '../../db/client';
 import { tasks, vaultEntries } from '../../db/schema';
@@ -775,6 +779,628 @@ ingestionRouter.post('/remarkable/jobs/merge', async (c) => {
 });
 
 // ============================================
+// Remarkable Google Drive Sync Routes
+// ============================================
+
+/**
+ * GET /api/ingestion/remarkable/gdrive/status
+ * Get Google Drive sync status for Remarkable
+ */
+ingestionRouter.get('/remarkable/gdrive/status', async (c) => {
+  const status = remarkableGDriveSync.getStatus();
+
+  return c.json({
+    success: true,
+    data: status,
+    setupInstructions: !status.configured ? [
+      '1. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN',
+      '2. Set REMARKABLE_SYNC_PATH to local folder for downloaded PDFs',
+      '3. Create a "Remarkable" folder in Google Drive',
+      '4. Export PDFs from Remarkable tablet to that Google Drive folder',
+      '5. Call /gdrive/polling/start to enable automatic syncing',
+    ] : null,
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/gdrive/sync
+ * Manually trigger Google Drive sync
+ */
+ingestionRouter.post('/remarkable/gdrive/sync', async (c) => {
+  if (!remarkableGDriveSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Google Drive sync not configured' },
+    }, 400);
+  }
+
+  try {
+    const result = await remarkableGDriveSync.sync();
+
+    return c.json({
+      success: true,
+      data: {
+        downloaded: result.downloaded,
+        skipped: result.skipped,
+        errors: result.errors,
+        files: result.files.map(f => ({
+          filename: f.filename,
+          drivePath: f.drivePath,
+          localPath: f.localPath,
+          size: f.size,
+          syncedAt: f.syncedAt,
+        })),
+      },
+      message: `Downloaded ${result.downloaded} files, skipped ${result.skipped}`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'SYNC_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/gdrive/polling/start
+ * Start automatic polling of Google Drive
+ */
+ingestionRouter.post('/remarkable/gdrive/polling/start', async (c) => {
+  if (!remarkableGDriveSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Google Drive sync not configured' },
+    }, 400);
+  }
+
+  const started = remarkableGDriveSync.startPolling();
+  const status = remarkableGDriveSync.getStatus();
+
+  return c.json({
+    success: started,
+    data: {
+      polling: status.polling,
+      pollIntervalMinutes: status.pollIntervalMinutes,
+    },
+    message: started
+      ? `Started polling Google Drive every ${status.pollIntervalMinutes} minutes`
+      : 'Failed to start polling (already running or not configured)',
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/gdrive/polling/stop
+ * Stop automatic polling of Google Drive
+ */
+ingestionRouter.post('/remarkable/gdrive/polling/stop', async (c) => {
+  remarkableGDriveSync.stopPolling();
+
+  return c.json({
+    success: true,
+    message: 'Stopped Google Drive polling',
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/gdrive/setup-folders
+ * Create recommended folder structure in Google Drive
+ */
+ingestionRouter.post('/remarkable/gdrive/setup-folders', async (c) => {
+  if (!remarkableGDriveSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Google Drive sync not configured' },
+    }, 400);
+  }
+
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const classes = body.classes || ['MGMT501', 'MGMT502', 'MKTG501', 'ACCT501', 'FINC501'];
+
+    const result = await remarkableGDriveSync.createFolderStructure(classes);
+
+    return c.json({
+      success: true,
+      data: result,
+      message: `Created folder structure with ${classes.length} class folders`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'SETUP_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+// ============================================
+// Remarkable Cloud Sync Routes
+// ============================================
+
+/**
+ * GET /api/ingestion/remarkable/cloud/status
+ * Get Remarkable Cloud sync status
+ */
+ingestionRouter.get('/remarkable/cloud/status', async (c) => {
+  const status = remarkableCloudSync.getStatus();
+
+  return c.json({
+    success: true,
+    data: status,
+    setupInstructions: !status.configured ? [
+      '1. Obtain a device token from Remarkable authentication',
+      '2. Set REMARKABLE_DEVICE_TOKEN in .env or call /cloud/auth/device',
+      '3. Call /cloud/sync to sync documents from Remarkable Cloud',
+      '4. Changes will be detected and notifications sent',
+    ] : null,
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/auth/device
+ * Set the device token for Remarkable Cloud
+ */
+ingestionRouter.post('/remarkable/cloud/auth/device', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { deviceToken } = body;
+
+    if (!deviceToken) {
+      return c.json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'deviceToken is required' },
+      }, 400);
+    }
+
+    remarkableCloudSync.setDeviceToken(deviceToken);
+
+    return c.json({
+      success: true,
+      message: 'Device token set successfully',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'AUTH_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/sync
+ * Sync with Remarkable Cloud and detect changes
+ */
+ingestionRouter.post('/remarkable/cloud/sync', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured. Set device token first.' },
+    }, 400);
+  }
+
+  try {
+    const result = await remarkableCloudSync.sync();
+
+    // Format changes for response
+    const changesFormatted = result.changes.map(ch => ({
+      id: ch.document.id,
+      name: ch.document.name,
+      changeType: ch.changeType,
+      lastModified: new Date(ch.document.lastModified).toISOString(),
+      pageCount: ch.document.pageCount,
+    }));
+
+    return c.json({
+      success: result.success,
+      data: {
+        documentsFound: result.documentsFound,
+        changesDetected: result.changes.length,
+        changes: changesFormatted,
+        errors: result.errors,
+      },
+      message: result.changes.length > 0
+        ? `Found ${result.changes.length} changed document(s)`
+        : `Synced ${result.documentsFound} documents, no changes`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'SYNC_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/remarkable/cloud/documents
+ * List all tracked documents from Remarkable Cloud
+ */
+ingestionRouter.get('/remarkable/cloud/documents', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured' },
+    }, 400);
+  }
+
+  const documents = remarkableCloudSync.getAllDocuments();
+
+  return c.json({
+    success: true,
+    data: documents.map(doc => ({
+      id: doc.id,
+      name: doc.name,
+      lastModified: new Date(doc.lastModified).toISOString(),
+    })),
+    count: documents.length,
+  });
+});
+
+/**
+ * GET /api/ingestion/remarkable/cloud/pending
+ * Get documents with pending notifications (new/updated)
+ */
+ingestionRouter.get('/remarkable/cloud/pending', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured' },
+    }, 400);
+  }
+
+  const pending = remarkableCloudSync.getPendingNotifications();
+
+  return c.json({
+    success: true,
+    data: pending.map(ch => ({
+      id: ch.document.id,
+      name: ch.document.name,
+      changeType: ch.changeType,
+      lastModified: new Date(ch.document.lastModified).toISOString(),
+    })),
+    count: pending.length,
+    message: pending.length > 0
+      ? `${pending.length} document(s) have unacknowledged changes`
+      : 'No pending notifications',
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/notify
+ * Send notification for pending document changes
+ */
+ingestionRouter.post('/remarkable/cloud/notify', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured' },
+    }, 400);
+  }
+
+  try {
+    const pending = remarkableCloudSync.getPendingNotifications();
+
+    if (pending.length === 0) {
+      return c.json({
+        success: true,
+        message: 'No pending notifications',
+      });
+    }
+
+    // Import notification service
+    const { notificationService } = await import('../../services/notification-service');
+
+    // Build notification message
+    const newDocs = pending.filter(p => p.changeType === 'new');
+    const updatedDocs = pending.filter(p => p.changeType === 'updated');
+
+    let message = '📝 *Remarkable Notes Update*\n\n';
+
+    if (newDocs.length > 0) {
+      message += `*New Documents (${newDocs.length}):*\n`;
+      for (const doc of newDocs.slice(0, 5)) {
+        message += `• ${doc.document.name}\n`;
+      }
+      if (newDocs.length > 5) {
+        message += `_...and ${newDocs.length - 5} more_\n`;
+      }
+      message += '\n';
+    }
+
+    if (updatedDocs.length > 0) {
+      message += `*Updated Documents (${updatedDocs.length}):*\n`;
+      for (const doc of updatedDocs.slice(0, 5)) {
+        message += `• ${doc.document.name}\n`;
+      }
+      if (updatedDocs.length > 5) {
+        message += `_...and ${updatedDocs.length - 5} more_\n`;
+      }
+      message += '\n';
+    }
+
+    message += '_Export to Google Drive from Remarkable app to sync._';
+
+    // Send notification
+    const sent = await notificationService.send(message);
+
+    // Mark as notified
+    const documentIds = pending.map(p => p.document.id);
+    remarkableCloudSync.markNotified(documentIds);
+
+    return c.json({
+      success: sent,
+      data: {
+        notified: documentIds.length,
+        newDocs: newDocs.length,
+        updatedDocs: updatedDocs.length,
+      },
+      message: sent
+        ? `Notification sent for ${documentIds.length} document(s)`
+        : 'Failed to send notification',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'NOTIFY_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/polling/start
+ * Start automatic polling of Remarkable Cloud
+ */
+ingestionRouter.post('/remarkable/cloud/polling/start', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured' },
+    }, 400);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const intervalMinutes = body.intervalMinutes || 30;
+
+  const started = remarkableCloudSync.startPolling(intervalMinutes);
+
+  return c.json({
+    success: started,
+    message: started
+      ? `Started polling Remarkable Cloud every ${intervalMinutes} minutes`
+      : 'Failed to start polling',
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/polling/stop
+ * Stop automatic polling of Remarkable Cloud
+ */
+ingestionRouter.post('/remarkable/cloud/polling/stop', async (c) => {
+  remarkableCloudSync.stopPolling();
+
+  return c.json({
+    success: true,
+    message: 'Stopped polling Remarkable Cloud',
+  });
+});
+
+/**
+ * DELETE /api/ingestion/remarkable/cloud/state
+ * Clear tracked documents (force fresh sync)
+ */
+ingestionRouter.delete('/remarkable/cloud/state', async (c) => {
+  remarkableCloudSync.clearState();
+
+  return c.json({
+    success: true,
+    message: 'Cleared all tracked documents. Next sync will treat all as new.',
+  });
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/download/:id
+ * Download a document bundle from Remarkable Cloud
+ */
+ingestionRouter.post('/remarkable/cloud/download/:id', async (c) => {
+  const { id } = c.req.param();
+
+  try {
+    const documentPath = await remarkableCloudSync.downloadDocument(id);
+
+    return c.json({
+      success: true,
+      data: {
+        documentId: id,
+        downloadPath: documentPath,
+      },
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: {
+        code: 'DOWNLOAD_FAILED',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/cloud/render/:id
+ * Download a document, render it to PDF, and extract text via OCR
+ */
+ingestionRouter.post('/remarkable/cloud/render/:id', async (c) => {
+  const { id } = c.req.param();
+
+  try {
+    const result = await remarkableCloudSync.downloadAndRenderPdf(id);
+
+    return c.json({
+      success: true,
+      data: {
+        documentId: id,
+        documentName: result.documentName,
+        pdfPath: result.pdfPath,
+        pdfUrl: result.pdfUrl,
+        ocrText: result.ocrText || null,
+        ocrCharCount: result.ocrText?.length || 0,
+      },
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: {
+        code: 'RENDER_FAILED',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    }, 500);
+  }
+});
+
+// ============================================
+// Remarkable MBA Sync Routes
+// ============================================
+
+/**
+ * GET /api/ingestion/remarkable/mba/status
+ * Get MBA folder sync status
+ */
+ingestionRouter.get('/remarkable/mba/status', async (c) => {
+  const { remarkableMbaSyncService } = await import('../../services/remarkable-mba-sync');
+
+  try {
+    const status = await remarkableMbaSyncService.getStatus();
+
+    return c.json({
+      success: true,
+      data: status,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'STATUS_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/remarkable/mba/tree
+ * Get folder tree for MBA folder
+ */
+ingestionRouter.get('/remarkable/mba/tree', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured' },
+    }, 400);
+  }
+
+  try {
+    const mbaFolder = remarkableCloudSync.findFolderByName('BYU MBA');
+
+    if (!mbaFolder) {
+      return c.json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'BYU MBA folder not found in Remarkable Cloud' },
+      }, 404);
+    }
+
+    const tree = remarkableCloudSync.getFolderTree(mbaFolder.id);
+
+    return c.json({
+      success: true,
+      data: {
+        rootFolder: {
+          id: mbaFolder.id,
+          name: mbaFolder.name,
+        },
+        tree,
+      },
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'TREE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/mba/sync
+ * Trigger full MBA folder sync to Vault
+ */
+ingestionRouter.post('/remarkable/mba/sync', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured. Set device token first.' },
+    }, 400);
+  }
+
+  const { remarkableMbaSyncService } = await import('../../services/remarkable-mba-sync');
+
+  try {
+    // First sync with Remarkable Cloud to get latest state
+    console.log('[MBA Sync] Syncing with Remarkable Cloud...');
+    await remarkableCloudSync.sync();
+
+    // Then run the MBA folder sync
+    console.log('[MBA Sync] Starting MBA folder sync...');
+    const result = await remarkableMbaSyncService.syncMbaFolder();
+
+    return c.json({
+      success: result.success,
+      data: {
+        foldersProcessed: result.foldersProcessed,
+        documentsProcessed: result.documentsProcessed,
+        pagesCreated: result.pagesCreated,
+        errors: result.errors,
+      },
+      message: result.success
+        ? `Synced ${result.documentsProcessed} documents, created ${result.pagesCreated} pages`
+        : `Sync completed with ${result.errors.length} errors`,
+    });
+  } catch (error) {
+    console.error('[MBA Sync] Sync failed:', error);
+    return c.json({
+      success: false,
+      error: { code: 'SYNC_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/remarkable/mba/jobs/sync
+ * Queue MBA folder sync as a background job
+ */
+ingestionRouter.post('/remarkable/mba/jobs/sync', async (c) => {
+  if (!remarkableCloudSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Remarkable Cloud not configured. Set device token first.' },
+    }, 400);
+  }
+
+  const { addRemarkableMbaSyncJob } = await import('../../jobs/queue');
+
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const job = await addRemarkableMbaSyncJob({
+      force: body.force || false,
+    });
+
+    return c.json({
+      success: true,
+      data: { jobId: job.id },
+      message: 'MBA sync job queued',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: { code: 'JOB_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+// ============================================
 // Plaud Routes
 // ============================================
 
@@ -876,6 +1502,277 @@ ingestionRouter.post('/plaud/watch/stop', async (c) => {
     success: true,
     message: 'Stopped watching',
   });
+});
+
+/**
+ * POST /api/ingestion/plaud/webhook
+ * Webhook endpoint for Zapier/Plaud to push transcripts automatically
+ *
+ * Expected payload from Zapier (Plaud trigger: "Transcript & Summary Ready"):
+ * {
+ *   recording_id: string,
+ *   title: string,
+ *   transcript: string,
+ *   summary: string,
+ *   duration_seconds: number,
+ *   recorded_at: string (ISO date),
+ *   audio_url?: string,
+ *   speakers?: { id: number, name?: string }[],
+ *   tags?: string[]
+ * }
+ */
+ingestionRouter.post('/plaud/webhook', async (c) => {
+  try {
+    const payload = await c.req.json();
+
+    console.log('[Plaud Webhook] Received transcript:', {
+      id: payload.recording_id || payload.id,
+      title: payload.title,
+      duration: payload.duration_seconds,
+    });
+
+    // Validate required fields
+    if (!payload.transcript && !payload.summary) {
+      return c.json({
+        success: false,
+        error: 'Missing transcript or summary in payload',
+      }, 400);
+    }
+
+    // Import required modules
+    const { db } = await import('../../db/client');
+    const { recordings, transcripts, vaultPages, vaultBlocks } = await import('../../db/schema');
+
+    // Create recording record
+    const recordingId = payload.recording_id || payload.id || crypto.randomUUID();
+    const recordedAt = payload.recorded_at ? new Date(payload.recorded_at) : new Date();
+
+    // Check if already processed
+    const existing = await db
+      .select()
+      .from(recordings)
+      .where(eq(recordings.id, recordingId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return c.json({
+        success: true,
+        message: 'Recording already processed',
+        recordingId,
+      });
+    }
+
+    // Create recording
+    const [recording] = await db.insert(recordings).values({
+      id: recordingId,
+      filePath: payload.audio_url || `plaud-webhook:${recordingId}`,
+      originalFilename: payload.title || `Recording ${recordedAt.toISOString()}`,
+      durationSeconds: payload.duration_seconds || 0,
+      recordingType: payload.recording_type || 'other',
+      context: payload.context,
+      status: 'complete',
+      recordedAt,
+    }).returning();
+
+    // Create transcript
+    const [transcript] = await db.insert(transcripts).values({
+      recordingId: recording.id,
+      fullText: payload.transcript || '',
+      segments: payload.segments || [],
+      wordCount: (payload.transcript || '').split(/\s+/).length,
+      speakerCount: payload.speakers?.length || 1,
+      confidenceScore: 0.95,
+    }).returning();
+
+    // Create Vault page with transcript and summary
+    const pageTitle = payload.title || `Recording - ${recordedAt.toLocaleDateString()}`;
+    const [page] = await db.insert(vaultPages).values({
+      title: pageTitle,
+      icon: '🎙️',
+    }).returning();
+
+    // Add summary block
+    if (payload.summary) {
+      await db.insert(vaultBlocks).values({
+        pageId: page.id,
+        type: 'callout',
+        content: {
+          icon: '📝',
+          text: `**Summary**\n\n${payload.summary}`,
+        },
+        sortOrder: 0,
+      });
+    }
+
+    // Add transcript block
+    if (payload.transcript) {
+      await db.insert(vaultBlocks).values({
+        pageId: page.id,
+        type: 'text',
+        content: {
+          text: `## Full Transcript\n\n${payload.transcript}`,
+        },
+        sortOrder: 1,
+      });
+    }
+
+    console.log('[Plaud Webhook] Created vault page:', page.id);
+
+    return c.json({
+      success: true,
+      message: 'Recording processed successfully',
+      data: {
+        recordingId: recording.id,
+        transcriptId: transcript.id,
+        vaultPageId: page.id,
+        title: pageTitle,
+      },
+    });
+  } catch (error) {
+    console.error('[Plaud Webhook] Error:', error);
+    return c.json({
+      success: false,
+      error: String(error),
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/ingestion/plaud/api/status
+ * Get Plaud Cloud API integration status
+ */
+ingestionRouter.get('/plaud/api/status', async (c) => {
+  const status = plaudApiClient.getStatus();
+
+  return c.json({
+    success: true,
+    data: status,
+    setupInstructions: !status.configured ? [
+      '1. Sign up at https://www.plaud.ai/pages/developer-platform',
+      '2. Create an application to get client_id and client_secret',
+      '3. Set PLAUD_CLIENT_ID and PLAUD_CLIENT_SECRET in .env.development',
+      '4. Recordings will auto-sync every 30 minutes via scheduler',
+    ] : null,
+  });
+});
+
+/**
+ * POST /api/ingestion/plaud/api/sync
+ * Manually trigger sync from Plaud Cloud API
+ */
+ingestionRouter.post('/plaud/api/sync', async (c) => {
+  if (!plaudApiClient.isConfigured()) {
+    return c.json({
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Plaud API not configured. Set PLAUD_CLIENT_ID and PLAUD_CLIENT_SECRET.',
+      },
+    }, 400);
+  }
+
+  try {
+    const result = await plaudApiClient.syncNewRecordings();
+
+    return c.json({
+      success: true,
+      data: result,
+      message: `Synced ${result.synced} recordings from Plaud Cloud`,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: String(error),
+    }, 500);
+  }
+});
+
+// ============================================
+// Plaud Google Drive Routes
+// ============================================
+
+/**
+ * GET /api/ingestion/plaud/gdrive/status
+ * Get Plaud Google Drive sync status
+ */
+ingestionRouter.get('/plaud/gdrive/status', async (c) => {
+  const status = plaudGDriveSync.getStatus();
+
+  return c.json({
+    success: true,
+    data: status,
+    setupInstructions: !status.configured ? [
+      '1. Ensure Google OAuth is configured (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN)',
+      '2. Set PLAUD_SYNC_PATH for local file processing',
+      '3. Create a folder named "Plaud" in your Google Drive',
+      '4. In the Plaud app, export recordings to Google Drive → Plaud folder',
+      '5. Call /gdrive/sync to manually sync, or it runs automatically every 15 minutes',
+    ] : null,
+  });
+});
+
+/**
+ * POST /api/ingestion/plaud/gdrive/sync
+ * Manually trigger sync from Google Drive
+ */
+ingestionRouter.post('/plaud/gdrive/sync', async (c) => {
+  if (!plaudGDriveSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Plaud Google Drive sync not configured. Ensure Google OAuth and PLAUD_SYNC_PATH are set.',
+      },
+    }, 400);
+  }
+
+  try {
+    const result = await plaudGDriveSync.sync();
+
+    return c.json({
+      success: true,
+      data: result,
+      message: result.processed > 0
+        ? `Processed ${result.processed} recordings from Google Drive`
+        : 'No new recordings found in Google Drive',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: String(error),
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/ingestion/plaud/gdrive/create-folder
+ * Create the Plaud folder in Google Drive if it doesn't exist
+ */
+ingestionRouter.post('/plaud/gdrive/create-folder', async (c) => {
+  if (!plaudGDriveSync.isConfigured()) {
+    return c.json({
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Google Drive not configured',
+      },
+    }, 400);
+  }
+
+  try {
+    const folderId = await plaudGDriveSync.createPlaudFolder();
+
+    return c.json({
+      success: true,
+      data: { folderId },
+      message: 'Plaud folder ready in Google Drive',
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: String(error),
+    }, 500);
+  }
 });
 
 // ============================================

@@ -4,12 +4,13 @@
  * Main dashboard page with enhanced metric cards, widgets, and sections.
  * Features:
  * - Lazy loaded heavy components for performance
+ * - Cascading data loading to prevent server overload
  * - Keyboard shortcuts for navigation
  * - Accessible with ARIA labels and focus management
  * - Responsive layout for mobile/tablet/desktop
  */
 
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import StatsCards from '../components/dashboard/StatsCards';
 import TodayTasks from '../components/dashboard/TodayTasks';
 import WeekCalendar from '../components/dashboard/WeekCalendar';
@@ -23,6 +24,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 const CanvasHub = lazy(() => import('../components/dashboard/CanvasHub'));
 const FitnessWidget = lazy(() => import('../components/dashboard/FitnessWidget'));
 const SystemMonitor = lazy(() => import('../components/dashboard/SystemMonitor'));
+const FinanceWidget = lazy(() => import('../components/dashboard/FinanceWidget'));
 const AIInsights = lazy(() => import('../components/dashboard/AIInsights'));
 const QuickChat = lazy(() => import('../components/dashboard/QuickChat'));
 
@@ -37,6 +39,19 @@ function SectionLoader() {
 
 function Dashboard() {
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // Cascading loading phases to prevent server overload
+  // More aggressive staggering: 5 phases with 1.5s delays
+  const [loadPhase, setLoadPhase] = useState(1);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setLoadPhase(2), 1500),  // Tasks
+      setTimeout(() => setLoadPhase(3), 3000),  // Calendar
+      setTimeout(() => setLoadPhase(4), 4500),  // Integrations row
+      setTimeout(() => setLoadPhase(5), 6000),  // Goals & Chat
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts({
@@ -96,60 +111,93 @@ function Dashboard() {
         <StatsCards />
       </section>
 
-      {/* Row 2: Tasks and Deadlines */}
-      <section
-        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-        aria-label="Tasks and deadlines"
-      >
-        <div className="lg:col-span-2">
-          <TodayTasks />
-        </div>
-        <div>
-          <DeadlineWidget />
-        </div>
-      </section>
+      {/* Row 2: Tasks and Deadlines - Load in Phase 2 */}
+      {loadPhase >= 2 ? (
+        <section
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          aria-label="Tasks and deadlines"
+        >
+          <div className="lg:col-span-2">
+            <TodayTasks />
+          </div>
+          <div>
+            <DeadlineWidget />
+          </div>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2"><SectionLoader /></div>
+          <div><SectionLoader /></div>
+        </section>
+      )}
 
-      {/* Row 3: Calendar and AI Insights */}
-      <section
-        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-        aria-label="Calendar and insights"
-      >
-        <div className="lg:col-span-2">
-          <WeekCalendar />
-        </div>
-        <div>
+      {/* Row 3: Calendar and AI Insights - Load in Phase 3 */}
+      {loadPhase >= 3 ? (
+        <section
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          aria-label="Calendar and insights"
+        >
+          <div className="lg:col-span-2">
+            <WeekCalendar />
+          </div>
+          <div>
+            <Suspense fallback={<SectionLoader />}>
+              <AIInsights />
+            </Suspense>
+          </div>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2"><SectionLoader /></div>
+          <div><SectionLoader /></div>
+        </section>
+      )}
+
+      {/* Row 4: Canvas, Fitness, Finance, System Monitor - Load in Phase 4 */}
+      {loadPhase >= 4 ? (
+        <section
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+          aria-label="Integrations overview"
+        >
           <Suspense fallback={<SectionLoader />}>
-            <AIInsights />
+            <CanvasHub />
           </Suspense>
-        </div>
-      </section>
+          <Suspense fallback={<SectionLoader />}>
+            <FitnessWidget />
+          </Suspense>
+          <Suspense fallback={<SectionLoader />}>
+            <FinanceWidget />
+          </Suspense>
+          <Suspense fallback={<SectionLoader />}>
+            <SystemMonitor />
+          </Suspense>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <SectionLoader />
+          <SectionLoader />
+          <SectionLoader />
+          <SectionLoader />
+        </section>
+      )}
 
-      {/* Row 4: Canvas, Fitness, System Monitor */}
-      <section
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        aria-label="Integrations overview"
-      >
-        <Suspense fallback={<SectionLoader />}>
-          <CanvasHub />
-        </Suspense>
-        <Suspense fallback={<SectionLoader />}>
-          <FitnessWidget />
-        </Suspense>
-        <Suspense fallback={<SectionLoader />}>
-          <SystemMonitor />
-        </Suspense>
-      </section>
-
-      {/* Row 5: Goals and Quick Chat */}
-      <section
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-        aria-label="Goals and chat"
-      >
-        <GoalsPanel />
-        <Suspense fallback={<SectionLoader />}>
-          <QuickChat />
-        </Suspense>
-      </section>
+      {/* Row 5: Goals and Quick Chat - Load in Phase 5 */}
+      {loadPhase >= 5 ? (
+        <section
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          aria-label="Goals and chat"
+        >
+          <GoalsPanel />
+          <Suspense fallback={<SectionLoader />}>
+            <QuickChat />
+          </Suspense>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SectionLoader />
+          <SectionLoader />
+        </section>
+      )}
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal

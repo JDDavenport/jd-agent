@@ -1,6 +1,7 @@
 import { eq, and, gte, lte, desc, asc, sql, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 import { tasks, projects } from '../db/schema';
+import { addRecurrenceGenerateJob } from '../jobs/queue';
 import type { TaskStatus, TaskSource, EnergyLevel } from '../types';
 
 // ============================================
@@ -24,6 +25,7 @@ export interface CreateTaskInput {
   waitingFor?: string;
   projectId?: string;
   parentTaskId?: string;
+  recurrenceRule?: string; // RRULE format
 }
 
 export interface UpdateTaskInput {
@@ -38,6 +40,8 @@ export interface UpdateTaskInput {
   energyLevel?: EnergyLevel;
   waitingFor?: string;
   projectId?: string;
+  parentTaskId?: string | null; // For subtasks, null to clear
+  recurrenceRule?: string | null; // RRULE format, null to clear
 }
 
 export interface TaskFilters {
@@ -49,6 +53,8 @@ export interface TaskFilters {
   dueAfter?: Date;
   projectId?: string;
   includeCompleted?: boolean;
+  limit?: number;
+  offset?: number;
 }
 
 export interface TaskWithProject {
@@ -68,12 +74,16 @@ export interface TaskWithProject {
   waitingFor: string | null;
   projectId: string | null;
   parentTaskId: string | null;
+  recurrenceRule: string | null;
+  recurrenceParentId: string | null;
   calendarEventId: string | null;
   scheduledStart: Date | null;
   scheduledEnd: Date | null;
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
+  subtaskCount?: number;
+  completedSubtaskCount?: number;
   project?: {
     id: string;
     name: string;
@@ -109,6 +119,7 @@ export class TaskService {
         waitingFor: input.waitingFor,
         projectId: input.projectId,
         parentTaskId: input.parentTaskId,
+        recurrenceRule: input.recurrenceRule,
       })
       .returning();
 
@@ -136,6 +147,10 @@ export class TaskService {
     if (result.length === 0) return null;
 
     const { task, project } = result[0];
+
+    // Get subtask counts
+    const counts = await this.getSubtaskCounts(task.id);
+
     return {
       id: task.id,
       title: task.title,
@@ -153,12 +168,16 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      subtaskCount: counts.total,
+      completedSubtaskCount: counts.completed,
       project: project?.id ? project : null,
     };
   }
@@ -206,6 +225,11 @@ export class TaskService {
       );
     }
 
+    // Apply pagination defaults to prevent timeouts on large datasets
+    // Note: Railway has a ~3s edge timeout, so keep default limit low
+    const limit = filters.limit ?? 30; // Default 30 tasks max
+    const offset = filters.offset ?? 0;
+
     const result = await db
       .select({
         task: tasks,
@@ -222,9 +246,11 @@ export class TaskService {
         desc(tasks.priority),
         asc(tasks.dueDate),
         desc(tasks.createdAt)
-      );
+      )
+      .limit(limit)
+      .offset(offset);
 
-    return result.map(({ task, project }) => ({
+    const mappedTasks = result.map(({ task, project }) => ({
       id: task.id,
       title: task.title,
       description: task.description,
@@ -241,6 +267,8 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
@@ -249,6 +277,9 @@ export class TaskService {
       completedAt: task.completedAt,
       project: project?.id ? project : null,
     }));
+
+    // Augment with subtask counts
+    return this.augmentWithSubtaskCounts(mappedTasks);
   }
 
   /**
@@ -293,7 +324,7 @@ export class TaskService {
       )
       .orderBy(asc(tasks.dueDate));
 
-    return result.map(({ task, project }) => ({
+    const mappedTasks = result.map(({ task, project }) => ({
       id: task.id,
       title: task.title,
       description: task.description,
@@ -310,6 +341,8 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
@@ -318,6 +351,8 @@ export class TaskService {
       completedAt: task.completedAt,
       project: project?.id ? project : null,
     }));
+
+    return this.augmentWithSubtaskCounts(mappedTasks);
   }
 
   /**
@@ -354,7 +389,7 @@ export class TaskService {
       )
       .orderBy(asc(tasks.dueDate));
 
-    return result.map(({ task, project }) => ({
+    const mappedTasks = result.map(({ task, project }) => ({
       id: task.id,
       title: task.title,
       description: task.description,
@@ -371,6 +406,8 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
@@ -379,6 +416,8 @@ export class TaskService {
       completedAt: task.completedAt,
       project: project?.id ? project : null,
     }));
+
+    return this.augmentWithSubtaskCounts(mappedTasks);
   }
 
   /**
@@ -408,6 +447,7 @@ export class TaskService {
     if (input.energyLevel !== undefined) updateData.energyLevel = input.energyLevel;
     if (input.waitingFor !== undefined) updateData.waitingFor = input.waitingFor;
     if (input.projectId !== undefined) updateData.projectId = input.projectId;
+    if (input.recurrenceRule !== undefined) updateData.recurrenceRule = input.recurrenceRule;
 
     const [updated] = await db
       .update(tasks)
@@ -434,6 +474,21 @@ export class TaskService {
       .returning();
 
     if (!updated) return null;
+
+    // If this is a recurring task, trigger generation of next instance
+    if (updated.recurrenceRule) {
+      try {
+        await addRecurrenceGenerateJob({
+          taskId: id,
+          trigger: 'completion',
+        });
+        console.log(`[TaskService] Queued recurrence generation for task ${id}`);
+      } catch (error) {
+        // Log but don't fail - the batch job will catch it later
+        console.error(`[TaskService] Failed to queue recurrence generation:`, error);
+      }
+    }
+
     return this.getById(id);
   }
 
@@ -568,7 +623,7 @@ export class TaskService {
       )
       .orderBy(desc(tasks.completedAt));
 
-    return result.map(({ task, project }) => ({
+    const mappedTasks = result.map(({ task, project }) => ({
       id: task.id,
       title: task.title,
       description: task.description,
@@ -585,6 +640,8 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
@@ -593,6 +650,8 @@ export class TaskService {
       completedAt: task.completedAt,
       project: project?.id ? project : null,
     }));
+
+    return this.augmentWithSubtaskCounts(mappedTasks);
   }
 
   /**
@@ -618,7 +677,7 @@ export class TaskService {
       )
       .orderBy(desc(tasks.completedAt));
 
-    return result.map(({ task, project }) => ({
+    const mappedTasks = result.map(({ task, project }) => ({
       id: task.id,
       title: task.title,
       description: task.description,
@@ -635,6 +694,8 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
@@ -643,6 +704,8 @@ export class TaskService {
       completedAt: task.completedAt,
       project: project?.id ? project : null,
     }));
+
+    return this.augmentWithSubtaskCounts(mappedTasks);
   }
 
   /**
@@ -707,7 +770,7 @@ export class TaskService {
       )
       .orderBy(asc(tasks.scheduledStart));
 
-    return result.map(({ task, project }) => ({
+    const mappedTasks = result.map(({ task, project }) => ({
       id: task.id,
       title: task.title,
       description: task.description,
@@ -724,6 +787,8 @@ export class TaskService {
       waitingFor: task.waitingFor,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
       calendarEventId: task.calendarEventId,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
@@ -732,6 +797,155 @@ export class TaskService {
       completedAt: task.completedAt,
       project: project?.id ? project : null,
     }));
+
+    return this.augmentWithSubtaskCounts(mappedTasks);
+  }
+
+  // ============================================
+  // Subtask Methods
+  // ============================================
+
+  /**
+   * Get all subtasks for a parent task
+   */
+  async getSubtasks(parentTaskId: string): Promise<TaskWithProject[]> {
+    const results = await db
+      .select({
+        task: tasks,
+        project: {
+          id: projects.id,
+          name: projects.name,
+          context: projects.context,
+        },
+      })
+      .from(tasks)
+      .leftJoin(projects, eq(tasks.projectId, projects.id))
+      .where(eq(tasks.parentTaskId, parentTaskId))
+      .orderBy(asc(tasks.createdAt));
+
+    return results.map(({ task, project }) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      dueDateIsHard: task.dueDateIsHard,
+      source: task.source,
+      sourceRef: task.sourceRef,
+      context: task.context,
+      timeEstimateMinutes: task.timeEstimateMinutes,
+      energyLevel: task.energyLevel,
+      blockedBy: task.blockedBy,
+      waitingFor: task.waitingFor,
+      projectId: task.projectId,
+      parentTaskId: task.parentTaskId,
+      recurrenceRule: task.recurrenceRule,
+      recurrenceParentId: task.recurrenceParentId,
+      calendarEventId: task.calendarEventId,
+      scheduledStart: task.scheduledStart,
+      scheduledEnd: task.scheduledEnd,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      completedAt: task.completedAt,
+      project: project?.id ? project : null,
+    }));
+  }
+
+  /**
+   * Create a subtask for a parent task
+   * Validates that:
+   * - Parent task exists
+   * - Parent task is not itself a subtask (max 1 level deep)
+   */
+  async createSubtask(parentTaskId: string, input: CreateTaskInput): Promise<TaskWithProject> {
+    // Verify parent task exists
+    const parent = await this.getById(parentTaskId);
+    if (!parent) {
+      throw new Error('Parent task not found');
+    }
+
+    // Prevent nesting beyond 1 level - subtasks cannot have subtasks
+    if (parent.parentTaskId) {
+      throw new Error('Subtasks cannot have subtasks (max 1 level deep)');
+    }
+
+    // Create the subtask with parent reference
+    // Inherit context and projectId from parent if not specified
+    const subtaskInput: CreateTaskInput = {
+      ...input,
+      parentTaskId,
+      context: input.context || parent.context,
+      projectId: input.projectId ?? parent.projectId ?? undefined,
+    };
+
+    return this.create(subtaskInput);
+  }
+
+  /**
+   * Get subtask counts for a task
+   */
+  async getSubtaskCounts(taskId: string): Promise<{ total: number; completed: number }> {
+    const result = await db
+      .select({
+        total: sql<number>`COUNT(*)::int`,
+        completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'done')::int`,
+      })
+      .from(tasks)
+      .where(eq(tasks.parentTaskId, taskId));
+
+    return {
+      total: result[0]?.total ?? 0,
+      completed: result[0]?.completed ?? 0,
+    };
+  }
+
+  /**
+   * Get subtask counts for multiple tasks in a single query
+   */
+  async getBulkSubtaskCounts(taskIds: string[]): Promise<Map<string, { total: number; completed: number }>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const result = await db
+      .select({
+        parentTaskId: tasks.parentTaskId,
+        total: sql<number>`COUNT(*)::int`,
+        completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'done')::int`,
+      })
+      .from(tasks)
+      .where(inArray(tasks.parentTaskId, taskIds))
+      .groupBy(tasks.parentTaskId);
+
+    const countsMap = new Map<string, { total: number; completed: number }>();
+    for (const row of result) {
+      if (row.parentTaskId) {
+        countsMap.set(row.parentTaskId, {
+          total: row.total ?? 0,
+          completed: row.completed ?? 0,
+        });
+      }
+    }
+
+    return countsMap;
+  }
+
+  /**
+   * Augment tasks with subtask counts
+   */
+  async augmentWithSubtaskCounts(tasksToAugment: TaskWithProject[]): Promise<TaskWithProject[]> {
+    const taskIds = tasksToAugment.map(t => t.id);
+    const countsMap = await this.getBulkSubtaskCounts(taskIds);
+
+    return tasksToAugment.map(task => {
+      const counts = countsMap.get(task.id);
+      return {
+        ...task,
+        subtaskCount: counts?.total ?? 0,
+        completedSubtaskCount: counts?.completed ?? 0,
+      };
+    });
   }
 }
 

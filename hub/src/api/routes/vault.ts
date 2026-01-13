@@ -866,4 +866,94 @@ vaultRouter.post('/migration/rollback', async (c) => {
   throw new ValidationError('Must provide either legacyEntryId or all: true');
 });
 
+// ============================================
+// Attachment Routes
+// ============================================
+
+/**
+ * GET /api/vault/:id/attachments
+ * Get all attachments for a vault entry
+ */
+vaultRouter.get('/:id/attachments', async (c) => {
+  const id = c.req.param('id');
+  const attachments = await vaultService.getAttachments(id);
+  return c.json({
+    success: true,
+    data: attachments,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * POST /api/vault/:id/attachments
+ * Add an attachment to a vault entry
+ */
+vaultRouter.post('/:id/attachments', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+
+  const attachment = await vaultService.addAttachment({
+    entryId: id,
+    filename: body.filename,
+    mimeType: body.mimeType,
+    size: body.size,
+    storagePath: body.storagePath,
+    extractedText: body.extractedText,
+  });
+
+  return c.json({
+    success: true,
+    data: attachment,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ============================================
+// File Serving Routes
+// ============================================
+
+/**
+ * GET /api/vault/files/:source/*
+ * Serve files from vault storage (PDFs, images, etc.)
+ */
+vaultRouter.get('/files/:source/*', async (c) => {
+  const source = c.req.param('source');
+  const filePath = c.req.path.replace(`/api/vault/files/${source}/`, '');
+
+  const { existsSync, readFileSync } = await import('fs');
+  const { join } = await import('path');
+
+  // Build the full path
+  const storagePath = join(process.cwd(), 'storage', source, filePath);
+
+  if (!existsSync(storagePath)) {
+    return c.json({
+      success: false,
+      error: { code: 'NOT_FOUND', message: 'File not found' }
+    }, 404);
+  }
+
+  // Determine content type
+  const ext = filePath.split('.').pop()?.toLowerCase();
+  const contentTypes: Record<string, string> = {
+    'pdf': 'application/pdf',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'svg': 'image/svg+xml',
+  };
+
+  const contentType = contentTypes[ext || ''] || 'application/octet-stream';
+
+  // Read and return file
+  const fileBuffer = readFileSync(storagePath);
+
+  return new Response(fileBuffer, {
+    headers: {
+      'Content-Type': contentType,
+      'Content-Disposition': `inline; filename="${filePath.split('/').pop()}"`,
+    },
+  });
+});
+
 export { vaultRouter };

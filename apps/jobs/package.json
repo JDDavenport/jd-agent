@@ -14,8 +14,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
-    "@jd-agent/api-client": "file:../../packages/api-client",
-    "@jd-agent/types": "file:../../packages/types",
     "@tanstack/react-query": "^5.90.16",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

@@ -4,7 +4,6 @@ import { resumesApi } from '@/lib/api';
 import { DocumentTextIcon, StarIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import { format } from 'date-fns';
-import clsx from 'clsx';
 
 export function Resumes() {
   const { data: resumesData, isLoading } = useQuery({

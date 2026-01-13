@@ -1,6 +1,6 @@
 import { eq, and, or, desc, asc, sql, ilike, arrayContains, inArray, max } from 'drizzle-orm';
 import { db } from '../db/client';
-import { vaultEntries, vaultEmbeddings, recordings, vaultEntryVersions } from '../db/schema';
+import { vaultEntries, vaultEmbeddings, recordings, vaultEntryVersions, vaultAttachments } from '../db/schema';
 import type { VaultContentType, VaultSource } from '../types';
 import { vaultEmbeddingService } from './vault-embedding-service';
 
@@ -102,6 +102,26 @@ export interface VaultTreeNode {
 export interface VaultBreadcrumb {
   id: string;
   title: string;
+}
+
+export interface VaultAttachment {
+  id: string;
+  entryId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  storagePath: string;
+  extractedText: string | null;
+  uploadedAt: Date;
+}
+
+export interface CreateAttachmentInput {
+  entryId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  storagePath: string;
+  extractedText?: string;
 }
 
 // ============================================
@@ -1025,6 +1045,70 @@ export class VaultService {
     });
 
     return this.update(id, input);
+  }
+
+  // ============================================
+  // Attachment Methods
+  // ============================================
+
+  /**
+   * Add an attachment to a vault entry
+   */
+  async addAttachment(input: CreateAttachmentInput): Promise<VaultAttachment> {
+    const [attachment] = await db
+      .insert(vaultAttachments)
+      .values({
+        entryId: input.entryId,
+        filename: input.filename,
+        mimeType: input.mimeType,
+        size: BigInt(input.size),
+        storagePath: input.storagePath,
+        extractedText: input.extractedText || null,
+      })
+      .returning();
+
+    return {
+      id: attachment.id,
+      entryId: attachment.entryId,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      size: Number(attachment.size),
+      storagePath: attachment.storagePath,
+      extractedText: attachment.extractedText,
+      uploadedAt: attachment.uploadedAt,
+    };
+  }
+
+  /**
+   * Get all attachments for a vault entry
+   */
+  async getAttachments(entryId: string): Promise<VaultAttachment[]> {
+    const attachments = await db
+      .select()
+      .from(vaultAttachments)
+      .where(eq(vaultAttachments.entryId, entryId));
+
+    return attachments.map(a => ({
+      id: a.id,
+      entryId: a.entryId,
+      filename: a.filename,
+      mimeType: a.mimeType,
+      size: Number(a.size),
+      storagePath: a.storagePath,
+      extractedText: a.extractedText,
+      uploadedAt: a.uploadedAt,
+    }));
+  }
+
+  /**
+   * Delete an attachment
+   */
+  async deleteAttachment(attachmentId: string): Promise<boolean> {
+    const result = await db
+      .delete(vaultAttachments)
+      .where(eq(vaultAttachments.id, attachmentId))
+      .returning();
+    return result.length > 0;
   }
 }
 

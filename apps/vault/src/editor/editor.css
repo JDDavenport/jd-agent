@@ -240,3 +240,76 @@
 .block-editor .ProseMirror pre code .hljs-attr {
   color: #e06c75;
 }
+
+/* ============================================
+   Block Interactions - Notion-style
+   ============================================ */
+
+/* Make blocks position relative for handle positioning */
+.block-editor .ProseMirror > p,
+.block-editor .ProseMirror > h1,
+.block-editor .ProseMirror > h2,
+.block-editor .ProseMirror > h3,
+.block-editor .ProseMirror > ul,
+.block-editor .ProseMirror > ol,
+.block-editor .ProseMirror > blockquote,
+.block-editor .ProseMirror > pre,
+.block-editor .ProseMirror > hr,
+.block-editor .ProseMirror > .callout,
+.block-editor .ProseMirror > .toggle,
+.block-editor .ProseMirror > .file-attachment,
+.block-editor .ProseMirror > .bookmark {
+  position: relative;
+  transition: background-color 0.1s ease;
+  border-radius: 4px;
+  margin-left: -4px;
+  margin-right: -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+/* Block hover background */
+.block-editor .ProseMirror > p:hover,
+.block-editor .ProseMirror > h1:hover,
+.block-editor .ProseMirror > h2:hover,
+.block-editor .ProseMirror > h3:hover,
+.block-editor .ProseMirror > ul:hover,
+.block-editor .ProseMirror > ol:hover,
+.block-editor .ProseMirror > blockquote:hover,
+.block-editor .ProseMirror > pre:hover,
+.block-editor .ProseMirror > .callout:hover,
+.block-editor .ProseMirror > .toggle:hover,
+.block-editor .ProseMirror > .file-attachment:hover,
+.block-editor .ProseMirror > .bookmark:hover {
+  background-color: rgba(55, 53, 47, 0.03);
+}
+
+.dark .block-editor .ProseMirror > p:hover,
+.dark .block-editor .ProseMirror > h1:hover,
+.dark .block-editor .ProseMirror > h2:hover,
+.dark .block-editor .ProseMirror > h3:hover,
+.dark .block-editor .ProseMirror > ul:hover,
+.dark .block-editor .ProseMirror > ol:hover,
+.dark .block-editor .ProseMirror > blockquote:hover,
+.dark .block-editor .ProseMirror > pre:hover,
+.dark .block-editor .ProseMirror > .callout:hover,
+.dark .block-editor .ProseMirror > .toggle:hover,
+.dark .block-editor .ProseMirror > .file-attachment:hover,
+.dark .block-editor .ProseMirror > .bookmark:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Block handles and menu are now handled by BlockMenu.tsx React component */
+
+/* Selected block highlight */
+.block-editor .ProseMirror .is-node-selected,
+.block-editor .ProseMirror .has-focus {
+  outline: none;
+}
+
+/* Block selection ring */
+.block-editor .ProseMirror > *:has(.ProseMirror-selectednode) {
+  outline: 2px solid rgba(35, 131, 226, 0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

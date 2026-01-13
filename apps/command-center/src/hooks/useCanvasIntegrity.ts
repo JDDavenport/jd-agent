@@ -88,22 +88,6 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 // Hooks
-interface ApiStatusResponse {
-  items: {
-    total: string;
-    synced: string;
-    pending: string;
-    mismatch: string;
-    orphaned: string;
-  };
-  syncPercentage: number;
-  integrityScore: number | null;
-  lastAuditAt: string | null;
-  lastAuditStatus: string | null;
-  unscheduledCount: number;
-  activeCourses: number;
-}
-
 export function useCanvasStatus() {
   return useQuery({
     queryKey: ['canvas-integrity', 'status'],

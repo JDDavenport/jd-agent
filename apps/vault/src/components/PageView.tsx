@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -14,9 +14,12 @@ import {
   DocumentTextIcon,
   PlusIcon,
   ChevronRightIcon,
+  DocumentArrowDownIcon,
+  ArrowsPointingOutIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
-import type { VaultEntry } from '../api';
+import type { VaultEntry, VaultAttachment } from '../api';
+import { createClient } from '../lib/api-client';
 
 interface PageViewProps {
   entry: VaultEntry;
@@ -28,6 +31,8 @@ interface PageViewProps {
   onSelectEntry?: (entry: VaultEntry) => void;
   onCreateChild?: (parentId: string) => void;
 }
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export function PageView({
   entry,
@@ -42,8 +47,35 @@ export function PageView({
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(entry.title);
   const [editedContent, setEditedContent] = useState(entry.content || '');
+  const [attachments, setAttachments] = useState<VaultAttachment[]>([]);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
+  const [pdfFullscreen, setPdfFullscreen] = useState(false);
 
   const isFavorite = entry.tags?.includes('favorite') ?? false;
+
+  // Fetch attachments when entry changes
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (!entry.id) return;
+      setIsLoadingAttachments(true);
+      try {
+        const client = createClient(API_URL);
+        const data = await client.getVaultEntryAttachments(entry.id);
+        setAttachments(data);
+      } catch (error) {
+        console.error('Failed to fetch attachments:', error);
+        setAttachments([]);
+      } finally {
+        setIsLoadingAttachments(false);
+      }
+    };
+    fetchAttachments();
+  }, [entry.id]);
+
+  // Get PDF attachments
+  const pdfAttachments = useMemo(() => {
+    return attachments.filter(a => a.mimeType === 'application/pdf');
+  }, [attachments]);
 
   const handleSave = () => {
     onUpdate?.(entry.id, {
@@ -176,6 +208,55 @@ export function PageView({
           )}
         </div>
       </div>
+
+      {/* PDF Attachments Viewer */}
+      {isLoadingAttachments && (
+        <div className="px-8 py-4">
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+            <div className="h-8 bg-gray-100 animate-pulse" />
+            <div className="h-[200px] bg-gray-100 animate-pulse" />
+          </div>
+        </div>
+      )}
+      {!isLoadingAttachments && pdfAttachments.length > 0 && (
+        <div className="px-8 py-4">
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <DocumentArrowDownIcon className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">
+                  {pdfAttachments[0].filename}
+                </span>
+                <span className="text-xs text-gray-400">
+                  ({Math.round(pdfAttachments[0].size / 1024)} KB)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPdfFullscreen(!pdfFullscreen)}
+                  className="p-1.5 hover:bg-gray-200 rounded-md transition-colors"
+                  title={pdfFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                >
+                  <ArrowsPointingOutIcon className="w-4 h-4 text-gray-500" />
+                </button>
+                <a
+                  href={`${API_URL}${pdfAttachments[0].storagePath}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-md transition-colors text-gray-700"
+                >
+                  Open in new tab
+                </a>
+              </div>
+            </div>
+            <iframe
+              src={`${API_URL}${pdfAttachments[0].storagePath}`}
+              className={`w-full bg-white ${pdfFullscreen ? 'h-[80vh]' : 'h-[500px]'}`}
+              title={pdfAttachments[0].filename}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Divider */}
       <div className="border-b border-gray-100 mx-8" />

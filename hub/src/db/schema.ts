@@ -1911,6 +1911,59 @@ export const remarkableNotes = pgTable(
 );
 
 // ============================================
+// REMARKABLE VAULT SYNC (MBA Folder Mapping)
+// ============================================
+
+/**
+ * Tracks mapping between Remarkable folders/documents and Vault pages
+ * Used for MBA folder sync to maintain 1:1 structure
+ */
+export const remarkableVaultSync = pgTable(
+  'remarkable_vault_sync',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Remarkable reference
+    remarkableId: text('remarkable_id').unique().notNull(), // Document or folder ID from Remarkable Cloud
+    remarkableType: text('remarkable_type').notNull(), // 'folder' | 'document'
+    remarkablePath: text('remarkable_path'), // Full path like 'BYU MBA/Winter2026/MGMT501'
+    remarkableName: text('remarkable_name').notNull(), // Display name
+
+    // Vault reference
+    vaultPageId: uuid('vault_page_id')
+      .references(() => vaultPages.id, { onDelete: 'set null' }),
+
+    // For class documents, normalized fields
+    semester: text('semester'), // 'Winter2026'
+    classCode: text('class_code'), // 'MGMT501'
+    noteDate: date('note_date'), // Date grouped from document
+
+    // PDF and OCR storage
+    pdfStoragePath: text('pdf_storage_path'), // Path to stored PDF
+    ocrText: text('ocr_text'), // Extracted OCR text
+    ocrPageId: uuid('ocr_page_id')
+      .references(() => vaultPages.id, { onDelete: 'set null' }), // Child OCR page
+
+    // Sync tracking
+    remarkableHash: text('remarkable_hash'), // Content hash for change detection
+    remarkableLastModified: bigint('remarkable_last_modified', { mode: 'number' }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    syncStatus: text('sync_status').default('pending').notNull(), // 'pending', 'syncing', 'synced', 'error'
+    errorMessage: text('error_message'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('remarkable_vault_sync_remarkable_idx').on(table.remarkableId),
+    index('remarkable_vault_sync_vault_page_idx').on(table.vaultPageId),
+    index('remarkable_vault_sync_class_date_idx').on(table.classCode, table.noteDate),
+    index('remarkable_vault_sync_type_idx').on(table.remarkableType),
+    index('remarkable_vault_sync_path_idx').on(table.remarkablePath),
+  ]
+);
+
+// ============================================
 // REMARKABLE SYNC STATE (For daily sync tracking)
 // ============================================
 

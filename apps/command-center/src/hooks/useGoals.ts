@@ -21,6 +21,9 @@ export function useGoals(filters?: GoalFilters) {
   return useQuery({
     queryKey: ['goals', filters],
     queryFn: () => goalsApi.getGoals(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 }
 
@@ -260,7 +263,10 @@ export function useTodaysHabits() {
   return useQuery({
     queryKey: ['habits', 'today'],
     queryFn: goalsApi.getTodaysHabits,
-    refetchInterval: 60 * 1000, // Refresh every minute
+    refetchInterval: 2 * 60 * 1000, // Refresh every 2 minutes
+    staleTime: 60 * 1000, // 1 minute
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 }
 

@@ -8,18 +8,35 @@ import {
   useAddSettingsClass,
   useDeleteClass,
 } from '../hooks/useSettings';
+import {
+  useRemarkableCloudStatus,
+  useRemarkableDocuments,
+  useSyncRemarkableCloud,
+  useRenderRemarkableDocument,
+  useStartRemarkablePolling,
+  useStopRemarkablePolling,
+} from '../hooks/useIntegrations';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 function Settings() {
-  const [activeTab, setActiveTab] = useState<'ceremonies' | 'notifications' | 'classes'>('ceremonies');
+  const [activeTab, setActiveTab] = useState<'ceremonies' | 'notifications' | 'classes' | 'integrations'>('ceremonies');
   const [classForm, setClassForm] = useState({ name: '', courseCode: '', professor: '' });
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [renderingDocId, setRenderingDocId] = useState<string | null>(null);
 
   const { data: ceremonyStatus, isLoading: loadingStatus } = useCeremonyStatus();
   const { data: ceremonyConfig } = useCeremonyConfig();
   const { data: classes } = useSettingsClasses();
+
+  // Remarkable integration hooks
+  const { data: remarkableStatus, isLoading: loadingRemarkable } = useRemarkableCloudStatus();
+  const { data: remarkableDocuments } = useRemarkableDocuments();
+  const syncRemarkable = useSyncRemarkableCloud();
+  const renderDocument = useRenderRemarkableDocument();
+  const startPolling = useStartRemarkablePolling();
+  const stopPolling = useStopRemarkablePolling();
 
   const testCeremony = useTestCeremony();
   const previewCeremony = usePreviewCeremony();
@@ -64,6 +81,42 @@ function Settings() {
       await deleteClass.mutateAsync(id);
     } catch (error) {
       alert(`Failed to delete class: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Remarkable handlers
+  const handleSyncRemarkable = async () => {
+    try {
+      const result = await syncRemarkable.mutateAsync();
+      alert(`Sync complete! Found ${result.documentsFound} documents, ${result.changes.length} changes.`);
+    } catch (error) {
+      alert(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleRenderDocument = async (docId: string) => {
+    setRenderingDocId(docId);
+    try {
+      const result = await renderDocument.mutateAsync(docId);
+      alert(`PDF rendered: ${result.documentName}\nPath: ${result.pdfPath}`);
+    } catch (error) {
+      alert(`Render failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setRenderingDocId(null);
+    }
+  };
+
+  const handleTogglePolling = async () => {
+    try {
+      if (remarkableStatus?.polling) {
+        await stopPolling.mutateAsync();
+        alert('Stopped automatic syncing');
+      } else {
+        await startPolling.mutateAsync(30);
+        alert('Started automatic syncing (every 30 minutes)');
+      }
+    } catch (error) {
+      alert(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -115,6 +168,16 @@ function Settings() {
             }`}
           >
             Classes
+          </button>
+          <button
+            onClick={() => setActiveTab('integrations')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'integrations'
+                ? 'bg-accent text-white'
+                : 'hover:bg-dark-card-hover text-text-muted'
+            }`}
+          >
+            Integrations
           </button>
         </div>
 
@@ -370,6 +433,129 @@ function Settings() {
                 <p className="text-text-muted">No classes added yet. Add your first class above!</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Integrations Tab */}
+        {activeTab === 'integrations' && (
+          <div className="space-y-6 pt-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Integrations</h2>
+              <p className="text-text-muted mb-6">
+                Manage your external service connections and data sync settings.
+              </p>
+            </div>
+
+            {/* Remarkable Cloud Integration */}
+            <div className="bg-dark-card-hover p-4 rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📝</span>
+                  <div>
+                    <h3 className="font-semibold text-lg">Remarkable Cloud</h3>
+                    <p className="text-sm text-text-muted">
+                      Sync handwritten notes from your Remarkable tablet
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded text-sm ${
+                    remarkableStatus?.configured
+                      ? 'bg-success/20 text-success'
+                      : 'bg-error/20 text-error'
+                  }`}
+                >
+                  {remarkableStatus?.configured ? 'Connected' : 'Not Configured'}
+                </span>
+              </div>
+
+              {loadingRemarkable ? (
+                <div className="flex justify-center py-4">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : remarkableStatus?.configured ? (
+                <div className="space-y-4">
+                  {/* Status Info */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="bg-dark-card p-3 rounded">
+                      <p className="text-text-muted">Documents</p>
+                      <p className="text-xl font-semibold">{remarkableStatus.documentCount}</p>
+                    </div>
+                    <div className="bg-dark-card p-3 rounded">
+                      <p className="text-text-muted">Auto Sync</p>
+                      <p className="text-xl font-semibold">{remarkableStatus.polling ? 'On' : 'Off'}</p>
+                    </div>
+                    <div className="bg-dark-card p-3 rounded">
+                      <p className="text-text-muted">Last Sync</p>
+                      <p className="text-sm font-semibold">
+                        {remarkableStatus.lastSync
+                          ? new Date(remarkableStatus.lastSync).toLocaleString()
+                          : 'Never'}
+                      </p>
+                    </div>
+                    <div className="bg-dark-card p-3 rounded">
+                      <p className="text-text-muted">Token Valid</p>
+                      <p className="text-xl font-semibold">
+                        {remarkableStatus.hasValidUserToken ? 'Yes' : 'No'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={handleSyncRemarkable}
+                      disabled={syncRemarkable.isPending}
+                    >
+                      {syncRemarkable.isPending ? 'Syncing...' : 'Sync Now'}
+                    </Button>
+                    <Button
+                      variant={remarkableStatus.polling ? 'ghost' : 'secondary'}
+                      onClick={handleTogglePolling}
+                      disabled={startPolling.isPending || stopPolling.isPending}
+                    >
+                      {remarkableStatus.polling ? 'Stop Auto Sync' : 'Start Auto Sync'}
+                    </Button>
+                  </div>
+
+                  {/* Recent Documents */}
+                  {remarkableDocuments && remarkableDocuments.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold mb-2">Recent Documents</h4>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {remarkableDocuments.slice(0, 10).map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="bg-dark-card p-3 rounded flex justify-between items-center"
+                          >
+                            <div>
+                              <p className="font-medium">{doc.name}</p>
+                              <p className="text-xs text-text-muted">
+                                Modified: {new Date(doc.lastModified).toLocaleString()}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleRenderDocument(doc.id)}
+                              disabled={renderingDocId === doc.id}
+                            >
+                              {renderingDocId === doc.id ? 'Rendering...' : 'Render PDF'}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-info/10 border border-info/20 p-4 rounded-lg">
+                  <p className="text-sm text-text-muted">
+                    To configure Remarkable Cloud sync, set <code className="bg-dark-card px-1 rounded">REMARKABLE_DEVICE_TOKEN</code> in your environment variables.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

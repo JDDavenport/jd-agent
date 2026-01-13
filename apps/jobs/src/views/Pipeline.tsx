@@ -59,7 +59,7 @@ function SortableJob({ job }: SortableJobProps) {
 }
 
 export function Pipeline() {
-  const { data: jobsData, isLoading } = useJobs();
+  const { data: jobsData } = useJobs();
   const updateJob = useUpdateJob();
   const [activeJob, setActiveJob] = useState<any>(null);
 

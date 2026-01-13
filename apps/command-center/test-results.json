@@ -1,0 +1,326 @@
+{
+  "config": {
+    "configFile": "/Users/jddavenport/Projects/JD Agent/apps/command-center/playwright.config.ts",
+    "rootDir": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000,
+      "stdout": "ignore",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "vault-ui-prod.spec.ts",
+      "file": "vault-ui-prod.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Vault UI - Production",
+          "file": "vault-ui-prod.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should have reorganized sidebar layout",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10934,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n\n    at /Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts:34:26",
+                        "location": {
+                          "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                          "column": 26,
+                          "line": 34
+                        },
+                        "snippet": "  32 |     // Should see the editor\n  33 |     const editor = page.locator('.ProseMirror');\n> 34 |     await expect(editor).toBeVisible({ timeout: 5000 });\n     |                          ^\n  35 |     console.log('✓ New Page button works - editor visible');\n  36 |\n  37 |     // Test /page command in editor"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                            "column": 26,
+                            "line": 34
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n\n\n  32 |     // Should see the editor\n  33 |     const editor = page.locator('.ProseMirror');\n> 34 |     await expect(editor).toBeVisible({ timeout: 5000 });\n     |                          ^\n  35 |     console.log('✓ New Page button works - editor visible');\n  36 |\n  37 |     // Test /page command in editor\n    at /Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts:34:26"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "✓ New Page button visible below search\n"
+                        },
+                        {
+                          "text": "✓ Ask AI button visible in sidebar\n"
+                        },
+                        {
+                          "text": "✓ Floating Ask AI button removed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-13T05:23:25.256Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                        "column": 26,
+                        "line": 34
+                      }
+                    },
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10771,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n\n    at /Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts:34:26",
+                        "location": {
+                          "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                          "column": 26,
+                          "line": 34
+                        },
+                        "snippet": "  32 |     // Should see the editor\n  33 |     const editor = page.locator('.ProseMirror');\n> 34 |     await expect(editor).toBeVisible({ timeout: 5000 });\n     |                          ^\n  35 |     console.log('✓ New Page button works - editor visible');\n  36 |\n  37 |     // Test /page command in editor"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                            "column": 26,
+                            "line": 34
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n\n\n  32 |     // Should see the editor\n  33 |     const editor = page.locator('.ProseMirror');\n> 34 |     await expect(editor).toBeVisible({ timeout: 5000 });\n     |                          ^\n  35 |     console.log('✓ New Page button works - editor visible');\n  36 |\n  37 |     // Test /page command in editor\n    at /Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts:34:26"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "✓ New Page button visible below search\n"
+                        },
+                        {
+                          "text": "✓ Ask AI button visible in sidebar\n"
+                        },
+                        {
+                          "text": "✓ Floating Ask AI button removed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-01-13T05:23:36.912Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                        "column": 26,
+                        "line": 34
+                      }
+                    },
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10729,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n\n    at /Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts:34:26",
+                        "location": {
+                          "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                          "column": 26,
+                          "line": 34
+                        },
+                        "snippet": "  32 |     // Should see the editor\n  33 |     const editor = page.locator('.ProseMirror');\n> 34 |     await expect(editor).toBeVisible({ timeout: 5000 });\n     |                          ^\n  35 |     console.log('✓ New Page button works - editor visible');\n  36 |\n  37 |     // Test /page command in editor"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                            "column": 26,
+                            "line": 34
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror')\u001b[22m\n\n\n  32 |     // Should see the editor\n  33 |     const editor = page.locator('.ProseMirror');\n> 34 |     await expect(editor).toBeVisible({ timeout: 5000 });\n     |                          ^\n  35 |     console.log('✓ New Page button works - editor visible');\n  36 |\n  37 |     // Test /page command in editor\n    at /Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts:34:26"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "✓ New Page button visible below search\n"
+                        },
+                        {
+                          "text": "✓ Ask AI button visible in sidebar\n"
+                        },
+                        {
+                          "text": "✓ Floating Ask AI button removed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-01-13T05:23:48.174Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry2/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/jddavenport/Projects/JD Agent/apps/command-center/test-results/vault-ui-prod-Vault-UI---P-ec958--reorganized-sidebar-layout-chromium-retry2/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/jddavenport/Projects/JD Agent/apps/command-center/e2e/vault-ui-prod.spec.ts",
+                        "column": 26,
+                        "line": 34
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "a441d48e07436e245adc-333fc44277bbaf43f7a6",
+              "file": "vault-ui-prod.spec.ts",
+              "line": 4,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-01-13T05:23:24.760Z",
+    "duration": 34304.063,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

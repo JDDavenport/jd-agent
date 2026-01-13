@@ -60,6 +60,14 @@ const envSchema = z.object({
   WHOOP_CLIENT_SECRET: z.string().optional(),
   WHOOP_REDIRECT_URI: z.string().url().optional(),
 
+  // Plaid (finance)
+  PLAID_CLIENT_ID: z.string().optional(),
+  PLAID_SECRET: z.string().optional(),
+  PLAID_ENV: z.enum(['sandbox', 'development', 'production']).default('sandbox'),
+
+  // Encryption (for sensitive data like Plaid tokens)
+  ENCRYPTION_KEY: z.string().length(64).optional(), // 32-byte hex string for AES-256
+
   // App
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000'),

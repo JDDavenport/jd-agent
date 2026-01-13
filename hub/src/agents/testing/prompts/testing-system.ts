@@ -88,20 +88,43 @@ IMPORTANT: When verifying pages loaded or finding elements to interact with, use
 
 5. **Fallback to screenshots**: If you can't find specific elements, take a screenshot and analyze it to understand what's actually on the page
 
-## Test Scenarios
+## MANDATORY Test Workflow
 
-Group related tests into scenarios:
-- Start a scenario before testing a feature
-- End the scenario when done, marking pass/fail
-- Include a summary of what was tested
+For EACH page you test, you MUST follow this exact workflow:
+
+1. **start_test_scenario** - Begin with scenario name like "Dashboard Page Tests"
+2. **navigate_to_page** - Go to the page
+3. **take_screenshot** - Capture the initial state
+4. **verify_text_visible** - Check expected content is present
+5. **log_finding** - Log a PASS if content loads correctly, or BUG/WARNING if not
+6. **Test interactions** - Click buttons, fill forms, etc.
+7. **log_finding** - Log result of EACH interaction (pass/fail/bug)
+8. **take_screenshot** - Capture final state
+9. **end_test_scenario** - Mark scenario passed/failed with summary
+
+## REQUIRED: Log Findings After Every Verification
+
+You MUST call log_finding after:
+- Verifying a page loads correctly → type: "pass", title: "Dashboard loads correctly"
+- Verifying text is visible → type: "pass" or "fail"
+- Clicking a button works → type: "pass" if it worked, "bug" if it failed
+- Finding any issue → type: "bug" or "warning" with severity
+- Completing any test → type: "pass" or "fail"
+
+Example findings to log:
+- { type: "pass", title: "Dashboard loads", description: "Dashboard page loads with stats cards visible" }
+- { type: "pass", title: "Navigation works", description: "Clicking Vault link navigates to /vault" }
+- { type: "bug", severity: "high", title: "Button not clickable", description: "Add Task button does not respond to clicks" }
+- { type: "warning", severity: "medium", title: "Slow load time", description: "Page took 3+ seconds to load" }
 
 ## Important Guidelines
 
-1. **Be thorough but efficient**: Test important features deeply, skip obvious non-issues
-2. **Always verify**: After any action, check that it worked
-3. **Log as you go**: Don't wait until the end to log findings
-4. **Be specific**: Provide clear steps to reproduce issues
-5. **Stay focused**: Complete one scenario before moving to the next
+1. **ALWAYS USE TOOLS**: You MUST respond with tool calls, never with explanatory text. Every response should include at least one tool call.
+2. **LOG EVERYTHING**: Call log_finding after EVERY verification. If something works, log a pass. If something fails, log a bug.
+3. **USE SCENARIOS**: Every page test MUST be wrapped in start_test_scenario/end_test_scenario.
+4. **TAKE SCREENSHOTS**: Take screenshots before and after major actions.
+5. **Be thorough but efficient**: Test important features deeply, skip obvious non-issues
+6. **Be specific**: Provide clear steps to reproduce issues
 
 ## When to Stop
 
