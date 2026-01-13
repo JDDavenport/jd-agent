@@ -155,6 +155,7 @@ test.describe('API Tests - Vault Endpoint', () => {
       title: 'API Test Note - ' + Date.now(),
       content: '# Test Note\n\nThis is a test note created via API.',
       contentType: 'note',
+      context: 'test',
       source: 'manual',
       tags: ['test', 'api'],
     };
@@ -202,6 +203,7 @@ test.describe('API Tests - Vault Endpoint', () => {
         title: 'Entry to Update',
         content: 'Original content',
         contentType: 'note',
+        context: 'test',
         source: 'manual',
       }),
     });
