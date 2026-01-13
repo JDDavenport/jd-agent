@@ -931,7 +931,7 @@ class DashboardService {
 
   /**
    * Get deadlines grouped by urgency
-   * OPTIMIZED: Use bounded date range for efficient index usage
+   * OPTIMIZED: No JOIN, fetch projects separately to prevent OOM
    */
   async getGroupedDeadlines(): Promise<GroupedDeadlines> {
     try {
@@ -951,7 +951,7 @@ class DashboardService {
       const ninetyDaysLater = new Date(todayStart);
       ninetyDaysLater.setDate(ninetyDaysLater.getDate() + 90);
 
-      // Optimized: Bounded date range uses composite index efficiently
+      // Query 1: Get tasks only (no JOIN to prevent OOM)
       const result = await db
         .select({
           id: tasks.id,
@@ -960,11 +960,9 @@ class DashboardService {
           priority: tasks.priority,
           source: tasks.source,
           context: tasks.context,
-          projectId: projects.id,
-          projectName: projects.name,
+          projectId: tasks.projectId,
         })
         .from(tasks)
-        .leftJoin(projects, eq(tasks.projectId, projects.id))
         .where(
           and(
             sql`${tasks.status} NOT IN ('done', 'archived')`,
@@ -973,7 +971,22 @@ class DashboardService {
           )
         )
         .orderBy(asc(tasks.dueDate))
-        .limit(200);
+        .limit(100); // Reduced limit for safety
+
+      // Query 2: Get project names for tasks that have projectId (much smaller query)
+      const projectIds = [...new Set(result.filter(r => r.projectId).map(r => r.projectId!))];
+      const projectMap = new Map<string, string>();
+
+      if (projectIds.length > 0) {
+        const projectsResult = await db
+          .select({ id: projects.id, name: projects.name })
+          .from(projects)
+          .where(sql`${projects.id} IN (${sql.join(projectIds.map(id => sql`${id}`), sql`, `)})`);
+
+        for (const p of projectsResult) {
+          projectMap.set(p.id, p.name);
+        }
+      }
 
       const grouped: GroupedDeadlines = {
         overdue: [],
@@ -997,7 +1010,7 @@ class DashboardService {
           priority: row.priority,
           source: row.source,
           context: row.context,
-          project: row.projectId ? { id: row.projectId, name: row.projectName! } : null,
+          project: row.projectId ? { id: row.projectId, name: projectMap.get(row.projectId) || 'Unknown' } : null,
           daysUntil,
         };
 
