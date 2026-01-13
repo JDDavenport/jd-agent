@@ -16,8 +16,8 @@ interface ExternalApp {
 
 // App URLs - use environment variables in production, localhost in development
 const APP_URLS = {
-  tasks: import.meta.env.VITE_TASKS_URL || 'http://localhost:5174',
-  vault: import.meta.env.VITE_VAULT_URL || 'http://localhost:5175',
+  tasks: import.meta.env.VITE_TASKS_URL || 'http://localhost:5180',
+  vault: import.meta.env.VITE_VAULT_URL || 'http://localhost:5181',
   jobs: import.meta.env.VITE_JOBS_URL || 'http://localhost:5176',
   docs: import.meta.env.VITE_DOCS_URL || 'http://localhost:5177',
 };
@@ -33,6 +33,20 @@ const externalApps: ExternalApp[] = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: 'Vault',
+    url: APP_URLS.vault,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
         />
       </svg>
     ),
@@ -153,15 +167,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    name: 'Vault',
-    path: '/vault',
+    name: 'Recordings',
+    path: '/recordings',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth={2}
-          d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
         />
       </svg>
     ),

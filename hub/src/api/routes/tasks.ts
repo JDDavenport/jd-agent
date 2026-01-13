@@ -31,6 +31,7 @@ const createTaskSchema = z.object({
   waitingFor: z.string().optional(),
   projectId: z.string().uuid().optional(),
   parentTaskId: z.string().uuid().optional(),
+  recurrenceRule: z.string().optional(), // RRULE format (e.g., "FREQ=WEEKLY;BYDAY=MO")
 });
 
 const updateTaskSchema = z.object({
@@ -45,6 +46,8 @@ const updateTaskSchema = z.object({
   energyLevel: energyLevelEnum.optional(),
   waitingFor: z.string().optional(),
   projectId: z.string().uuid().nullable().optional(),
+  parentTaskId: z.string().uuid().nullable().optional(), // For subtasks, null to clear
+  recurrenceRule: z.string().nullable().optional(), // RRULE format, null to clear
 });
 
 // Helper to parse date or datetime strings
@@ -65,6 +68,8 @@ const listFiltersSchema = z.object({
   dueAfter: z.string().optional().transform(dateStringToDate),
   projectId: z.string().uuid().optional(),
   includeCompleted: z.string().optional().transform(val => val === 'true'),
+  limit: z.string().optional().transform(val => val ? parseInt(val, 10) : 30), // Default 30, prevents timeout
+  offset: z.string().optional().transform(val => val ? parseInt(val, 10) : 0),
 });
 
 const scheduleTaskSchema = z.object({
@@ -185,6 +190,71 @@ tasksRouter.get('/archived', async (c) => {
     data: entries,
     count: entries.length,
   });
+});
+
+/**
+ * GET /api/tasks/:id/subtasks
+ * Get all subtasks of a parent task
+ */
+tasksRouter.get('/:id/subtasks', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid task ID format');
+  }
+
+  // Verify parent task exists
+  const parent = await taskService.getById(id);
+  if (!parent) {
+    throw new NotFoundError('Task');
+  }
+
+  const subtasks = await taskService.getSubtasks(id);
+
+  return c.json({
+    success: true,
+    data: subtasks,
+    count: subtasks.length,
+  });
+});
+
+/**
+ * POST /api/tasks/:id/subtasks
+ * Create a subtask for a parent task
+ */
+tasksRouter.post('/:id/subtasks', async (c) => {
+  const parentId = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentId)) {
+    throw new ValidationError('Invalid task ID format');
+  }
+
+  const body = await c.req.json();
+  const parseResult = createTaskSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.errors.map(e => e.message).join(', '));
+  }
+
+  try {
+    const subtask = await taskService.createSubtask(parentId, parseResult.data as any);
+
+    return c.json({
+      success: true,
+      data: subtask,
+      message: 'Subtask created successfully',
+    }, 201);
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) {
+        throw new NotFoundError('Parent task');
+      }
+      if (error.message.includes('cannot have subtasks') || error.message.includes('circular')) {
+        throw new ValidationError(error.message);
+      }
+    }
+    throw error;
+  }
 });
 
 /**

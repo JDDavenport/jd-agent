@@ -359,7 +359,11 @@ export class PlaudIntegration {
     if (dateMatch) {
       const dateStr = dateMatch[1];
       const timeStr = timeMatch ? timeMatch[1].replace(/-/g, ':') : '00:00:00';
-      recordedAt = new Date(`${dateStr}T${timeStr}`);
+      const parsed = new Date(`${dateStr}T${timeStr}`);
+      // Only use if valid date
+      if (!isNaN(parsed.getTime())) {
+        recordedAt = parsed;
+      }
     }
 
     // Try to detect type from filename

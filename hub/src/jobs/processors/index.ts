@@ -13,4 +13,10 @@ export {
   processRemarkableSyncJob,
   processRemarkableOcrJob,
   processRemarkableMergeJob,
+  processRemarkableMbaSyncJob,
 } from './remarkable';
+export { processTestingSessionJob } from './testing';
+export {
+  processRecurrenceGenerateJob,
+  processRecurrenceBatchJob,
+} from './recurrence';

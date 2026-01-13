@@ -10,7 +10,16 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import { useCallback, useEffect, useRef } from 'react';
 import { SlashMenu } from './SlashMenu';
-import type { VaultBlock } from '../api';
+import { PageLinkMenu } from './PageLinkMenu';
+import { BlockMenu } from './BlockMenu';
+import { Callout } from './extensions/Callout';
+import { Toggle, ToggleSummary, ToggleContent } from './extensions/Toggle';
+import { FileAttachment } from './extensions/FileAttachment';
+import { Bookmark } from './extensions/Bookmark';
+import { PageLink } from './extensions/PageLink';
+import { TaskLink } from './extensions/TaskLink';
+import { GoalLink } from './extensions/GoalLink';
+import type { VaultBlock, VaultPage } from '../api';
 import './editor.css';
 
 // Create lowlight instance with common languages
@@ -21,6 +30,10 @@ interface BlockEditorProps {
   initialContent?: VaultBlock[];
   onContentChange?: (content: string) => void;
   onSave?: () => void;
+  onCreatePage?: (title: string) => Promise<VaultPage>;
+  onPageClick?: (pageId: string) => void;
+  onTaskClick?: (taskId: string) => void;
+  onGoalClick?: (goalId: string) => void;
   placeholder?: string;
   readOnly?: boolean;
   autoFocus?: boolean;
@@ -31,7 +44,11 @@ export function BlockEditor({
   initialContent,
   onContentChange,
   onSave,
-  placeholder = "Type '/' for commands...",
+  onCreatePage,
+  onPageClick,
+  onTaskClick,
+  onGoalClick,
+  placeholder = "Type '/' for commands, '[[' for page links...",
   readOnly = false,
   autoFocus = false,
 }: BlockEditorProps) {
@@ -97,6 +114,22 @@ export function BlockEditor({
           class: 'rounded-md bg-gray-900 text-gray-100 p-4 font-mono text-sm overflow-x-auto',
         },
       }),
+      // Custom extensions for missing block types
+      Callout,
+      Toggle,
+      ToggleSummary,
+      ToggleContent,
+      FileAttachment,
+      Bookmark,
+      PageLink.configure({
+        onPageClick,
+      }),
+      TaskLink.configure({
+        onTaskClick,
+      }),
+      GoalLink.configure({
+        onGoalClick,
+      }),
     ],
     content: blocksToTipTapContent(initialContent),
     editable: !readOnly,
@@ -157,7 +190,14 @@ export function BlockEditor({
 
   return (
     <div className="block-editor">
-      <SlashMenu editor={editor} />
+      <SlashMenu editor={editor} onCreatePage={onCreatePage} />
+      <PageLinkMenu
+        editor={editor}
+        onCreatePage={onCreatePage}
+        onTaskClick={onTaskClick}
+        onGoalClick={onGoalClick}
+      />
+      <BlockMenu editor={editor} />
       <EditorContent editor={editor} />
     </div>
   );
@@ -274,6 +314,107 @@ function blockToTipTapNode(block: VaultBlock): any {
           src: content.url,
           alt: content.caption || '',
         },
+      };
+
+    case 'callout':
+      return {
+        type: 'callout',
+        attrs: {
+          emoji: content.emoji || '💡',
+          type: content.color || 'info',
+        },
+        content: [
+          {
+            type: 'paragraph',
+            content: content.text ? [{ type: 'text', text: content.text }] : [],
+          },
+        ],
+      };
+
+    case 'toggle':
+      return {
+        type: 'toggle',
+        attrs: { open: true },
+        content: [
+          {
+            type: 'toggleSummary',
+            content: content.text ? [{ type: 'text', text: content.text }] : [],
+          },
+          {
+            type: 'toggleContent',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Toggle content...' }],
+              },
+            ],
+          },
+        ],
+      };
+
+    case 'file':
+      return {
+        type: 'fileAttachment',
+        attrs: {
+          url: content.url,
+          filename: content.filename || 'Untitled',
+          size: content.size,
+          mimeType: content.mimeType,
+        },
+      };
+
+    case 'bookmark':
+      return {
+        type: 'bookmark',
+        attrs: {
+          url: content.url,
+          title: content.title,
+          description: content.description,
+          favicon: content.favicon,
+          image: content.image,
+        },
+      };
+
+    case 'page_link':
+      return {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'pageLink',
+            attrs: {
+              pageId: content.pageId,
+              title: content.title || 'Untitled',
+            },
+          },
+        ],
+      };
+
+    case 'task_link':
+      return {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'taskLink',
+            attrs: {
+              taskId: content.taskId,
+              title: content.title || 'Untitled Task',
+            },
+          },
+        ],
+      };
+
+    case 'goal_link':
+      return {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'goalLink',
+            attrs: {
+              goalId: content.goalId,
+              title: content.title || 'Untitled Goal',
+            },
+          },
+        ],
       };
 
     default:

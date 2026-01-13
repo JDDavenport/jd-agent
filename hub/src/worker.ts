@@ -21,12 +21,17 @@ import {
   type EmailTriageJobData,
   type TaskExtractionJobData,
   type RecordingProcessJobData,
+  type TestingSessionJobData,
+  type RecurrenceGenerateJobData,
 } from './jobs/queue';
 import {
   processTranscriptionJob,
   processSummarizationJob,
   processTaskExtractionJob,
   processEmailTriageJob,
+  processTestingSessionJob,
+  processRecurrenceGenerateJob,
+  processRecurrenceBatchJob,
 } from './jobs/processors';
 import {
   processVipIngestionJob,
@@ -128,6 +133,18 @@ async function processJob(job: Job): Promise<any> {
         result = { success: true, note: 'Embedding generation not yet implemented' };
         break;
 
+      case 'testing-session':
+        result = await processTestingSessionJob(job as Job<TestingSessionJobData>);
+        break;
+
+      case 'recurrence-generate':
+        result = await processRecurrenceGenerateJob(job as Job<RecurrenceGenerateJobData>);
+        break;
+
+      case 'recurrence-batch':
+        result = await processRecurrenceBatchJob(job);
+        break;
+
       default:
         console.warn(`[Worker] Unknown job type: ${job.name}`);
         result = { success: false, error: `Unknown job type: ${job.name}` };
@@ -163,6 +180,9 @@ async function startWorker() {
     concurrency: CONCURRENCY,
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 50 },
+    // Increase lock duration for slow AI testing jobs (Ollama local models)
+    lockDuration: 600000, // 10 minutes
+    stalledInterval: 300000, // 5 minutes
   });
 
   // Event handlers
@@ -215,6 +235,9 @@ async function startWorker() {
   console.log('  - vip-speaker-embedding');
   console.log('  - ocr');
   console.log('  - embedding');
+  console.log('  - testing-session (AI Testing Agent)');
+  console.log('  - recurrence-generate');
+  console.log('  - recurrence-batch');
 }
 
 // Start the worker

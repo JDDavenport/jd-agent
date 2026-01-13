@@ -1,6 +1,6 @@
 import { eq, and, desc, asc, sql, ilike, isNull } from 'drizzle-orm';
 import { db } from '../db/client';
-import { vaultPages, vaultBlocks } from '../db/schema';
+import { vaultPages, vaultBlocks, vaultReferences } from '../db/schema';
 import type {
   VaultPage,
   VaultPageTreeNode,
@@ -527,6 +527,45 @@ export class VaultPageService {
 
   // ============================================
   // Helpers
+  // ============================================
+
+  /**
+   * Get backlinks - pages that link to this page
+   */
+  async getBacklinks(pageId: string): Promise<Array<{ id: string; title: string; icon: string | null }>> {
+    const references = await db
+      .select({
+        pageId: vaultReferences.pageId,
+        pageTitle: vaultPages.title,
+        pageIcon: vaultPages.icon,
+      })
+      .from(vaultReferences)
+      .innerJoin(vaultPages, eq(vaultReferences.pageId, vaultPages.id))
+      .where(
+        and(
+          eq(vaultReferences.targetType, 'page'),
+          eq(vaultReferences.targetId, pageId)
+        )
+      )
+      .orderBy(desc(vaultPages.updatedAt));
+
+    // Deduplicate by page ID (a page might link multiple times)
+    const uniquePages = new Map<string, { id: string; title: string; icon: string | null }>();
+    for (const ref of references) {
+      if (!uniquePages.has(ref.pageId)) {
+        uniquePages.set(ref.pageId, {
+          id: ref.pageId,
+          title: ref.pageTitle,
+          icon: ref.pageIcon,
+        });
+      }
+    }
+
+    return Array.from(uniquePages.values());
+  }
+
+  // ============================================
+  // Private Helpers
   // ============================================
 
   private formatPage(page: typeof vaultPages.$inferSelect): VaultPage {

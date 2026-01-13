@@ -15,6 +15,7 @@ export const vaultPageKeys = {
   details: () => [...vaultPageKeys.all, 'detail'] as const,
   detail: (id: string) => [...vaultPageKeys.details(), id] as const,
   children: (id: string) => [...vaultPageKeys.all, 'children', id] as const,
+  backlinks: (id: string) => [...vaultPageKeys.all, 'backlinks', id] as const,
   search: (query: string) => [...vaultPageKeys.all, 'search', query] as const,
 };
 
@@ -56,6 +57,15 @@ export function useVaultPageChildren(id: string | null) {
   return useQuery({
     queryKey: vaultPageKeys.children(id || ''),
     queryFn: () => api.getVaultPageChildren(id!),
+    enabled: !!id,
+  });
+}
+
+// Get backlinks - pages that link to this page
+export function useVaultPageBacklinks(id: string | null) {
+  return useQuery({
+    queryKey: vaultPageKeys.backlinks(id || ''),
+    queryFn: () => api.getVaultPageBacklinks(id!),
     enabled: !!id,
   });
 }

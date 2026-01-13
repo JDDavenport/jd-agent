@@ -24,9 +24,13 @@ import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   DocumentTextIcon,
+  SunIcon,
+  MoonIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import type { VaultPageTreeNode, VaultPage, VaultTreeNode } from '../api';
+import { useTheme } from '../hooks/useTheme';
 
 interface NotionSidebarProps {
   isCollapsed: boolean;
@@ -36,9 +40,9 @@ interface NotionSidebarProps {
   onSelectPage: (pageId: string) => void;
   onSelectLegacyEntry?: (entryId: string) => void;
   onCreatePage: (parentId?: string) => void;
-  onCreateEntry?: (parentId?: string) => void;
   onMoveEntry?: (id: string, newParentId: string | null) => void;
   onOpenSearch: () => void;
+  onOpenChat?: () => void;
   pageTree: VaultPageTreeNode[];
   legacyTree?: VaultTreeNode[];
   favorites: VaultPage[];
@@ -50,9 +54,10 @@ export function NotionSidebar({
   onToggleCollapse,
   selectedEntryId,
   onSelectLegacyEntry,
-  onCreateEntry,
+  onCreatePage,
   onMoveEntry,
   onOpenSearch,
+  onOpenChat,
   pageTree,
   legacyTree = [],
   isLoading = false,
@@ -60,6 +65,7 @@ export function NotionSidebar({
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const { isDark, toggleTheme } = useTheme();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -150,33 +156,41 @@ export function NotionSidebar({
   }
 
   return (
-    <aside data-testid="vault-sidebar" className="w-64 bg-[#f7f7f5] border-r border-gray-200 h-screen flex flex-col">
+    <aside data-testid="vault-sidebar" className="w-64 bg-[#f7f7f5] dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-screen flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/60">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/60 dark:border-gray-700/60">
         <div data-testid="vault-sidebar-logo" className="flex items-center gap-2">
           <span className="text-lg">📚</span>
-          <span className="font-semibold text-gray-900">Vault</span>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">Vault</span>
         </div>
         <button
           data-testid="vault-sidebar-collapse"
           onClick={onToggleCollapse}
-          className="p-1 rounded hover:bg-gray-200 transition-colors"
+          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           title="Collapse sidebar"
         >
-          <ChevronDoubleLeftIcon className="w-4 h-4 text-gray-500" />
+          <ChevronDoubleLeftIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
       </div>
 
-      {/* Search */}
-      <div className="px-3 py-2">
+      {/* Search + New Page */}
+      <div className="px-3 py-2 space-y-2">
         <button
           data-testid="vault-search-button"
           onClick={onOpenSearch}
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
         >
           <MagnifyingGlassIcon className="w-4 h-4" />
           <span className="flex-1 text-left">Search...</span>
-          <kbd className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">⌘K</kbd>
+          <kbd className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">⌘K</kbd>
+        </button>
+        <button
+          data-testid="vault-new-page-button"
+          onClick={() => onCreatePage?.()}
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+        >
+          <PlusIcon className="w-4 h-4" />
+          <span>New Page</span>
         </button>
       </div>
 
@@ -190,7 +204,7 @@ export function NotionSidebar({
             <p className="text-sm text-gray-500">No entries yet</p>
             <button
               data-testid="vault-create-first"
-              onClick={() => onCreateEntry?.()}
+              onClick={() => onCreatePage?.()}
               className="mt-2 text-sm text-blue-600 hover:text-blue-700"
             >
               Create your first entry
@@ -215,12 +229,12 @@ export function NotionSidebar({
                   onToggle={() => toggleExpand(node.id)}
                   isSelected={selectedEntryId === node.id}
                   onSelect={() => onSelectLegacyEntry?.(node.id)}
-                  onAddChild={() => onCreateEntry?.(node.id)}
+                  onAddChild={() => onCreatePage?.(node.id)}
                   expandedPages={expandedPages}
                   onToggleExpand={toggleExpand}
                   selectedEntryId={selectedEntryId}
                   onSelectEntry={onSelectLegacyEntry}
-                  onCreateEntry={onCreateEntry}
+                  onCreatePage={onCreatePage}
                   isOver={overId === node.id}
                 />
               ))}
@@ -237,15 +251,34 @@ export function NotionSidebar({
         )}
       </div>
 
-      {/* New Entry Button */}
-      <div className="p-3 border-t border-gray-200">
+      {/* Footer: Ask AI + Theme Toggle */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+        {onOpenChat && (
+          <button
+            data-testid="vault-ask-ai-button"
+            onClick={onOpenChat}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <ChatBubbleLeftRightIcon className="w-4 h-4" />
+            <span>Ask AI</span>
+          </button>
+        )}
         <button
-          data-testid="vault-new-entry-button"
-          onClick={() => onCreateEntry?.()}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          data-testid="vault-theme-toggle"
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <PlusIcon className="w-4 h-4" />
-          <span>New Entry</span>
+          {isDark ? (
+            <>
+              <SunIcon className="w-4 h-4" />
+              <span>Light mode</span>
+            </>
+          ) : (
+            <>
+              <MoonIcon className="w-4 h-4" />
+              <span>Dark mode</span>
+            </>
+          )}
         </button>
       </div>
     </aside>
@@ -298,7 +331,7 @@ interface SortableTreeItemProps {
   onToggleExpand: (id: string) => void;
   selectedEntryId?: string | null;
   onSelectEntry?: (id: string) => void;
-  onCreateEntry?: (parentId: string) => void;
+  onCreatePage?: (parentId: string) => void;
   isOver?: boolean;
 }
 
@@ -314,7 +347,7 @@ function SortableTreeItem({
   onToggleExpand,
   selectedEntryId,
   onSelectEntry,
-  onCreateEntry,
+  onCreatePage,
   isOver,
 }: SortableTreeItemProps) {
   const {
@@ -422,12 +455,12 @@ function SortableTreeItem({
               onToggle={() => onToggleExpand(child.id)}
               isSelected={selectedEntryId === child.id}
               onSelect={() => onSelectEntry?.(child.id)}
-              onAddChild={() => onCreateEntry?.(child.id)}
+              onAddChild={() => onCreatePage?.(child.id)}
               expandedPages={expandedPages}
               onToggleExpand={onToggleExpand}
               selectedEntryId={selectedEntryId}
               onSelectEntry={onSelectEntry}
-              onCreateEntry={onCreateEntry}
+              onCreatePage={onCreatePage}
             />
           ))}
         </div>

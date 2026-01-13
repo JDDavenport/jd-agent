@@ -79,3 +79,5 @@ __pycache__/
 
 # Test artifacts
 test-report.json
+.vercel
+.env*.local

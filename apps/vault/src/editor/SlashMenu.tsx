@@ -9,7 +9,16 @@ import {
   ChatBubbleLeftIcon,
   PhotoIcon,
   MinusIcon,
+  LightBulbIcon,
+  ChevronRightIcon,
+  PaperClipIcon,
+  LinkIcon,
+  DocumentPlusIcon,
 } from '@heroicons/react/24/outline';
+import { FileUploadModal } from '../components/FileUploadModal';
+import type { VaultPage } from '../api';
+
+type PendingAction = 'file' | 'image' | 'page' | null;
 
 interface SlashMenuItem {
   title: string;
@@ -17,6 +26,7 @@ interface SlashMenuItem {
   icon: React.ComponentType<{ className?: string }>;
   command: (editor: Editor) => void;
   keywords?: string[];
+  asyncAction?: PendingAction; // If set, triggers modal instead of immediate command
 }
 
 const SLASH_MENU_ITEMS: SlashMenuItem[] = [
@@ -94,27 +104,80 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
     title: 'Image',
     description: 'Upload or embed an image.',
     icon: PhotoIcon,
+    command: () => {}, // Handled via asyncAction
+    asyncAction: 'image',
+    keywords: ['image', 'picture', 'photo', 'img'],
+  },
+  {
+    title: 'Callout',
+    description: 'Highlight important information.',
+    icon: LightBulbIcon,
     command: (editor) => {
-      const url = window.prompt('Enter image URL:');
+      editor.chain().focus().setCallout({ emoji: '💡', type: 'info' }).run();
+    },
+    keywords: ['callout', 'highlight', 'info', 'note', 'warning', 'tip'],
+  },
+  {
+    title: 'Toggle',
+    description: 'Collapsible content block.',
+    icon: ChevronRightIcon,
+    command: (editor) => {
+      editor.chain().focus().setToggle().run();
+    },
+    keywords: ['toggle', 'collapse', 'expand', 'details', 'accordion'],
+  },
+  {
+    title: 'File',
+    description: 'Attach a file.',
+    icon: PaperClipIcon,
+    command: () => {}, // Handled via asyncAction
+    asyncAction: 'file',
+    keywords: ['file', 'attachment', 'document', 'pdf', 'upload'],
+  },
+  {
+    title: 'Bookmark',
+    description: 'Save a link with preview.',
+    icon: LinkIcon,
+    command: (editor) => {
+      const url = window.prompt('Enter URL to bookmark:');
       if (url) {
-        editor.chain().focus().setImage({ src: url }).run();
+        // For now, just use the URL as the title
+        // In the future, we could fetch metadata from the URL
+        let title = url;
+        try {
+          title = new URL(url).hostname;
+        } catch {
+          // Use URL as title if parsing fails
+        }
+        editor.chain().focus().setBookmark({ url, title }).run();
       }
     },
-    keywords: ['image', 'picture', 'photo', 'img'],
+    keywords: ['bookmark', 'link', 'embed', 'url', 'website'],
+  },
+  {
+    title: 'Page',
+    description: 'Create a nested sub-page.',
+    icon: DocumentPlusIcon,
+    command: () => {}, // Handled via asyncAction
+    asyncAction: 'page',
+    keywords: ['page', 'subpage', 'nested', 'child', 'new'],
   },
 ];
 
 interface SlashMenuProps {
   editor: Editor;
+  onCreatePage?: (title: string) => Promise<VaultPage>;
 }
 
-export function SlashMenu({ editor }: SlashMenuProps) {
+export function SlashMenu({ editor, onCreatePage }: SlashMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const slashPosRef = useRef<number | null>(null);
+  const isCreatingPageRef = useRef(false);
 
   // Filter items based on query
   const filteredItems = query
@@ -174,7 +237,40 @@ export function SlashMenu({ editor }: SlashMenuProps) {
     };
   }, [editor, isOpen]);
 
-  // Handle keyboard navigation
+  // Define selectItem before the keyboard handler useEffect that uses it
+  const selectItem = useCallback(
+    (item: SlashMenuItem) => {
+      console.log('[SlashMenu] selectItem called:', item.title, { asyncAction: item.asyncAction });
+
+      // Delete the slash and any query text
+      if (slashPosRef.current !== null) {
+        const { state } = editor;
+        const { selection } = state;
+        const from = slashPosRef.current;
+        const to = selection.from;
+        console.log('[SlashMenu] Deleting slash text from', from, 'to', to);
+        editor.chain().focus().deleteRange({ from, to }).run();
+      }
+
+      // Check if this is an async action that needs a modal
+      if (item.asyncAction) {
+        console.log('[SlashMenu] Setting pendingAction to:', item.asyncAction);
+        setPendingAction(item.asyncAction);
+        setIsOpen(false);
+        slashPosRef.current = null;
+        return;
+      }
+
+      // Execute the command
+      console.log('[SlashMenu] Executing command');
+      item.command(editor);
+      setIsOpen(false);
+      slashPosRef.current = null;
+    },
+    [editor]
+  );
+
+  // Handle keyboard navigation - use capture phase to intercept before ProseMirror
   useEffect(() => {
     if (!isOpen) return;
 
@@ -182,12 +278,14 @@ export function SlashMenu({ editor }: SlashMenuProps) {
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault();
+          event.stopPropagation();
           setSelectedIndex((prev) =>
             filteredItems.length > 0 ? (prev + 1) % filteredItems.length : 0
           );
           break;
         case 'ArrowUp':
           event.preventDefault();
+          event.stopPropagation();
           setSelectedIndex((prev) =>
             filteredItems.length > 0
               ? (prev - 1 + filteredItems.length) % filteredItems.length
@@ -196,12 +294,15 @@ export function SlashMenu({ editor }: SlashMenuProps) {
           break;
         case 'Enter':
           event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
           if (filteredItems[selectedIndex]) {
             selectItem(filteredItems[selectedIndex]);
           }
           break;
         case 'Escape':
           event.preventDefault();
+          event.stopPropagation();
           setIsOpen(false);
           slashPosRef.current = null;
           editor.commands.focus();
@@ -209,9 +310,10 @@ export function SlashMenu({ editor }: SlashMenuProps) {
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, selectedIndex, filteredItems, editor]);
+    // Use capture phase to intercept events before ProseMirror handles them
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, selectedIndex, filteredItems, editor, selectItem]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -228,58 +330,119 @@ export function SlashMenu({ editor }: SlashMenuProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const selectItem = useCallback(
-    (item: SlashMenuItem) => {
-      // Delete the slash and any query text
-      if (slashPosRef.current !== null) {
-        const { state } = editor;
-        const { selection } = state;
-        const from = slashPosRef.current;
-        const to = selection.from;
-        editor.chain().focus().deleteRange({ from, to }).run();
+  // Handle file selection from modal
+  const handleFileSelect = useCallback(
+    (file: { url: string; filename: string; size?: number; mimeType?: string }) => {
+      if (pendingAction === 'file') {
+        editor.chain().focus().setFileAttachment({
+          url: file.url,
+          filename: file.filename,
+          size: file.size,
+          mimeType: file.mimeType,
+        }).run();
+      } else if (pendingAction === 'image') {
+        editor.chain().focus().setImage({ src: file.url, alt: file.filename }).run();
       }
-
-      // Execute the command
-      item.command(editor);
-      setIsOpen(false);
-      slashPosRef.current = null;
+      setPendingAction(null);
     },
-    [editor]
+    [editor, pendingAction]
   );
 
-  if (!isOpen || !position) return null;
+  const handleModalClose = useCallback(() => {
+    setPendingAction(null);
+    editor.commands.focus();
+  }, [editor]);
+
+  // Handle page creation - Notion-style: create immediately without prompt
+  useEffect(() => {
+    if (pendingAction !== 'page') {
+      return;
+    }
+
+    // Prevent duplicate calls (React Strict Mode can trigger effects twice)
+    if (isCreatingPageRef.current) {
+      console.log('[SlashMenu] Page creation already in progress, skipping');
+      return;
+    }
+
+    if (!onCreatePage) {
+      console.error('[SlashMenu] onCreatePage prop is not provided - cannot create page');
+      setPendingAction(null);
+      return;
+    }
+
+    const createPage = async () => {
+      isCreatingPageRef.current = true;
+      try {
+        console.log('[SlashMenu] Creating page...');
+        // Create page with "Untitled" name immediately (Notion-style)
+        const newPage = await onCreatePage('Untitled');
+        console.log('[SlashMenu] Page created:', newPage);
+        // Insert a link to the new page
+        editor.chain().focus().setPageLink({
+          pageId: newPage.id,
+          title: newPage.title,
+        }).run();
+        console.log('[SlashMenu] Page link inserted');
+      } catch (error) {
+        console.error('[SlashMenu] Failed to create page:', error);
+        // Also log the error details
+        if (error instanceof Error) {
+          console.error('[SlashMenu] Error details:', error.message, error.stack);
+        }
+      } finally {
+        isCreatingPageRef.current = false;
+        setPendingAction(null);
+        editor.commands.focus();
+      }
+    };
+
+    createPage();
+  }, [pendingAction, onCreatePage, editor]);
 
   return (
-    <div
-      ref={menuRef}
-      className="fixed z-50 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-1 max-h-80 overflow-y-auto"
-      style={{
-        top: position.top + 24,
-        left: position.left,
-      }}
-    >
-      {filteredItems.length === 0 ? (
-        <div className="px-4 py-3 text-sm text-gray-500">No results found</div>
-      ) : (
-        filteredItems.map((item, index) => (
-          <button
-            key={item.title}
-            className={`w-full px-4 py-2 flex items-start gap-3 hover:bg-gray-100 transition-colors ${
-              index === selectedIndex ? 'bg-gray-100' : ''
-            }`}
-            onClick={() => selectItem(item)}
-            onMouseEnter={() => setSelectedIndex(index)}
-          >
-            <div className="flex-shrink-0 w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-              <item.icon className="w-5 h-5 text-gray-600" />
-            </div>
-            <div className="flex-1 text-left">
-              <div className="text-sm font-medium text-gray-900">{item.title}</div>
-              <div className="text-xs text-gray-500">{item.description}</div>
-            </div>
-          </button>
-        ))
+    <>
+      {/* File/Image upload modal */}
+      <FileUploadModal
+        isOpen={pendingAction === 'file' || pendingAction === 'image'}
+        onClose={handleModalClose}
+        onFileSelect={handleFileSelect}
+      />
+
+      {/* Slash command menu */}
+      {isOpen && position && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-1 max-h-80 overflow-y-auto"
+          style={{
+            top: position.top + 24,
+            left: position.left,
+          }}
+        >
+          {filteredItems.length === 0 ? (
+            <div className="px-4 py-3 text-sm text-gray-500">No results found</div>
+          ) : (
+            filteredItems.map((item, index) => (
+              <button
+                key={item.title}
+                className={`w-full px-4 py-2 flex items-start gap-3 hover:bg-gray-100 transition-colors ${
+                  index === selectedIndex ? 'bg-gray-100' : ''
+                }`}
+                onClick={() => selectItem(item)}
+                onMouseEnter={() => setSelectedIndex(index)}
+              >
+                <div className="flex-shrink-0 w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
+                  <item.icon className="w-5 h-5 text-gray-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-medium text-gray-900">{item.title}</div>
+                  <div className="text-xs text-gray-500">{item.description}</div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }

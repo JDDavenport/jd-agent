@@ -1,10 +1,12 @@
 import { useCallback, useState, useEffect } from 'react';
 import { PageHeader } from '../components/PageHeader';
+import { Backlinks } from '../components/Backlinks';
 import { BlockEditor } from '../editor/BlockEditor';
 import {
   useVaultPage,
   useUpdateVaultPage,
   useToggleVaultPageFavorite,
+  useCreateVaultPage,
 } from '../hooks/useVaultPages';
 
 interface BlockPageViewProps {
@@ -16,8 +18,26 @@ export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
   const { data: pageData, isLoading, error } = useVaultPage(pageId);
   const updatePage = useUpdateVaultPage();
   const toggleFavorite = useToggleVaultPageFavorite();
+  const createPage = useCreateVaultPage();
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Handler for creating new pages from [[Page Name]] links
+  const handleCreatePage = useCallback(
+    async (title: string) => {
+      const newPage = await createPage.mutateAsync({ title });
+      return newPage;
+    },
+    [createPage]
+  );
+
+  // Handler for clicking on page links
+  const handlePageClick = useCallback(
+    (linkedPageId: string) => {
+      onNavigate(linkedPageId);
+    },
+    [onNavigate]
+  );
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -42,6 +62,13 @@ export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
   const handleIconChange = useCallback(
     (icon: string) => {
       updatePage.mutate({ id: pageId, input: { icon: icon || null } });
+    },
+    [pageId, updatePage]
+  );
+
+  const handleCoverChange = useCallback(
+    (coverImage: string | null) => {
+      updatePage.mutate({ id: pageId, input: { coverImage } });
     },
     [pageId, updatePage]
   );
@@ -105,12 +132,13 @@ export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
   const breadcrumbs = page.breadcrumbs || [];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white">
+    <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
       <PageHeader
         page={page}
         breadcrumbs={breadcrumbs}
         onTitleChange={handleTitleChange}
         onIconChange={handleIconChange}
+        onCoverChange={handleCoverChange}
         onToggleFavorite={handleToggleFavorite}
         onNavigate={onNavigate}
       />
@@ -121,14 +149,21 @@ export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
           initialContent={blocks}
           onContentChange={handleContentChange}
           onSave={handleSave}
-          placeholder="Type '/' for commands..."
+          onCreatePage={handleCreatePage}
+          onPageClick={handlePageClick}
+          placeholder="Type '/' for commands, '[[' for page links..."
           autoFocus={blocks.length === 0}
         />
+
+        {/* Backlinks section */}
+        <div className="max-w-[708px] mx-auto">
+          <Backlinks pageId={pageId} onNavigate={onNavigate} />
+        </div>
       </div>
 
       {/* Unsaved changes indicator */}
       {hasUnsavedChanges && (
-        <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-3 py-1.5 rounded-full text-sm shadow-lg">
+        <div className="fixed bottom-4 right-4 bg-gray-900 dark:bg-gray-700 text-white px-3 py-1.5 rounded-full text-sm shadow-lg">
           Unsaved changes
         </div>
       )}

@@ -8,11 +8,13 @@ import type {
   UpdateProjectInput,
   Section,
   CreateSectionInput,
+  Goal,
   VaultEntry,
   CreateVaultInput,
   VaultSearchParams,
   VaultTreeNode,
   VaultBreadcrumb,
+  VaultAttachment,
   CalendarEvent,
   CreateCalendarEventInput,
   VaultPage,
@@ -25,6 +27,12 @@ import type {
   UpdateVaultBlockInput,
   MoveVaultBlockInput,
   BatchBlockOperation,
+  DailyReviewData,
+  DailyReview,
+  SaveReviewInput,
+  CompleteReviewInput,
+  ReviewHistoryItem,
+  ArchivedTask,
 } from './types';
 
 export class ApiClient {
@@ -161,6 +169,10 @@ export class ApiClient {
     return this.request('POST', `/api/vault/${id}/move`, { parentId });
   }
 
+  async getVaultEntryAttachments(id: string): Promise<VaultAttachment[]> {
+    return this.request('GET', `/api/vault/${id}/attachments`);
+  }
+
   // Vault Pages (Notion-like block-based pages)
   async listVaultPages(options?: { archived?: boolean }): Promise<VaultPage[]> {
     const params = new URLSearchParams();
@@ -195,6 +207,10 @@ export class ApiClient {
 
   async getVaultPageChildren(id: string): Promise<VaultPage[]> {
     return this.request('GET', `/api/vault/pages/${id}/children`);
+  }
+
+  async getVaultPageBacklinks(id: string): Promise<Array<{ id: string; title: string; icon: string | null }>> {
+    return this.request('GET', `/api/vault/pages/${id}/backlinks`);
   }
 
   async createVaultPage(input: CreateVaultPageInput): Promise<VaultPage> {
@@ -272,6 +288,92 @@ export class ApiClient {
   async getHealth(): Promise<{ status: string }> {
     return this.request('GET', '/api/health');
   }
+
+  // ============================================
+  // Journal / Daily Review
+  // ============================================
+
+  async getDailyReviewData(date?: string): Promise<DailyReviewData> {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    const query = params.toString();
+    return this.request('GET', `/api/journal/daily-review${query ? `?${query}` : ''}`);
+  }
+
+  async saveReviewDraft(input: SaveReviewInput): Promise<DailyReview> {
+    return this.request('POST', '/api/journal/daily-review/save', input);
+  }
+
+  async completeReview(input: CompleteReviewInput): Promise<{ review: DailyReview; vaultPageId?: string }> {
+    return this.request('POST', '/api/journal/daily-review/complete', input);
+  }
+
+  async getReviewHistory(page = 1, limit = 20): Promise<{ items: ReviewHistoryItem[]; total: number; page: number; limit: number }> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    return this.request('GET', `/api/journal/daily-review/history?${params}`);
+  }
+
+  async searchReviews(query: string): Promise<ReviewHistoryItem[]> {
+    const params = new URLSearchParams({ q: query });
+    return this.request('GET', `/api/journal/daily-review/search?${params}`);
+  }
+
+  async toggleHabitCompletion(habitId: string, date?: string): Promise<{ completed: boolean; completionId?: string }> {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    const query = params.toString();
+    return this.request('POST', `/api/journal/habits/${habitId}/toggle${query ? `?${query}` : ''}`);
+  }
+
+  // ============================================
+  // Task Archive
+  // ============================================
+
+  async getArchivedTasks(context?: string, limit = 50): Promise<ArchivedTask[]> {
+    const params = new URLSearchParams();
+    if (context) params.set('context', context);
+    params.set('limit', String(limit));
+    return this.request('GET', `/api/vault?contentType=task_archive&${params}`);
+  }
+
+  // ============================================
+  // Goals
+  // ============================================
+
+  async listGoals(status?: string): Promise<Goal[]> {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    const query = params.toString();
+    return this.request('GET', `/api/goals${query ? `?${query}` : ''}`);
+  }
+
+  async getGoal(id: string): Promise<Goal> {
+    return this.request('GET', `/api/goals/${id}`);
+  }
+
+  async searchGoals(query: string, limit = 10): Promise<Goal[]> {
+    // Since the goals API may not have a search endpoint, we'll filter locally
+    const goals = await this.listGoals('active');
+    const queryLower = query.toLowerCase();
+    return goals
+      .filter(goal => goal.title.toLowerCase().includes(queryLower))
+      .slice(0, limit);
+  }
+
+  // ============================================
+  // Quick Search for Entity Linking
+  // ============================================
+
+  async quickSearchTasks(query: string, limit = 10): Promise<Task[]> {
+    // Get active tasks and filter by query
+    const tasks = await this.listTasks({ status: 'today' });
+    const inboxTasks = await this.getInboxTasks();
+    const allTasks = [...tasks, ...inboxTasks];
+    const queryLower = query.toLowerCase();
+    return allTasks
+      .filter(task => task.title.toLowerCase().includes(queryLower))
+      .slice(0, limit);
+  }
 }
 
 export function createClient(baseUrl: string = 'http://localhost:3000'): ApiClient {
@@ -284,9 +386,11 @@ export type {
   UpdateTaskInput,
   Project,
   Section,
+  Goal,
   VaultEntry,
   VaultTreeNode,
   VaultBreadcrumb,
+  VaultAttachment,
   CalendarEvent,
   VaultPage,
   VaultPageTreeNode,
@@ -298,4 +402,10 @@ export type {
   UpdateVaultBlockInput,
   MoveVaultBlockInput,
   BatchBlockOperation,
+  DailyReviewData,
+  DailyReview,
+  SaveReviewInput,
+  CompleteReviewInput,
+  ReviewHistoryItem,
+  ArchivedTask,
 };

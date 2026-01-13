@@ -36,13 +36,13 @@ const createPageSchema = z.object({
   title: z.string().optional(),
   parentId: z.string().uuid().nullable().optional(),
   icon: z.string().nullable().optional(),
-  coverImage: z.string().url().nullable().optional(),
+  coverImage: z.string().nullable().optional(), // Allow URLs or CSS gradients
 });
 
 const updatePageSchema = z.object({
   title: z.string().optional(),
   icon: z.string().nullable().optional(),
-  coverImage: z.string().url().nullable().optional(),
+  coverImage: z.string().nullable().optional(), // Allow URLs or CSS gradients
   isFavorite: z.boolean().optional(),
   isArchived: z.boolean().optional(),
   parentId: z.string().uuid().nullable().optional(),
@@ -303,6 +303,26 @@ vaultPagesRouter.get('/:id/children', async (c) => {
     success: true,
     data: children,
     count: children.length,
+  });
+});
+
+/**
+ * GET /api/vault/pages/:id/backlinks
+ * Get pages that link to this page
+ */
+vaultPagesRouter.get('/:id/backlinks', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid page ID format');
+  }
+
+  const backlinks = await vaultPageService.getBacklinks(id);
+
+  return c.json({
+    success: true,
+    data: backlinks,
+    count: backlinks.length,
   });
 });
 

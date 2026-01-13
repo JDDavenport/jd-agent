@@ -14,8 +14,11 @@ import {
   RemarkableSyncJobData,
   RemarkableOcrJobData,
   RemarkableMergeJobData,
+  RemarkableMbaSyncJobData,
   addRemarkableMergeJob,
 } from '../queue';
+import { remarkableCloudSync } from '../../services/remarkable-cloud-sync';
+import { remarkableMbaSyncService } from '../../services/remarkable-mba-sync';
 
 // ============================================
 // Job Processors
@@ -166,6 +169,46 @@ export async function processRemarkableMergeJob(
   }
 }
 
+/**
+ * Process remarkable-mba-sync job
+ * Full sync of MBA folder from Remarkable Cloud to Vault
+ */
+export async function processRemarkableMbaSyncJob(
+  job: Job<RemarkableMbaSyncJobData>
+): Promise<{ success: boolean; result: any }> {
+  console.log(`[RemarkableProcessor] Starting MBA sync job ${job.id}`);
+
+  try {
+    // First sync with Remarkable Cloud to get latest state
+    await job.updateProgress(10);
+    console.log('[RemarkableProcessor] Syncing with Remarkable Cloud...');
+    await remarkableCloudSync.sync();
+
+    // Then run the MBA folder sync
+    await job.updateProgress(20);
+    console.log('[RemarkableProcessor] Starting MBA folder sync...');
+    const result = await remarkableMbaSyncService.syncMbaFolder();
+
+    await job.updateProgress(100);
+    console.log(
+      `[RemarkableProcessor] MBA sync complete: ${result.foldersProcessed} folders, ${result.documentsProcessed} documents, ${result.pagesCreated} pages`
+    );
+
+    return {
+      success: result.success,
+      result: {
+        foldersProcessed: result.foldersProcessed,
+        documentsProcessed: result.documentsProcessed,
+        pagesCreated: result.pagesCreated,
+        errors: result.errors,
+      },
+    };
+  } catch (error) {
+    console.error(`[RemarkableProcessor] MBA sync job failed:`, error);
+    throw error;
+  }
+}
+
 // ============================================
 // Job Router
 // ============================================
@@ -183,6 +226,8 @@ export async function processRemarkableJob(
       return processRemarkableOcrJob(job as Job<RemarkableOcrJobData>);
     case 'remarkable-merge':
       return processRemarkableMergeJob(job as Job<RemarkableMergeJobData>);
+    case 'remarkable-mba-sync':
+      return processRemarkableMbaSyncJob(job as Job<RemarkableMbaSyncJobData>);
     default:
       throw new Error(`Unknown Remarkable job type: ${job.name}`);
   }

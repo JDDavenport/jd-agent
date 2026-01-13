@@ -516,8 +516,35 @@ export class NotificationService {
       )
       .orderBy(tasks.dueDate);
 
+    // Get today's recordings
+    const recordingsToday = await db
+      .select()
+      .from(recordings)
+      .where(gte(recordings.createdAt, today))
+      .orderBy(desc(recordings.createdAt));
+
     // Build message
     let message = `🌙 *Evening Wrap-up*\n\n`;
+
+    // Today's recordings summary
+    if (recordingsToday.length > 0) {
+      const totalDuration = recordingsToday.reduce((sum, r) => sum + (r.durationSeconds || 0), 0);
+      const hours = Math.floor(totalDuration / 3600);
+      const minutes = Math.floor((totalDuration % 3600) / 60);
+      const durationStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+      message += `*🎙️ Recordings Processed (${recordingsToday.length}):*\n`;
+      message += `Total duration: ${durationStr}\n`;
+      for (const rec of recordingsToday.slice(0, 3)) {
+        const status = rec.status === 'complete' ? '✓' : rec.status === 'failed' ? '✗' : '⏳';
+        const name = rec.originalFilename?.replace(/\.[^/.]+$/, '').substring(0, 30) || 'Recording';
+        message += `${status} ${name}\n`;
+      }
+      if (recordingsToday.length > 3) {
+        message += `  _... and ${recordingsToday.length - 3} more_\n`;
+      }
+      message += `\n`;
+    }
 
     // What was accomplished
     if (completedToday.length > 0) {

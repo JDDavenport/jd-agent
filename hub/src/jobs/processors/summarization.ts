@@ -1,7 +1,7 @@
 /**
  * JD Agent - Summarization Job Processor
- * 
- * Handles summarization of transcripts using Claude/OpenAI:
+ *
+ * Handles summarization of transcripts using Ollama (local LLM):
  * 1. Get transcript from database
  * 2. Generate structured summary
  * 3. Extract: key points, decisions, commitments, questions, deadlines
@@ -10,12 +10,15 @@
  */
 
 import { Job } from 'bullmq';
-import OpenAI from 'openai';
 import { db } from '../../db/client';
 import { recordings, transcripts, recordingSummaries, vaultEntries } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import { addTaskExtractionJob } from '../queue';
 import type { SummarizationJobData } from '../queue';
+import { detectClass, createClassVaultEntry } from '../../services/class-detection-service';
+
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
 
 // ============================================
 // Summarization Prompts
@@ -89,13 +92,18 @@ export async function processSummarizationJob(job: Job<SummarizationJobData>): P
   error?: string;
 }> {
   const { recordingId, transcriptId, recordingType, context } = job.data;
-  
-  console.log(`[Summarization] Processing transcript ${transcriptId} for recording ${recordingId}`);
 
-  const openaiApiKey = process.env.OPENAI_API_KEY;
-  if (!openaiApiKey) {
-    console.error('[Summarization] OPENAI_API_KEY not configured');
-    return { success: false, error: 'OpenAI not configured' };
+  console.log(`[Summarization] Processing transcript ${transcriptId} for recording ${recordingId} using Ollama (${OLLAMA_MODEL})`);
+
+  // Check if Ollama is available
+  try {
+    const healthCheck = await fetch(`${OLLAMA_URL}/api/tags`);
+    if (!healthCheck.ok) {
+      throw new Error('Ollama not responding');
+    }
+  } catch (e) {
+    console.error('[Summarization] Ollama not available at', OLLAMA_URL);
+    return { success: false, error: `Ollama not available. Start it with: ollama serve` };
   }
 
   try {
@@ -128,23 +136,55 @@ export async function processSummarizationJob(job: Job<SummarizationJobData>): P
         systemPrompt = CONVERSATION_SUMMARY_PROMPT;
     }
 
-    // Call OpenAI
-    const openai = new OpenAI({ apiKey: openaiApiKey });
-    
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Here is the transcript:\n\n${transcript.fullText}` },
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 4000,
+    // Call Ollama (local LLM)
+    const prompt = `${systemPrompt}
+
+IMPORTANT: Respond ONLY with valid JSON. No other text, no markdown code blocks, just the JSON object.
+
+Here is the transcript:
+
+${transcript.fullText}`;
+
+    console.log(`[Summarization] Sending to Ollama (transcript length: ${transcript.fullText.length} chars)`);
+
+    const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.3,
+          num_predict: 4000,
+        },
+      }),
     });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error('No response from OpenAI');
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ollama error: ${response.status} ${errorText}`);
     }
+
+    const result = await response.json();
+    let content = result.response;
+
+    if (!content) {
+      throw new Error('No response from Ollama');
+    }
+
+    // Clean up response - extract JSON if wrapped in markdown
+    content = content.trim();
+    if (content.startsWith('```json')) {
+      content = content.slice(7);
+    }
+    if (content.startsWith('```')) {
+      content = content.slice(3);
+    }
+    if (content.endsWith('```')) {
+      content = content.slice(0, -3);
+    }
+    content = content.trim();
 
     // Parse JSON response
     const parsed = JSON.parse(content);
@@ -159,7 +199,7 @@ export async function processSummarizationJob(job: Job<SummarizationJobData>): P
       questions: parsed.questions || [],
       deadlinesMentioned: parsed.deadlinesMentioned || parsed.followUpItems || [],
       topicsCovered: parsed.topicsCovered || [],
-      modelUsed: 'gpt-4-turbo-preview',
+      modelUsed: `ollama/${OLLAMA_MODEL}`,
     }).returning();
 
     // Update recording status
@@ -170,7 +210,7 @@ export async function processSummarizationJob(job: Job<SummarizationJobData>): P
       })
       .where(eq(recordings.id, recordingId));
 
-    // Create vault entry for the recording
+    // Get recording details
     const [recording] = await db
       .select()
       .from(recordings)
@@ -178,19 +218,53 @@ export async function processSummarizationJob(job: Job<SummarizationJobData>): P
       .limit(1);
 
     const recordingDate = recording?.recordedAt || new Date();
-    const title = `${recordingType === 'class' ? 'Lecture' : recordingType === 'meeting' ? 'Meeting' : 'Recording'} - ${context || 'General'} - ${recordingDate.toLocaleDateString()}`;
 
-    await db.insert(vaultEntries).values({
-      title,
-      content: `# ${title}\n\n## Summary\n${parsed.summary}\n\n## Key Points\n${(parsed.keyPoints || []).map((p: string) => `- ${p}`).join('\n')}\n\n## Full Transcript\n${transcript.fullText}`,
-      contentType: recordingType === 'class' ? 'lecture' : 'meeting',
-      context: context || 'General',
-      tags: [recordingType, 'recording', 'auto-generated'],
-      source: 'plaud',
-      sourceRef: `recording:${recordingId}`,
-      recordingId,
-      sourceDate: recordingDate,
-    });
+    // Detect if this is a class recording
+    const classDetection = detectClass(
+      transcript.fullText,
+      transcript.segments as { start: number; end: number; text: string; speaker?: number }[] | undefined
+    );
+
+    console.log(`[Summarization] Class detection: isClass=${classDetection.isClass}, confidence=${classDetection.confidence}, course=${classDetection.courseCode}`);
+
+    // Create vault entry based on detection
+    if (classDetection.isClass && classDetection.courseCode) {
+      // Create structured class vault entry in MBA hierarchy
+      const lectureTitle = parsed.topicsCovered?.[0] || parsed.keyPoints?.[0] || 'Lecture';
+
+      await createClassVaultEntry({
+        recordingId,
+        courseCode: classDetection.courseCode,
+        lectureDate: recordingDate,
+        title: lectureTitle,
+        summary: parsed.summary || '',
+        keyPoints: parsed.keyPoints || [],
+        transcript: transcript.fullText,
+        topics: classDetection.topics,
+      });
+
+      // Update recording type to 'class' if detected
+      await db.update(recordings)
+        .set({ recordingType: 'class', context: classDetection.courseCode })
+        .where(eq(recordings.id, recordingId));
+
+      console.log(`[Summarization] Created class vault entry for ${classDetection.courseCode}`);
+    } else {
+      // Create generic vault entry for non-class recordings
+      const title = `${recordingType === 'class' ? 'Lecture' : recordingType === 'meeting' ? 'Meeting' : 'Recording'} - ${context || 'General'} - ${recordingDate.toLocaleDateString()}`;
+
+      await db.insert(vaultEntries).values({
+        title,
+        content: `# ${title}\n\n## Summary\n${parsed.summary}\n\n## Key Points\n${(parsed.keyPoints || []).map((p: string) => `- ${p}`).join('\n')}\n\n## Full Transcript\n${transcript.fullText}`,
+        contentType: recordingType === 'class' ? 'lecture' : 'meeting',
+        context: context || 'General',
+        tags: [recordingType, 'recording', 'auto-generated'],
+        source: 'plaud',
+        sourceRef: `recording:${recordingId}`,
+        recordingId,
+        sourceDate: recordingDate,
+      });
+    }
 
     // Queue task extraction if there are commitments or action items
     const hasActionableItems = 

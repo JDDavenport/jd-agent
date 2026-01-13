@@ -110,11 +110,31 @@ export class CanvasIntegrityAgent {
   // ----------------------------------------
 
   async runFullAudit(): Promise<IntegrityReport> {
-    return this.runAudit('full');
+    // Try browser-based audit, fall back to API-only
+    try {
+      return await this.runAudit('full');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Executable') || errorMessage.includes('playwright') || errorMessage.includes('browser')) {
+        console.log('[CanvasIntegrityAgent] Browser not available, falling back to API-only audit');
+        return this.runApiOnlyAudit();
+      }
+      throw error;
+    }
   }
 
   async runIncrementalAudit(): Promise<IntegrityReport> {
-    return this.runAudit('incremental');
+    // Try browser-based audit, fall back to API-only
+    try {
+      return await this.runAudit('incremental');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Executable') || errorMessage.includes('playwright') || errorMessage.includes('browser')) {
+        console.log('[CanvasIntegrityAgent] Browser not available, falling back to API-only audit');
+        return this.runApiOnlyAudit();
+      }
+      throw error;
+    }
   }
 
   async runQuickCheck(): Promise<IntegrityReport> {

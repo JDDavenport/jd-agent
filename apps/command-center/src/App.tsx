@@ -16,6 +16,7 @@ import Goals from './pages/Goals';
 import Habits from './pages/Habits';
 import Progress from './pages/Progress';
 import Journal from './pages/Journal';
+import Recordings from './pages/Recordings';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -48,6 +49,7 @@ function App() {
               <Route path="/health" element={<SystemHealth />} />
               <Route path="/personal-health" element={<PersonalHealth />} />
               <Route path="/canvas" element={<CanvasIntegrity />} />
+              <Route path="/recordings" element={<Recordings />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
 
