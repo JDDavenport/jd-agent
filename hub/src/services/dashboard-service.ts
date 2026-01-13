@@ -931,7 +931,7 @@ class DashboardService {
 
   /**
    * Get deadlines grouped by urgency
-   * OPTIMIZED: Select only needed columns, limit results
+   * OPTIMIZED: Use bounded date range for efficient index usage
    */
   async getGroupedDeadlines(): Promise<GroupedDeadlines> {
     try {
@@ -945,7 +945,13 @@ class DashboardService {
       const nextWeekEnd = new Date(todayStart);
       nextWeekEnd.setDate(nextWeekEnd.getDate() + 14);
 
-      // Optimized: Select only needed columns, with limit
+      // Date range bounds for efficient index usage
+      const thirtyDaysAgo = new Date(todayStart);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const ninetyDaysLater = new Date(todayStart);
+      ninetyDaysLater.setDate(ninetyDaysLater.getDate() + 90);
+
+      // Optimized: Bounded date range uses composite index efficiently
       const result = await db
         .select({
           id: tasks.id,
@@ -962,11 +968,12 @@ class DashboardService {
         .where(
           and(
             sql`${tasks.status} NOT IN ('done', 'archived')`,
-            sql`${tasks.dueDate} IS NOT NULL`
+            gte(tasks.dueDate, thirtyDaysAgo),
+            lte(tasks.dueDate, ninetyDaysLater)
           )
         )
         .orderBy(asc(tasks.dueDate))
-        .limit(200); // Reasonable limit to prevent memory issues
+        .limit(200);
 
       const grouped: GroupedDeadlines = {
         overdue: [],
