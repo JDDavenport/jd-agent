@@ -15,8 +15,8 @@ interface VaultMetricCardProps {
 }
 
 export function VaultMetricCard({ data, isLoading, error }: VaultMetricCardProps) {
-  // Vault app runs on port 5181
-  const vaultAppUrl = 'http://localhost:5181';
+  // Use environment variable in production, localhost in development
+  const vaultAppUrl = import.meta.env.VITE_VAULT_URL || 'http://localhost:5181';
 
   return (
     <MetricCardBase
