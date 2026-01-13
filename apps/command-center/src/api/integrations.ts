@@ -34,35 +34,41 @@ export interface RemarkableRenderResult {
 export const integrationsApi = {
   // Remarkable Cloud
   getRemarkableCloudStatus: () =>
-    apiClient.get<RemarkableCloudStatus>('/ingestion/remarkable/cloud/status'),
+    apiClient.get<RemarkableCloudStatus>('/ingestion/remarkable/cloud/status').then((r) => r.data),
 
   getRemarkableDocuments: () =>
-    apiClient.get<RemarkableDocument[]>('/ingestion/remarkable/cloud/documents'),
+    apiClient.get<RemarkableDocument[]>('/ingestion/remarkable/cloud/documents').then((r) => r.data),
 
   getRemarkablePending: () =>
-    apiClient.get<{ changes: Array<{ document: RemarkableDocument; changeType: string }> }>(
-      '/ingestion/remarkable/cloud/pending'
-    ),
+    apiClient
+      .get<{ changes: Array<{ document: RemarkableDocument; changeType: string }> }>(
+        '/ingestion/remarkable/cloud/pending'
+      )
+      .then((r) => r.data),
 
   syncRemarkableCloud: () =>
-    apiClient.post<RemarkableSyncResult>('/ingestion/remarkable/cloud/sync'),
+    apiClient.post<RemarkableSyncResult>('/ingestion/remarkable/cloud/sync').then((r) => r.data),
 
   renderRemarkableDocument: (documentId: string) =>
-    apiClient.post<RemarkableRenderResult>(`/ingestion/remarkable/cloud/render/${documentId}`),
+    apiClient
+      .post<RemarkableRenderResult>(`/ingestion/remarkable/cloud/render/${documentId}`)
+      .then((r) => r.data),
 
   startRemarkablePolling: (intervalMinutes?: number) =>
-    apiClient.post('/ingestion/remarkable/cloud/polling/start', { intervalMinutes }),
+    apiClient
+      .post('/ingestion/remarkable/cloud/polling/start', { intervalMinutes })
+      .then((r) => r.data),
 
   stopRemarkablePolling: () =>
-    apiClient.post('/ingestion/remarkable/cloud/polling/stop'),
+    apiClient.post('/ingestion/remarkable/cloud/polling/stop').then((r) => r.data),
 
   clearRemarkableState: () =>
-    apiClient.delete('/ingestion/remarkable/cloud/state'),
+    apiClient.delete('/ingestion/remarkable/cloud/state').then((r) => r.data),
 
   // Google Drive Remarkable Sync
   getRemarkableGDriveStatus: () =>
-    apiClient.get('/ingestion/remarkable/gdrive/status'),
+    apiClient.get('/ingestion/remarkable/gdrive/status').then((r) => r.data),
 
   syncRemarkableGDrive: () =>
-    apiClient.post('/ingestion/remarkable/gdrive/sync'),
+    apiClient.post('/ingestion/remarkable/gdrive/sync').then((r) => r.data),
 };
