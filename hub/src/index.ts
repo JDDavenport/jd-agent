@@ -98,19 +98,20 @@ const app = new Hono();
 
 // Global middleware - CORS configuration
 app.use('*', cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'https://command-center-plum.vercel.app',
-    'https://tasks-ten-ecru.vercel.app',
-    'https://vault-indol.vercel.app',
-    /\.vercel\.app$/,  // Allow all Vercel preview deployments
-  ],
+  origin: (origin) => {
+    // Allow all localhost ports for development
+    if (origin?.startsWith('http://localhost:')) return origin;
+    // Allow all Vercel deployments
+    if (origin?.endsWith('.vercel.app')) return origin;
+    // Allow specific production domains
+    if (origin === 'https://jdagent.app' || origin === 'https://www.jdagent.app') return origin;
+    // Default: allow the origin (permissive for now)
+    return origin || '*';
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
+  maxAge: 86400,
 }));
 app.use('*', logger());
 app.use('*', prettyJSON());
