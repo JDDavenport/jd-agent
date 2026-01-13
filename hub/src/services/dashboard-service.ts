@@ -1051,7 +1051,7 @@ class DashboardService {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 7);
 
-      // Get events for the week - only select needed columns, strict limit
+      // Get events for the week - only select needed columns
       const events = await db
         .select({
           id: calendarEvents.id,
@@ -1068,7 +1068,7 @@ class DashboardService {
           )
         )
         .orderBy(asc(calendarEvents.startTime))
-        .limit(50);
+        .limit(500);
 
     // Get task counts per day
     const taskCounts = await db
