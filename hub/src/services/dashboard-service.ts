@@ -809,7 +809,7 @@ class DashboardService {
 
   /**
    * Get today's tasks grouped by priority
-   * Wrapped in try-catch for resilience in memory-constrained environments
+   * OPTIMIZED: Single query with only needed columns, strict limit
    */
   async getGroupedTodayTasks(): Promise<GroupedTodayTasks> {
     try {
@@ -818,111 +818,101 @@ class DashboardService {
       const todayEnd = new Date(todayStart);
       todayEnd.setDate(todayEnd.getDate() + 1);
 
-      // Get all today's tasks with project info
+      // Single optimized query - select only needed columns
+      // Combines today's tasks, overdue tasks, and completed today into one query
       const result = await db
-      .select({
-        task: tasks,
-        project: {
-          id: projects.id,
-          name: projects.name,
-        },
-      })
-      .from(tasks)
-      .leftJoin(projects, eq(tasks.projectId, projects.id))
-      .where(
-        or(
-          eq(tasks.status, 'today'),
-          and(
-            sql`${tasks.status} not in ('archived')`,
-            gte(tasks.dueDate, todayStart),
-            lt(tasks.dueDate, todayEnd)
-          ),
-          and(
-            eq(tasks.status, 'done'),
-            gte(tasks.completedAt, todayStart),
-            lt(tasks.completedAt, todayEnd)
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          description: tasks.description,
+          status: tasks.status,
+          priority: tasks.priority,
+          dueDate: tasks.dueDate,
+          source: tasks.source,
+          context: tasks.context,
+          timeEstimateMinutes: tasks.timeEstimateMinutes,
+          completedAt: tasks.completedAt,
+          projectId: projects.id,
+          projectName: projects.name,
+        })
+        .from(tasks)
+        .leftJoin(projects, eq(tasks.projectId, projects.id))
+        .where(
+          or(
+            // Today's tasks (status = 'today')
+            eq(tasks.status, 'today'),
+            // Tasks due today (not archived)
+            and(
+              sql`${tasks.status} NOT IN ('done', 'archived')`,
+              gte(tasks.dueDate, todayStart),
+              lt(tasks.dueDate, todayEnd)
+            ),
+            // Overdue tasks (due before today, not done/archived)
+            and(
+              sql`${tasks.status} NOT IN ('done', 'archived')`,
+              lt(tasks.dueDate, todayStart)
+            ),
+            // Completed today
+            and(
+              eq(tasks.status, 'done'),
+              gte(tasks.completedAt, todayStart),
+              lt(tasks.completedAt, todayEnd)
+            )
           )
         )
-      )
-      .orderBy(desc(tasks.priority), asc(tasks.dueDate));
+        .orderBy(desc(tasks.priority), asc(tasks.dueDate))
+        .limit(200); // Reasonable limit to prevent memory issues
 
-    // Also get overdue tasks
-    const overdueResult = await db
-      .select({
-        task: tasks,
-        project: {
-          id: projects.id,
-          name: projects.name,
-        },
-      })
-      .from(tasks)
-      .leftJoin(projects, eq(tasks.projectId, projects.id))
-      .where(
-        and(
-          sql`${tasks.status} not in ('done', 'archived')`,
-          lt(tasks.dueDate, todayStart)
-        )
-      )
-      .orderBy(asc(tasks.dueDate));
+      // Group results in memory (single pass)
+      const grouped: GroupedTodayTasks = {
+        overdue: [],
+        high: [],
+        medium: [],
+        low: [],
+        noPriority: [],
+        completed: [],
+        stats: { total: 0, completed: 0, totalMinutes: 0, completedMinutes: 0 },
+      };
 
-    // Transform and group
-    const transformTask = (row: { task: typeof tasks.$inferSelect; project: { id: string; name: string } | null }): TaskWithProject => ({
-      id: row.task.id,
-      title: row.task.title,
-      description: row.task.description,
-      status: row.task.status,
-      priority: row.task.priority,
-      dueDate: row.task.dueDate,
-      source: row.task.source,
-      context: row.task.context,
-      timeEstimateMinutes: row.task.timeEstimateMinutes,
-      completedAt: row.task.completedAt,
-      project: row.project?.id ? row.project : null,
-    });
+      for (const row of result) {
+        const task: TaskWithProject = {
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          status: row.status,
+          priority: row.priority,
+          dueDate: row.dueDate,
+          source: row.source,
+          context: row.context,
+          timeEstimateMinutes: row.timeEstimateMinutes,
+          completedAt: row.completedAt,
+          project: row.projectId ? { id: row.projectId, name: row.projectName! } : null,
+        };
 
-    const grouped: GroupedTodayTasks = {
-      overdue: overdueResult.map(transformTask),
-      high: [],
-      medium: [],
-      low: [],
-      noPriority: [],
-      completed: [],
-      stats: {
-        total: 0,
-        completed: 0,
-        totalMinutes: 0,
-        completedMinutes: 0,
-      },
-    };
-
-    for (const row of result) {
-      const task = transformTask(row);
-
-      if (task.status === 'done') {
-        grouped.completed.push(task);
-        grouped.stats.completed++;
-        grouped.stats.completedMinutes += task.timeEstimateMinutes || 0;
-      } else {
-        grouped.stats.total++;
-        grouped.stats.totalMinutes += task.timeEstimateMinutes || 0;
-
-        if (task.priority >= 3) {
-          grouped.high.push(task);
-        } else if (task.priority === 2) {
-          grouped.medium.push(task);
-        } else if (task.priority === 1) {
-          grouped.low.push(task);
+        if (task.status === 'done') {
+          grouped.completed.push(task);
+          grouped.stats.completed++;
+          grouped.stats.completedMinutes += task.timeEstimateMinutes || 0;
+        } else if (task.dueDate && task.dueDate < todayStart) {
+          // Overdue
+          grouped.overdue.push(task);
+          grouped.stats.total++;
+          grouped.stats.totalMinutes += task.timeEstimateMinutes || 0;
         } else {
-          grouped.noPriority.push(task);
+          grouped.stats.total++;
+          grouped.stats.totalMinutes += task.timeEstimateMinutes || 0;
+
+          if (task.priority >= 3) {
+            grouped.high.push(task);
+          } else if (task.priority === 2) {
+            grouped.medium.push(task);
+          } else if (task.priority === 1) {
+            grouped.low.push(task);
+          } else {
+            grouped.noPriority.push(task);
+          }
         }
       }
-    }
-
-    // Add overdue to totals
-    grouped.stats.total += grouped.overdue.length;
-    for (const task of grouped.overdue) {
-      grouped.stats.totalMinutes += task.timeEstimateMinutes || 0;
-    }
 
       return grouped;
     } catch (error) {
@@ -941,86 +931,86 @@ class DashboardService {
 
   /**
    * Get deadlines grouped by urgency
-   * Wrapped in try-catch for resilience in memory-constrained environments
+   * OPTIMIZED: Select only needed columns, limit results
    */
   async getGroupedDeadlines(): Promise<GroupedDeadlines> {
     try {
-    const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
-    const weekEnd = new Date(todayStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    const nextWeekEnd = new Date(todayStart);
-    nextWeekEnd.setDate(nextWeekEnd.getDate() + 14);
+      const now = new Date();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
+      const weekEnd = new Date(todayStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const nextWeekEnd = new Date(todayStart);
+      nextWeekEnd.setDate(nextWeekEnd.getDate() + 14);
 
-    // Get all tasks with due dates
-    const result = await db
-      .select({
-        task: tasks,
-        project: {
-          id: projects.id,
-          name: projects.name,
-        },
-      })
-      .from(tasks)
-      .leftJoin(projects, eq(tasks.projectId, projects.id))
-      .where(
-        and(
-          sql`${tasks.status} not in ('done', 'archived')`,
-          sql`${tasks.dueDate} is not null`
+      // Optimized: Select only needed columns, with limit
+      const result = await db
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          dueDate: tasks.dueDate,
+          priority: tasks.priority,
+          source: tasks.source,
+          context: tasks.context,
+          projectId: projects.id,
+          projectName: projects.name,
+        })
+        .from(tasks)
+        .leftJoin(projects, eq(tasks.projectId, projects.id))
+        .where(
+          and(
+            sql`${tasks.status} NOT IN ('done', 'archived')`,
+            sql`${tasks.dueDate} IS NOT NULL`
+          )
         )
-      )
-      .orderBy(asc(tasks.dueDate));
+        .orderBy(asc(tasks.dueDate))
+        .limit(200); // Reasonable limit to prevent memory issues
 
-    const grouped: GroupedDeadlines = {
-      overdue: [],
-      today: [],
-      thisWeek: [],
-      nextWeek: [],
-      later: [],
-      stats: {
-        total: 0,
-        overdue: 0,
-        urgent: 0,
-      },
-    };
-
-    for (const row of result) {
-      if (!row.task.dueDate) continue;
-
-      const dueDate = new Date(row.task.dueDate);
-      const daysUntil = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-      const deadline: DeadlineTask = {
-        id: row.task.id,
-        title: row.task.title,
-        dueDate: row.task.dueDate,
-        priority: row.task.priority,
-        source: row.task.source,
-        context: row.task.context,
-        project: row.project?.id ? row.project : null,
-        daysUntil,
+      const grouped: GroupedDeadlines = {
+        overdue: [],
+        today: [],
+        thisWeek: [],
+        nextWeek: [],
+        later: [],
+        stats: { total: 0, overdue: 0, urgent: 0 },
       };
 
-      grouped.stats.total++;
+      for (const row of result) {
+        if (!row.dueDate) continue;
 
-      if (dueDate < todayStart) {
-        grouped.overdue.push(deadline);
-        grouped.stats.overdue++;
-        grouped.stats.urgent++;
-      } else if (dueDate < todayEnd) {
-        grouped.today.push(deadline);
-        grouped.stats.urgent++;
-      } else if (dueDate < weekEnd) {
-        grouped.thisWeek.push(deadline);
-      } else if (dueDate < nextWeekEnd) {
-        grouped.nextWeek.push(deadline);
-      } else {
-        grouped.later.push(deadline);
+        const dueDate = new Date(row.dueDate);
+        const daysUntil = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        const deadline: DeadlineTask = {
+          id: row.id,
+          title: row.title,
+          dueDate: row.dueDate,
+          priority: row.priority,
+          source: row.source,
+          context: row.context,
+          project: row.projectId ? { id: row.projectId, name: row.projectName! } : null,
+          daysUntil,
+        };
+
+        grouped.stats.total++;
+
+        if (dueDate < todayStart) {
+          grouped.overdue.push(deadline);
+          grouped.stats.overdue++;
+          grouped.stats.urgent++;
+        } else if (dueDate < todayEnd) {
+          grouped.today.push(deadline);
+          grouped.stats.urgent++;
+        } else if (dueDate < weekEnd) {
+          grouped.thisWeek.push(deadline);
+        } else if (dueDate < nextWeekEnd) {
+          grouped.nextWeek.push(deadline);
+        } else {
+          grouped.later.push(deadline);
+        }
       }
-    }
 
       return grouped;
     } catch (error) {
