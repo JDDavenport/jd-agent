@@ -87,6 +87,7 @@ import { oauthRouter } from './api/routes/oauth';
 import { journalRouter } from './api/routes/journal';
 import { voiceProfilesRouter } from './api/routes/voice-profiles';
 import { financeRouter } from './api/routes/finance';
+import recordingsRouter from './api/routes/recordings';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -95,8 +96,22 @@ import { plaudIntegration } from './integrations/plaud';
 // Create Hono app
 const app = new Hono();
 
-// Global middleware
-app.use('*', cors());
+// Global middleware - CORS configuration
+app.use('*', cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'https://command-center-plum.vercel.app',
+    'https://tasks-ten-ecru.vercel.app',
+    'https://vault-indol.vercel.app',
+    /\.vercel\.app$/,  // Allow all Vercel preview deployments
+  ],
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', errorHandler);
@@ -210,6 +225,7 @@ app.route('/api/oauth', oauthRouter);
 app.route('/api/journal', journalRouter);
 app.route('/api/voice-profiles', voiceProfilesRouter);
 app.route('/api/finance', financeRouter);
+app.route('/api/recordings', recordingsRouter);
 
 // Web UI
 app.route('/setup', setupUI);
@@ -288,5 +304,4 @@ if (plaudIntegration.isConfigured()) {
   console.log('🎙️  Plaud file watcher started - auto-syncing recordings');
 }
 
-// Also export for module compatibility
-export default server;
+// Server is started explicitly above with Bun.serve()
