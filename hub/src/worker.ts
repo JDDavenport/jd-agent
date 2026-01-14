@@ -32,6 +32,7 @@ import {
   processTestingSessionJob,
   processRecurrenceGenerateJob,
   processRecurrenceBatchJob,
+  processRemarkableMbaSyncJob,
 } from './jobs/processors';
 import {
   processVipIngestionJob,
@@ -145,6 +146,10 @@ async function processJob(job: Job): Promise<any> {
         result = await processRecurrenceBatchJob(job);
         break;
 
+      case 'remarkable-mba-sync':
+        result = await processRemarkableMbaSyncJob(job as Job<any>);
+        break;
+
       default:
         console.warn(`[Worker] Unknown job type: ${job.name}`);
         result = { success: false, error: `Unknown job type: ${job.name}` };
@@ -238,6 +243,7 @@ async function startWorker() {
   console.log('  - testing-session (AI Testing Agent)');
   console.log('  - recurrence-generate');
   console.log('  - recurrence-batch');
+  console.log('  - remarkable-mba-sync');
 }
 
 // Start the worker

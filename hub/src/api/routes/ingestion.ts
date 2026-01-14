@@ -1028,7 +1028,10 @@ ingestionRouter.get('/remarkable/cloud/documents', async (c) => {
     data: documents.map(doc => ({
       id: doc.id,
       name: doc.name,
+      type: doc.type,
+      parent: doc.parent,
       lastModified: new Date(doc.lastModified).toISOString(),
+      pageCount: doc.pageCount,
     })),
     count: documents.length,
   });

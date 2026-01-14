@@ -637,6 +637,25 @@ export class RemarkableCloudSync {
     const fs = await import('fs');
     const path = await import('path');
 
+    const pdfPath = outputPath || join(documentPath, 'output.pdf');
+    const rmcPath = '/Users/jddavenport/.local/bin/rmc';
+
+    // Try to get page order from .content file
+    let pageOrder: string[] = [];
+    const contentFiles = fs.readdirSync(documentPath).filter((f: string) => f.endsWith('.content'));
+    if (contentFiles.length > 0) {
+      try {
+        const contentPath = path.join(documentPath, contentFiles[0]);
+        const contentData = JSON.parse(fs.readFileSync(contentPath, 'utf-8'));
+        if (contentData.cPages?.pages) {
+          pageOrder = contentData.cPages.pages.map((p: { id: string }) => p.id);
+          console.log(`[RemarkableCloud] Found ${pageOrder.length} pages in content file`);
+        }
+      } catch (e) {
+        console.log(`[RemarkableCloud] Could not parse content file: ${e}`);
+      }
+    }
+
     // Find all .rm files in the document directory
     const findRmFiles = (dir: string): string[] => {
       const results: string[] = [];
@@ -658,55 +677,116 @@ export class RemarkableCloudSync {
       throw new Error('No .rm files found in document directory');
     }
 
-    const pdfPath = outputPath || join(documentPath, 'output.pdf');
-    const svgPath = join(documentPath, 'output.svg');
-
     console.log(`[RemarkableCloud] Found ${rmFiles.length} .rm files`);
 
-    // For now, convert the first .rm file (typically the main page)
-    // TODO: Support multi-page documents by combining multiple .rm files
-    const rmFile = rmFiles[0];
-    console.log(`[RemarkableCloud] Converting ${rmFile} to SVG`);
-
-    try {
-      // Step 1: Use rmc to convert .rm to SVG
-      const rmcPath = '/Users/jddavenport/.local/bin/rmc';
-      execSync(`"${rmcPath}" "${rmFile}" -o "${svgPath}"`, {
-        cwd: documentPath,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      // Verify SVG was created
-      if (!fs.existsSync(svgPath)) {
-        throw new Error('rmc did not produce SVG output');
-      }
-
-      const svgStats = fs.statSync(svgPath);
-      console.log(`[RemarkableCloud] SVG created: ${svgStats.size} bytes`);
-
-      // Step 2: Use cairosvg to convert SVG to PDF
-      console.log(`[RemarkableCloud] Converting SVG to PDF`);
-      execSync(
-        `python3 -c "import cairosvg; cairosvg.svg2pdf(url='${svgPath}', write_to='${pdfPath}')"`,
-        { stdio: ['pipe', 'pipe', 'pipe'] }
-      );
-
-      // Verify PDF was created
-      if (!fs.existsSync(pdfPath)) {
-        throw new Error('cairosvg did not produce PDF output');
-      }
-
-      const pdfStats = fs.statSync(pdfPath);
-      console.log(`[RemarkableCloud] PDF rendered: ${pdfPath} (${pdfStats.size} bytes)`);
-
-      // Clean up SVG file
-      fs.unlinkSync(svgPath);
-
-      return pdfPath;
-    } catch (error) {
-      console.error('[RemarkableCloud] Render failed:', error);
-      throw new Error(`PDF rendering failed: ${error instanceof Error ? error.message : String(error)}`);
+    // Sort .rm files by page order if available
+    let sortedRmFiles = rmFiles;
+    if (pageOrder.length > 0) {
+      sortedRmFiles = pageOrder
+        .map((pageId) => rmFiles.find((f) => f.includes(pageId)))
+        .filter((f): f is string => f !== undefined);
+      // Add any files not in pageOrder at the end
+      const remaining = rmFiles.filter((f) => !sortedRmFiles.includes(f));
+      sortedRmFiles = [...sortedRmFiles, ...remaining];
     }
+
+    console.log(`[RemarkableCloud] Processing ${sortedRmFiles.length} pages in order`);
+
+    // Process each page
+    const pagePdfs: string[] = [];
+    let successCount = 0;
+
+    for (let i = 0; i < sortedRmFiles.length; i++) {
+      const rmFile = sortedRmFiles[i];
+      const pageNum = i + 1;
+      const svgPath = join(documentPath, `page_${pageNum}.svg`);
+      const pagePdfPath = join(documentPath, `page_${pageNum}.pdf`);
+
+      try {
+        // Step 1: Use rmc to convert .rm to SVG
+        console.log(`[RemarkableCloud] Converting page ${pageNum}/${sortedRmFiles.length}...`);
+        execSync(`"${rmcPath}" "${rmFile}" -o "${svgPath}"`, {
+          cwd: documentPath,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        if (!fs.existsSync(svgPath)) {
+          console.log(`[RemarkableCloud] Page ${pageNum} produced no SVG output (may be empty)`);
+          continue;
+        }
+
+        // Step 2: Use cairosvg to convert SVG to PDF
+        execSync(
+          `python3 -c "import cairosvg; cairosvg.svg2pdf(url='${svgPath}', write_to='${pagePdfPath}')"`,
+          { stdio: ['pipe', 'pipe', 'pipe'] }
+        );
+
+        if (fs.existsSync(pagePdfPath)) {
+          pagePdfs.push(pagePdfPath);
+          successCount++;
+        }
+
+        // Clean up SVG
+        if (fs.existsSync(svgPath)) {
+          fs.unlinkSync(svgPath);
+        }
+      } catch (error) {
+        console.log(`[RemarkableCloud] Page ${pageNum} failed: ${error instanceof Error ? error.message : String(error)}`);
+        // Continue with other pages
+      }
+    }
+
+    if (pagePdfs.length === 0) {
+      throw new Error('No pages could be converted to PDF');
+    }
+
+    console.log(`[RemarkableCloud] Successfully converted ${successCount}/${sortedRmFiles.length} pages`);
+
+    // Combine all page PDFs into one
+    if (pagePdfs.length === 1) {
+      // Just rename the single page PDF
+      fs.renameSync(pagePdfs[0], pdfPath);
+    } else {
+      // Use pdfunite to combine PDFs
+      console.log(`[RemarkableCloud] Combining ${pagePdfs.length} pages into single PDF`);
+      try {
+        const pdfList = pagePdfs.map((p) => `"${p}"`).join(' ');
+        execSync(`pdfunite ${pdfList} "${pdfPath}"`, { stdio: ['pipe', 'pipe', 'pipe'] });
+      } catch (e) {
+        // Fallback: use Python's PyPDF2
+        console.log(`[RemarkableCloud] pdfunite failed, trying PyPDF2...`);
+        const pyScript = `
+import sys
+from PyPDF2 import PdfMerger
+merger = PdfMerger()
+for pdf in sys.argv[1:-1]:
+    merger.append(pdf)
+merger.write(sys.argv[-1])
+merger.close()
+`;
+        const scriptPath = join(documentPath, 'merge_pdfs.py');
+        fs.writeFileSync(scriptPath, pyScript);
+        const pdfArgs = pagePdfs.map((p) => `"${p}"`).join(' ');
+        execSync(`python3 "${scriptPath}" ${pdfArgs} "${pdfPath}"`, { stdio: ['pipe', 'pipe', 'pipe'] });
+        fs.unlinkSync(scriptPath);
+      }
+
+      // Clean up individual page PDFs
+      for (const pagePdf of pagePdfs) {
+        if (fs.existsSync(pagePdf)) {
+          fs.unlinkSync(pagePdf);
+        }
+      }
+    }
+
+    if (!fs.existsSync(pdfPath)) {
+      throw new Error('PDF combining failed');
+    }
+
+    const pdfStats = fs.statSync(pdfPath);
+    console.log(`[RemarkableCloud] PDF rendered: ${pdfPath} (${pdfStats.size} bytes, ${pagePdfs.length} pages)`);
+
+    return pdfPath;
   }
 
   /**
