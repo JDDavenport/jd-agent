@@ -950,9 +950,21 @@ See `docs/plans/plaud-integration-prd-v3.md` for detailed implementation plan.
 
 ## Remarkable Integration (Handwritten Notes)
 
-**Status:** Complete (100%) - Full MBA class notes pipeline with OCR and content merging
+**Status:** Complete (100%) - Full MBA class notes pipeline with Cloud sync, PDF rendering, and OCR
 
 ### What Works
+
+#### Remarkable Cloud Sync (NEW)
+- **Cloud API Integration:** Direct sync with Remarkable Cloud servers via device token authentication
+- **Folder Tree Browser:** Interactive UI to browse MBA folder structure (BYU MBA > Semester > Class)
+- **Multi-page PDF Rendering:** Converts `.rm` files to PDF using `rmc` tool with correct page ordering
+- **Apple Vision OCR:** Extracts handwritten text from rendered PDFs with page separators
+- **MBA Vault Sync:** Syncs entire BYU MBA folder structure to Vault pages with PDFs attached
+- **Daily Grouping:** Multiple documents from same day grouped into single Vault page
+- **Background Jobs:** Async MBA sync via BullMQ job queue (handles 90+ second syncs)
+- **Sync UI:** Dedicated `/remarkable` page in Command Center with status cards and folder tree
+
+#### Legacy File Watcher
 - **Naming Convention Parser:** Auto-classifies notes via `MBA/[Semester]/[ClassCode]/[YYYY-MM-DD]` pattern
 - **File Watcher:** Monitors `REMARKABLE_SYNC_PATH` for new PDF, PNG, SVG, TXT files
 - **Vault Structure Auto-Creation:** Automatically creates `vault/academic/mba/{semester}/{class}/days/{date}/`
@@ -976,6 +988,20 @@ Examples:
 ```
 
 ### API Endpoints
+
+#### Cloud Sync API (NEW)
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/ingestion/remarkable/cloud/status` | GET | Cloud connection status, document count |
+| `/api/ingestion/remarkable/cloud/sync` | POST | Sync with Remarkable Cloud servers |
+| `/api/ingestion/remarkable/cloud/documents` | GET | List all documents with type, parent, pageCount |
+| `/api/ingestion/remarkable/cloud/render/:id` | POST | Render document to PDF with OCR |
+| `/api/ingestion/remarkable/mba/status` | GET | MBA folder sync status |
+| `/api/ingestion/remarkable/mba/tree` | GET | MBA folder tree structure |
+| `/api/ingestion/remarkable/mba/sync` | POST | Sync MBA folder to Vault (direct) |
+| `/api/ingestion/remarkable/mba/jobs/sync` | POST | Queue MBA sync as background job |
+
+#### Legacy File Watcher API
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/ingestion/remarkable/status` | GET | Integration status and configuration |
@@ -1033,13 +1059,26 @@ VAULT_BASE_PATH=./vault              # Base path for vault storage
 ```
 
 ### Key Files
+- `/hub/src/services/remarkable-cloud-sync.ts` - Cloud API, PDF rendering, OCR extraction
+- `/hub/src/services/remarkable-mba-sync.ts` - MBA folder to Vault sync logic
 - `/hub/src/integrations/remarkable.ts` - File watcher, OCR, naming parser
 - `/hub/src/services/remarkable-service.ts` - Business logic, content merging
 - `/hub/src/jobs/processors/remarkable.ts` - Background job processors
 - `/hub/src/api/routes/ingestion.ts` - API endpoints (remarkable section)
 - `/hub/src/db/schema.ts` - `remarkable_notes`, `remarkable_sync_state` tables
+- `/apps/command-center/src/pages/Remarkable.tsx` - Sync UI page
+- `/apps/command-center/src/hooks/useRemarkable.ts` - React Query hooks for Remarkable API
 
 ### Setup Guide
+
+#### Cloud Sync (Recommended)
+1. **Get device token**: Go to `my.remarkable.com` → Connect → Mobile App → Copy one-time code
+2. **Register device**: Use the code to get a device token via Remarkable API
+3. **Configure**: Set `REMARKABLE_DEVICE_TOKEN` in `.env`
+4. **Install rmc**: `pipx install rmc` (for .rm to PDF conversion)
+5. **Sync**: Use `/remarkable` page in Command Center or `POST /api/ingestion/remarkable/mba/jobs/sync`
+
+#### Legacy File Watcher
 1. **Install rmapi** (recommended): `go install github.com/juruen/rmapi@latest`
 2. **Configure sync folder**: Set `REMARKABLE_SYNC_PATH` in `.env`
 3. **Optional OCR**: Set `GOOGLE_APPLICATION_CREDENTIALS` for handwriting OCR
@@ -1403,6 +1442,32 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 13, 2026 - Remarkable Cloud Sync & UI
+- **Cloud API Integration**: Direct sync with Remarkable Cloud servers
+  - Device token authentication with automatic refresh
+  - Fetches all 168+ documents with folder hierarchy (type, parent, pageCount)
+  - Files: `remarkable-cloud-sync.ts`
+- **MBA Vault Sync**: Syncs BYU MBA folder structure to Vault pages
+  - Creates page hierarchy: BYU MBA > Semester > Class > Date
+  - Renders documents to PDF with multi-page support
+  - Extracts OCR text via Apple Vision and creates child pages
+  - Groups multiple documents from same day into single page
+  - Files: `remarkable-mba-sync.ts`
+- **Sync UI**: New `/remarkable` page in Command Center
+  - Status cards: Cloud documents, synced count, pending, connection status
+  - Interactive folder tree browser with expand/collapse
+  - Document preview with embedded PDF viewer and OCR text display
+  - Sync buttons for cloud refresh and MBA-to-Vault sync
+  - Files: `Remarkable.tsx`, `useRemarkable.ts`
+- **Multi-page PDF Rendering**: Enhanced `.rm` to PDF conversion
+  - Reads page order from `.content` file's `cPages.pages` array
+  - Converts each page via `rmc` tool to SVG, then to PDF
+  - Combines all pages using `pdfunite` into single PDF
+  - Apple Vision OCR with page separators in extracted text
+- **Background Job Support**: MBA sync runs as BullMQ job (90+ second operations)
+  - New job type: `remarkable-mba-sync`
+  - Files: `worker.ts`, `processors/remarkable.ts`
 
 ### January 13, 2026 - Tasks App UI Improvements
 - **Task Detail Panel**: Click any task to open slide-out panel with full details
