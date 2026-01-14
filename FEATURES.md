@@ -1138,18 +1138,22 @@ See the Remarkable Integration PRD for detailed implementation plan.
 
 ### Tasks App (`/apps/tasks`)
 **Views:**
-- InboxView: Unclarified tasks
+- InboxView: Unprocessed tasks (no project, no due date, no scheduled date)
 - TodayView: Today's next actions
 - UpcomingView: Scheduled tasks
-- ProjectView: Project-specific tasks
+- ProjectView: Project-specific tasks with nested sub-projects display
 - FiltersView: Custom filtered views
 
 **Features:**
 - Drag-and-drop task organization (dnd-kit)
-- Quick add task modal
-- Global search
-- Task cards with inline editing
-- Sidebar navigation
+- Quick add task modal with natural language parsing
+- Natural language recurring task support (e.g., "every monday" sets recurrence AND first due date)
+- Global search (Cmd+K or /)
+- Task detail panel: Click any task to view/edit details (due date, scheduled, description, comments)
+- Task cards with inline editing and subtask indicators
+- Sidebar navigation with hierarchical project tree
+- Parent project navigation: Click project name to view, click chevron to expand/collapse children
+- Keyboard shortcuts: Q/N (quick add), G+I/T/U (navigation), Escape (close panels)
 
 ### Vault App (`/apps/vault`)
 **Views (Notion Mode - NEW):**
@@ -1399,6 +1403,27 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 13, 2026 - Tasks App UI Improvements
+- **Task Detail Panel**: Click any task to open slide-out panel with full details
+  - Shows due date, scheduled date, priority, description, comments
+  - Press Escape or click outside to close
+  - Files: `TaskDetailPanel.tsx`, `App.tsx`, all view components
+- **Nested Project Navigation**: Improved sidebar project hierarchy
+  - Click project name to navigate to project view
+  - Click chevron icon to expand/collapse child projects
+  - Project view displays nested sub-projects as clickable cards
+  - Files: `Sidebar.tsx`, `ProjectView.tsx`
+- **Inbox Filtering**: GTD-compliant inbox behavior
+  - Inbox now shows only truly unprocessed tasks
+  - Tasks with projects, due dates, or scheduled dates are excluded
+  - Files: `InboxView.tsx`, `App.tsx`
+- **Recurring Task Parsing**: Fixed natural language recurring tasks
+  - "every monday" now sets both recurrence rule AND first due date
+  - Supports all days of week for recurring tasks
+  - Files: `parseNaturalLanguage.ts`
+- **Removed Add Section**: Removed non-functional Add Section button from ProjectView
+- **Production Deployment**: All changes live at https://tasks-ten-ecru.vercel.app
 
 ### January 12, 2026 - Calendar Page Production Fix
 - **API Fix**: Fixed calendar API returning 502 timeout with date parameters

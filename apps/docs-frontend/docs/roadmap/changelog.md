@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] - 2026-01-10
+## [Unreleased] - 2026-01-13
+
+### Added
+- **Task Detail Panel**: Click any task to open slide-out panel with full task information (due date, scheduled date, priority, description, comments)
+- **Nested Project Display**: Parent project view now shows child projects as clickable cards
+
+### Changed
+- **Sidebar Navigation**: Clicking project name navigates to project, clicking chevron expands/collapses children
+- **Inbox Filtering**: Inbox now shows only unprocessed tasks (no project, no due date, no scheduled date)
+- **Recurring Task Parsing**: Natural language "every monday" now sets both recurrence AND first due date
+
+### Fixed
+- Removed non-functional "Add Section" button from project view
+
+### Production
+- Tasks app deployed: https://tasks-ten-ecru.vercel.app
+- Vault app deployed: https://vault-indol.vercel.app
+- Command Center deployed: https://command-center-plum.vercel.app
+
+---
+
+## [0.3.4] - 2026-01-10
 
 ### Added
 - Calendar service unit tests (37 tests covering all CRUD operations, conflict detection, alerts)

@@ -47,14 +47,20 @@ Read chapter 5 someday
 ## Views
 
 ### Inbox
-**Purpose:** Capture point for all new tasks
+**Purpose:** Capture point for unprocessed tasks
 
-The inbox holds tasks you've captured but haven't processed yet. The goal is **inbox zero** - process everything daily.
+The inbox shows tasks that haven't been clarified yet - tasks with **no project, no due date, and no scheduled date**. Once you assign any of these, the task moves out of inbox. The goal is **inbox zero** - process everything daily.
+
+**What appears in Inbox:**
+- Tasks without a project assigned
+- Tasks without a due date
+- Tasks without a scheduled date
+- All three conditions must be true
 
 **How to use:**
 1. Check inbox daily
 2. For each item, decide: actionable or not?
-3. If actionable: What's the next action? Schedule it.
+3. If actionable: Assign a project, due date, or schedule it
 4. If not actionable: Delete, archive to Vault, or mark Someday
 
 ### Today
@@ -92,9 +98,12 @@ Shows all projects organized by area:
 - Favorites at top
 - Work, School, Personal areas
 - Completed projects (collapsed)
+- Nested sub-projects displayed hierarchically
 
 **How to use:**
-- Click a project to see its tasks
+- Click a project name to view its tasks and sub-projects
+- Click the chevron (▶) to expand/collapse child projects in sidebar
+- Sub-projects appear as clickable cards within parent project view
 - Use sections to organize within projects
 - Track progress with completion counts
 
@@ -108,6 +117,30 @@ Shows tasks matching specific criteria:
 **How to use:**
 - Click a context to see all matching tasks
 - Create saved filters for common queries
+
+---
+
+## Task Detail Panel
+
+Click any task to open a slide-out detail panel showing all task information.
+
+### What You'll See
+- **Title**: The task name (editable)
+- **Due Date**: When it must be done
+- **Scheduled Date**: When you plan to work on it
+- **Priority**: P1-P4 with color indicators
+- **Project**: Which project this belongs to
+- **Description**: Detailed notes about the task
+- **Comments**: Discussion and updates
+
+### How to Use
+1. Click any task in a list view
+2. The detail panel slides in from the right
+3. View or edit any field
+4. Press **Escape** or click outside to close
+
+### Keyboard Shortcut
+- **Escape**: Close the detail panel
 
 ---
 
@@ -206,14 +239,19 @@ Create tasks that repeat automatically.
 
 ### Creating Recurring Tasks
 
-In quick add:
+In quick add, use natural language:
 ```
 Weekly review every Sunday at 4pm
 Daily standup every weekday at 9am
 Rent payment every month on the 1st
+Team sync every monday
 ```
 
-Or edit a task and set recurrence.
+The parser automatically:
+- Sets the recurrence rule (e.g., "FREQ=WEEKLY;BYDAY=MO")
+- Sets the first due date to the next occurrence (e.g., next Monday)
+
+Or edit a task and set recurrence manually.
 
 ### Recurrence Options
 - Daily
@@ -251,15 +289,15 @@ Or in the task list:
 
 | Shortcut | Action |
 |----------|--------|
-| `Q` | Quick add task |
-| `N` | New task (detailed) |
+| `Q` or `N` | Quick add task |
 | `Enter` | Open selected task |
+| `Escape` | Close detail panel/modals |
 | `Cmd+Enter` | Complete task |
 | `G then I` | Go to Inbox |
 | `G then T` | Go to Today |
 | `G then U` | Go to Upcoming |
 | `G then P` | Go to Projects |
-| `Cmd+K` | Search |
+| `Cmd+K` or `/` | Search |
 | `Tab` | Make subtask (indent) |
 | `Shift+Tab` | Outdent |
 | `↑/↓` | Navigate tasks |
@@ -315,4 +353,4 @@ Or in the task list:
 
 ---
 
-*Last updated: January 8, 2026*
+*Last updated: January 13, 2026*
