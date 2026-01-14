@@ -15,7 +15,7 @@ import {
   isToday,
 } from 'date-fns';
 import { useCalendarEvents } from '../hooks/useCalendar';
-import { useTodayTasks, useCompleteTask } from '../hooks/useTasks';
+import { useTodayTasks, useCompleteTask, useCreateTask } from '../hooks/useTasks';
 import MonthView from '../components/calendar/MonthView';
 import WeekView from '../components/calendar/WeekView';
 import DayView from '../components/calendar/DayView';
@@ -72,9 +72,33 @@ function TaskItem({ task, onComplete }: { task: Task; onComplete: (id: string) =
 function TasksSidebar() {
   const { data: tasks = [], isLoading, error } = useTodayTasks();
   const completeMutation = useCompleteTask();
+  const createMutation = useCreateTask();
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   const handleComplete = (id: string) => {
     completeMutation.mutate(id);
+  };
+
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    createMutation.mutate(
+      {
+        title: newTaskTitle.trim(),
+        dueDate: today.toISOString(),
+        status: 'today',
+        source: 'manual',
+        priority: 1, // 0=low, 1=medium, 2=high, 3=urgent
+        context: 'personal',
+      } as any,
+      {
+        onSuccess: () => setNewTaskTitle(''),
+      }
+    );
   };
 
   // Separate scheduled vs unscheduled tasks
@@ -129,6 +153,36 @@ function TasksSidebar() {
         <h3 className="text-lg font-semibold">Today's Tasks</h3>
         <span className="text-sm text-text-muted">{tasks.length} tasks</span>
       </div>
+
+      {/* Quick Add Task */}
+      <form onSubmit={handleAddTask} className="mb-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            placeholder="Add a task for today..."
+            className="flex-1 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-sm focus:outline-none focus:border-accent"
+            disabled={createMutation.isPending}
+          />
+          <button
+            type="submit"
+            disabled={!newTaskTitle.trim() || createMutation.isPending}
+            className="px-3 py-2 bg-accent text-white rounded-lg text-sm hover:bg-accent-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {createMutation.isPending ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </form>
 
       {tasks.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-text-muted py-8">
