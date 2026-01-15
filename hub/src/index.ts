@@ -97,6 +97,9 @@ import { plaudIntegration } from './integrations/plaud';
 const app = new Hono();
 
 // Global middleware - CORS configuration
+// CORS_ALLOWED_ORIGINS can be set to a comma-separated list of additional origins
+const additionalOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
+
 app.use('*', cors({
   origin: (origin) => {
     // Allow all localhost ports for development
@@ -105,6 +108,10 @@ app.use('*', cors({
     if (origin?.endsWith('.vercel.app')) return origin;
     // Allow specific production domains
     if (origin === 'https://jdagent.app' || origin === 'https://www.jdagent.app') return origin;
+    // Allow Cloudflare tunnel domain (api.jdagent.dev or custom)
+    if (origin?.endsWith('.jdagent.dev')) return origin;
+    // Allow additional origins from environment (for custom tunnel domains)
+    if (additionalOrigins.includes(origin || '')) return origin;
     // Default: allow the origin (permissive for now)
     return origin || '*';
   },

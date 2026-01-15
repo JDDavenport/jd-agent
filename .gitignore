@@ -56,6 +56,11 @@ temp/
 *.sqlite
 *.db
 
+# Docker local data
+data/
+backups/
+.env.local.docker
+
 # Drizzle
 drizzle/meta/
 

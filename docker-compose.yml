@@ -1,0 +1,193 @@
+# JD Agent - Docker Compose Configuration
+# Local backend setup with PostgreSQL, Redis, and Hub API
+#
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose up -d --build      # Rebuild and start
+#   docker compose logs -f hub        # Follow hub logs
+#   docker compose down               # Stop all services
+#   docker compose down -v            # Stop and remove volumes (CAUTION: data loss)
+
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: jd-agent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jdagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jdagent_local_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-jd_agent}
+      # Performance tuning for local development
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5433:5432"  # Use 5433 externally to avoid conflict with native PostgreSQL
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jdagent} -d ${POSTGRES_DB:-jd_agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - jd-agent-network
+
+  # ============================================
+  # Redis (for BullMQ job queue)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: jd-agent-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jd-agent-network
+
+  # ============================================
+  # Hub API (Hono + Bun)
+  # ============================================
+  hub:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+    container_name: jd-agent-hub
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_ENV: production
+      PORT: 3000
+      # Database - internal Docker network
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jdagent}:${POSTGRES_PASSWORD:-jdagent_local_pass}@postgres:5432/${POSTGRES_DB:-jd_agent}
+      DATABASE_SSL: "false"
+      DATABASE_POOL_SIZE: 10
+      # Redis - internal Docker network
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Feature flags
+      ENABLE_AI_FEATURES: "true"
+      ENABLE_QUEUE_PROCESSING: "true"
+      LOG_LEVEL: info
+    env_file:
+      - .env.local.docker
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount storage directory for files
+      - ./hub/storage:/app/hub/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - jd-agent-network
+
+  # ============================================
+  # Worker (BullMQ background jobs)
+  # ============================================
+  worker:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+    container_name: jd-agent-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hub:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jdagent}:${POSTGRES_PASSWORD:-jdagent_local_pass}@postgres:5432/${POSTGRES_DB:-jd_agent}
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: info
+    env_file:
+      - .env.local.docker
+    volumes:
+      - ./hub/storage:/app/hub/storage
+    command: ["bun", "run", "src/worker.ts"]
+    networks:
+      - jd-agent-network
+
+  # ============================================
+  # Scheduler (Cron jobs)
+  # ============================================
+  scheduler:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+    container_name: jd-agent-scheduler
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hub:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jdagent}:${POSTGRES_PASSWORD:-jdagent_local_pass}@postgres:5432/${POSTGRES_DB:-jd_agent}
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: info
+    env_file:
+      - .env.local.docker
+    command: ["bun", "run", "src/scheduler.ts"]
+    networks:
+      - jd-agent-network
+
+  # ============================================
+  # Cloudflare Tunnel (expose API to internet)
+  # ============================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: jd-agent-tunnel
+    restart: unless-stopped
+    depends_on:
+      hub:
+        condition: service_healthy
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - jd-agent-network
+
+networks:
+  jd-agent-network:
+    driver: bridge
+    name: jd-agent-network
+
+# Named volumes for persistent data
+volumes:
+  postgres_data:
+  redis_data:

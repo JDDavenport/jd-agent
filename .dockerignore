@@ -1,0 +1,80 @@
+# Docker ignore file - reduce build context size
+
+# Dependencies (will be installed fresh)
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+**/dist/
+**/build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker data
+data/
+backups/
+
+# Logs
+logs/
+*.log
+
+# Test artifacts
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+test-screenshots/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.cache/
+
+# Large storage directories
+hub/storage/
+services/
+
+# Documentation (not needed in container)
+docs/
+
+# Frontend apps (not needed for hub container)
+apps/
+
+# Python venv
+venv/
+__pycache__/
+
+# Claude Code
+.claude/
+
+# Vercel/Railway configs
+.vercel/
+.railway/
+
+# Screenshots and test data
+screenshots/
+*.png
+*.jpg
+*.pdf
