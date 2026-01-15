@@ -12,10 +12,21 @@ out/
 **/dist/
 **/build/
 
-# Environment files
+# Environment files (root level)
 .env
 .env.*
 !.env.example
+
+# Environment files (all subdirectories)
+**/.env
+**/.env.local
+**/.env.development
+**/.env.staging
+**/.env.production
+**/.env.*.local
+# Keep examples for reference
+!**/.env.example
+!**/.env.*.example
 
 # Git
 .git/
