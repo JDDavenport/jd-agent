@@ -1,6 +1,6 @@
 /**
  * JD Agent - Scheduled Jobs
- * 
+ *
  * Handles scheduled/cron jobs:
  * - Morning ceremony + digest (6 AM)
  * - Evening ceremony + digest (9 PM)
@@ -9,6 +9,7 @@
  * - Email monitoring (every hour)
  * - Integrity checks (twice daily)
  * - Deadline alerts (every 15 minutes)
+ * - Google Calendar sync (every 10 minutes)
  */
 
 import { ceremonyService } from './services/ceremony-service';
@@ -25,6 +26,9 @@ import { remarkableCloudSync } from './services/remarkable-cloud-sync';
 import { plaudIntegration } from './integrations/plaud';
 import { plaudApiClient } from './integrations/plaud-api';
 import { plaudGDriveSync } from './services/plaud-gdrive-sync';
+import { addPlaudSyncJob } from './jobs/queue';
+import { calendarService } from './services/calendar-service';
+import { getGoogleCalendar } from './integrations/google-calendar';
 
 // ============================================
 // Schedule Configuration
@@ -218,10 +222,52 @@ const jobs: ScheduledJob[] = [
       console.log('[Scheduler] Weekly coaching report sent');
     },
   },
+  // Plaud web sync with Deepgram transcription - 3x daily
+  {
+    name: 'plaud-web-sync-morning',
+    hour: 8,
+    minute: 0,
+    run: async () => {
+      console.log('[Scheduler] Queueing Plaud web sync (morning)...');
+      await addPlaudSyncJob({ transcribeNew: true });
+      console.log('[Scheduler] Plaud web sync job queued');
+    },
+  },
+  {
+    name: 'plaud-web-sync-afternoon',
+    hour: 14,
+    minute: 0,
+    run: async () => {
+      console.log('[Scheduler] Queueing Plaud web sync (afternoon)...');
+      await addPlaudSyncJob({ transcribeNew: true });
+      console.log('[Scheduler] Plaud web sync job queued');
+    },
+  },
+  {
+    name: 'plaud-web-sync-evening',
+    hour: 20,
+    minute: 0,
+    run: async () => {
+      console.log('[Scheduler] Queueing Plaud web sync (evening)...');
+      await addPlaudSyncJob({ transcribeNew: true });
+      console.log('[Scheduler] Plaud web sync job queued');
+    },
+  },
 ];
 
 // Interval jobs for more frequent tasks
 const intervalJobs: IntervalJob[] = [
+  {
+    name: 'google-calendar-sync',
+    intervalMinutes: 10, // Every 10 minutes - keep calendar up to date
+    run: async () => {
+      const googleCalendar = getGoogleCalendar();
+      if (!googleCalendar.isConfigured()) return;
+      console.log('[Scheduler] Syncing Google Calendar...');
+      const result = await calendarService.syncFromGoogle(30); // Sync 30 days ahead
+      console.log(`[Scheduler] Calendar: ${result.created} created, ${result.updated} updated`);
+    },
+  },
   {
     name: 'deadline-alerts',
     intervalMinutes: 15, // Every 15 minutes
@@ -498,6 +544,7 @@ for (const job of intervalJobs) {
 }
 
 console.log('\nIntegration status:');
+console.log(`  - Google Calendar: ${getGoogleCalendar().isConfigured() ? '✓ Configured (sync every 10 min)' : '✗ Not configured'}`);
 console.log(`  - Canvas: ${canvasIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
 console.log(`  - Gmail: ${gmailIntegration.isReady() ? '✓ Ready' : '✗ Not configured'}`);
 console.log(`  - Remarkable: ${remarkableIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
@@ -506,6 +553,9 @@ console.log(`  - Remarkable Cloud: ${remarkableCloudSync.isConfigured() ? '✓ C
 console.log(`  - Plaud Local: ${plaudIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
 console.log(`  - Plaud GDrive: ${plaudGDriveSync.isConfigured() ? '✓ Configured (auto-sync from Google Drive)' : '✗ Not configured'}`);
 console.log(`  - Plaud API: ${plaudApiClient.isConfigured() ? '✓ Configured (auto-sync)' : '✗ Not configured'}`);
+const plaudSessionPath = '/Users/jddavenport/Documents/PlaudSync/.plaud-auth.json';
+const plaudSessionExists = require('fs').existsSync(plaudSessionPath);
+console.log(`  - Plaud Web: ${plaudSessionExists ? '✓ Session saved (3x daily sync + Deepgram)' : '✗ No session - run plaud-login.ts'}`);
 
 console.log('\n[Scheduler] Starting... checking every minute.');
 
