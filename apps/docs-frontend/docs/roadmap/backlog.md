@@ -2,7 +2,7 @@
 
 > Known issues, planned enhancements, and feature requests
 
-**Last Updated:** January 11, 2026
+**Last Updated:** January 15, 2026
 
 ---
 
@@ -37,6 +37,7 @@ This backlog provides transparency into:
 | BUG-004 | Canvas token expiration not auto-refreshed | 🟢 Low | Open | Manual re-auth required |
 | BUG-005 | Gmail task extraction limited accuracy | 🟡 Medium | Open | Needs prompt tuning |
 | BUG-006 | Vault flat structure makes navigation difficult | 🟡 Medium | Planned | PARA restructure planned |
+| BUG-007 | Docker CLI can't connect to daemon socket | 🟢 Low | Open | Services run natively as workaround |
 
 ---
 
