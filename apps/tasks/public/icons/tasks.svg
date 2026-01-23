@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="taskBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="checkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#10b981"/>
+    </linearGradient>
+    <filter id="taskShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="glowFilter">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#taskBg)"/>
+
+  <!-- Subtle pattern -->
+  <g opacity="0.06">
+    <circle cx="80" cy="80" r="120" fill="#fff"/>
+    <circle cx="432" cy="432" r="160" fill="#fff"/>
+  </g>
+
+  <!-- Task card 1 (back) -->
+  <g filter="url(#taskShadow)" transform="translate(8, 8)">
+    <rect x="88" y="100" width="320" height="76" rx="16" fill="#fff" opacity="0.3"/>
+  </g>
+
+  <!-- Task card 2 (middle) -->
+  <g filter="url(#taskShadow)" transform="translate(4, 4)">
+    <rect x="88" y="188" width="320" height="76" rx="16" fill="#fff" opacity="0.5"/>
+  </g>
+
+  <!-- Task card 3 (front - completed) -->
+  <g filter="url(#taskShadow)">
+    <rect x="88" y="276" width="320" height="76" rx="16" fill="#fff"/>
+
+    <!-- Checkbox completed -->
+    <rect x="112" y="296" width="36" height="36" rx="10" fill="url(#checkGradient)"/>
+
+    <!-- Checkmark -->
+    <path d="M122 314 L128 322 L140 306" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#glowFilter)"/>
+
+    <!-- Task lines -->
+    <rect x="164" y="304" width="160" height="10" rx="5" fill="#e0e7ff"/>
+    <rect x="164" y="324" width="100" height="8" rx="4" fill="#c7d2fe"/>
+  </g>
+
+  <!-- Task card 4 (bottom - in progress) -->
+  <g filter="url(#taskShadow)">
+    <rect x="88" y="368" width="320" height="76" rx="16" fill="#fff"/>
+
+    <!-- Checkbox empty -->
+    <rect x="112" y="388" width="36" height="36" rx="10" fill="none" stroke="#c7d2fe" stroke-width="3"/>
+
+    <!-- Task lines -->
+    <rect x="164" y="396" width="180" height="10" rx="5" fill="#e0e7ff"/>
+    <rect x="164" y="416" width="120" height="8" rx="4" fill="#c7d2fe"/>
+  </g>
+
+  <!-- Floating checkmark accent (top right) -->
+  <g transform="translate(360, 80)" filter="url(#taskShadow)">
+    <circle cx="24" cy="24" r="24" fill="url(#checkGradient)"/>
+    <path d="M14 24 L21 32 L36 16" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Plus button accent (bottom left) -->
+  <g transform="translate(48, 380)" opacity="0.9" filter="url(#taskShadow)">
+    <circle cx="24" cy="24" r="24" fill="#fff"/>
+    <line x1="14" y1="24" x2="34" y2="24" stroke="#4f46e5" stroke-width="4" stroke-linecap="round"/>
+    <line x1="24" y1="14" x2="24" y2="34" stroke="#4f46e5" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
