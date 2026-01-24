@@ -207,9 +207,14 @@ export class RemarkableCloudSync {
 
       const token = await response.text();
 
-      // Decode JWT to get expiration
+      // Decode JWT to get expiration - validate structure first
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('[RemarkableCloud] Invalid JWT structure');
+        return false;
+      }
       const payload = JSON.parse(
-        Buffer.from(token.split('.')[1], 'base64').toString()
+        Buffer.from(tokenParts[1], 'base64').toString()
       );
 
       this.state.userToken = token;
@@ -638,7 +643,8 @@ export class RemarkableCloudSync {
     const path = await import('path');
 
     const pdfPath = outputPath || join(documentPath, 'output.pdf');
-    const rmcPath = '/Users/jddavenport/.local/bin/rmc';
+    // Use environment variable for rmc path, with fallback to common locations
+    const rmcPath = process.env.RMC_BIN_PATH || '/usr/local/bin/rmc';
 
     // Try to get page order from .content file
     let pageOrder: string[] = [];
@@ -703,9 +709,11 @@ export class RemarkableCloudSync {
       const pagePdfPath = join(documentPath, `page_${pageNum}.pdf`);
 
       try {
+        const { execFileSync } = await import('child_process');
+
         // Step 1: Use rmc to convert .rm to SVG
         console.log(`[RemarkableCloud] Converting page ${pageNum}/${sortedRmFiles.length}...`);
-        execSync(`"${rmcPath}" "${rmFile}" -o "${svgPath}"`, {
+        execFileSync(rmcPath, [rmFile, '-o', svgPath], {
           cwd: documentPath,
           stdio: ['pipe', 'pipe', 'pipe'],
         });
@@ -715,11 +723,10 @@ export class RemarkableCloudSync {
           continue;
         }
 
-        // Step 2: Use cairosvg to convert SVG to PDF
-        execSync(
-          `python3 -c "import cairosvg; cairosvg.svg2pdf(url='${svgPath}', write_to='${pagePdfPath}')"`,
-          { stdio: ['pipe', 'pipe', 'pipe'] }
-        );
+        // Step 2: Use cairosvg to convert SVG to PDF (using execFileSync with args to avoid injection)
+        execFileSync('python3', ['-c', `import cairosvg; import sys; cairosvg.svg2pdf(url=sys.argv[1], write_to=sys.argv[2])`, svgPath, pagePdfPath], {
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
 
         if (fs.existsSync(pagePdfPath)) {
           pagePdfs.push(pagePdfPath);
@@ -747,13 +754,14 @@ export class RemarkableCloudSync {
       // Just rename the single page PDF
       fs.renameSync(pagePdfs[0], pdfPath);
     } else {
-      // Use pdfunite to combine PDFs
+      const { execFileSync } = await import('child_process');
+
+      // Use pdfunite to combine PDFs (using execFileSync with args array to avoid injection)
       console.log(`[RemarkableCloud] Combining ${pagePdfs.length} pages into single PDF`);
       try {
-        const pdfList = pagePdfs.map((p) => `"${p}"`).join(' ');
-        execSync(`pdfunite ${pdfList} "${pdfPath}"`, { stdio: ['pipe', 'pipe', 'pipe'] });
+        execFileSync('pdfunite', [...pagePdfs, pdfPath], { stdio: ['pipe', 'pipe', 'pipe'] });
       } catch (e) {
-        // Fallback: use Python's PyPDF2
+        // Fallback: use Python's PyPDF2 with safe argument passing
         console.log(`[RemarkableCloud] pdfunite failed, trying PyPDF2...`);
         const pyScript = `
 import sys
@@ -766,8 +774,8 @@ merger.close()
 `;
         const scriptPath = join(documentPath, 'merge_pdfs.py');
         fs.writeFileSync(scriptPath, pyScript);
-        const pdfArgs = pagePdfs.map((p) => `"${p}"`).join(' ');
-        execSync(`python3 "${scriptPath}" ${pdfArgs} "${pdfPath}"`, { stdio: ['pipe', 'pipe', 'pipe'] });
+        // Use execFileSync with args array to avoid command injection
+        execFileSync('python3', [scriptPath, ...pagePdfs, pdfPath], { stdio: ['pipe', 'pipe', 'pipe'] });
         fs.unlinkSync(scriptPath);
       }
 
@@ -795,7 +803,7 @@ merger.close()
    * Returns extracted text or empty string if OCR fails
    */
   async extractTextFromPdf(pdfPath: string): Promise<string> {
-    const { execSync } = await import('child_process');
+    const { execFileSync } = await import('child_process');
     const fs = await import('fs');
 
     try {
@@ -836,13 +844,15 @@ do {
       const swiftPath = '/tmp/remarkable_ocr_vision.swift';
       fs.writeFileSync(swiftPath, swiftCode);
 
-      // Convert PDF pages to images and run OCR on each
+      // Python script that takes PDF path as command-line argument (safe from injection)
       const ocrScript = `
 import subprocess
 from pdf2image import convert_from_path
 import os
+import sys
 
-images = convert_from_path('${pdfPath}', dpi=200)
+pdf_path = sys.argv[1]
+images = convert_from_path(pdf_path, dpi=200)
 all_text = []
 
 for i, image in enumerate(images):
@@ -867,7 +877,11 @@ for i, image in enumerate(images):
 print('\\n'.join(all_text))
 `;
 
-      const result = execSync(`python3 -c "${ocrScript.replace(/"/g, '\\"')}"`, {
+      // Write Python script to temp file and execute with safe argument passing
+      const ocrScriptPath = '/tmp/remarkable_ocr_script.py';
+      fs.writeFileSync(ocrScriptPath, ocrScript);
+
+      const result = execFileSync('python3', [ocrScriptPath, pdfPath], {
         encoding: 'utf-8',
         timeout: 180000, // 3 minute timeout for OCR
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large documents
@@ -879,13 +893,18 @@ print('\\n'.join(all_text))
     } catch (error) {
       console.error('[RemarkableCloud] Apple Vision OCR failed, trying Tesseract fallback:', error);
 
-      // Fallback to Tesseract
+      // Fallback to Tesseract - using safe argument passing
       try {
+        const { execFileSync } = await import('child_process');
+        const fs = await import('fs');
+
         const fallbackScript = `
+import sys
 from pdf2image import convert_from_path
 import pytesseract
 
-images = convert_from_path('${pdfPath}', dpi=150)
+pdf_path = sys.argv[1]
+images = convert_from_path(pdf_path, dpi=150)
 all_text = []
 for i, image in enumerate(images):
     text = pytesseract.image_to_string(image)
@@ -893,7 +912,10 @@ for i, image in enumerate(images):
         all_text.append(text.strip())
 print('\\n'.join(all_text))
 `;
-        const fallbackResult = execSync(`python3 -c "${fallbackScript.replace(/"/g, '\\"')}"`, {
+        const fallbackScriptPath = '/tmp/remarkable_ocr_tesseract.py';
+        fs.writeFileSync(fallbackScriptPath, fallbackScript);
+
+        const fallbackResult = execFileSync('python3', [fallbackScriptPath, pdfPath], {
           encoding: 'utf-8',
           timeout: 120000,
           maxBuffer: 10 * 1024 * 1024,

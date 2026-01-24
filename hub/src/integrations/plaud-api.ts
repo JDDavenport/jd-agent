@@ -14,8 +14,9 @@
  */
 
 import { db } from '../db/client';
-import { recordings, transcripts, vaultPages, vaultBlocks } from '../db/schema';
+import { recordings, transcripts, vaultBlocks } from '../db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { VaultPageService } from '../services/vault-page-service';
 
 // ============================================
 // Types
@@ -205,11 +206,12 @@ export class PlaudApiClient {
 
       for (const file of plaudFiles) {
         try {
-          // Check if already synced
+          // Check if already synced using filePath (which contains Plaud's file ID)
+          const plaudFilePath = `plaud-api:${file.id}`;
           const existing = await db
             .select()
             .from(recordings)
-            .where(eq(recordings.id, file.id))
+            .where(eq(recordings.filePath, plaudFilePath))
             .limit(1);
 
           if (existing.length > 0) {
@@ -227,15 +229,18 @@ export class PlaudApiClient {
           // Get full recording data
           const data = await this.getRecordingData(file.id);
 
-          // Create recording
+          // Create recording (let DB generate the UUID)
+          // Always use plaud-api:{id} as filePath for consistent deduplication
+          // Store actual audio URL in context if available
+          const recordedAt = new Date(data.recorded_at);
           const [recording] = await db.insert(recordings).values({
-            id: file.id,
-            filePath: data.audio_url || `plaud-api:${file.id}`,
-            originalFilename: data.title,
+            filePath: plaudFilePath,
+            originalFilename: data.title || file.title || `Recording ${recordedAt.toISOString().split('T')[0]}`,
             durationSeconds: data.duration_seconds,
             recordingType: 'other',
             status: 'complete',
-            recordedAt: new Date(data.recorded_at),
+            recordedAt,
+            context: data.audio_url ? `Audio URL: ${data.audio_url}` : undefined,
           }).returning();
 
           // Create transcript
@@ -248,11 +253,18 @@ export class PlaudApiClient {
             confidenceScore: 0.95,
           });
 
-          // Create Vault page
-          const [page] = await db.insert(vaultPages).values({
-            title: data.title,
+          // Create or find Vault page (prevent duplicates)
+          const pageTitle = data.title || file.title || `Recording ${recordedAt.toISOString().split('T')[0]}`;
+          const vaultPageService = new VaultPageService();
+          const { page, created } = await vaultPageService.findOrCreate({
+            title: pageTitle,
             icon: '🎙️',
-          }).returning();
+          });
+
+          // Only add blocks if this is a new page
+          if (!created) {
+            console.log(`[Plaud API] Using existing vault page: ${page.id}`);
+          }
 
           // Add summary block
           if (data.summary) {

@@ -7,7 +7,7 @@
 
 import { db } from '../db/client';
 import { voiceProfiles, speakerMappings, transcripts, people } from '../db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 
 export type VoiceProfileCategory = 'self' | 'family' | 'teacher' | 'classmate' | 'colleague' | 'other';
 
@@ -147,10 +147,11 @@ class VoiceProfileService {
     const peopleMap = new Map<string, { id: string; name: string }>();
 
     if (personIds.length > 0) {
+      // Use inArray for safe parameterized query instead of raw SQL
       const peopleData = await db
         .select({ id: people.id, name: people.name })
         .from(people)
-        .where(sql`${people.id} = ANY(${personIds})`);
+        .where(inArray(people.id, personIds));
 
       for (const p of peopleData) {
         peopleMap.set(p.id, p);
@@ -378,10 +379,11 @@ class VoiceProfileService {
     let totalDuration = 0;
 
     if (transcriptIds.length > 0) {
+      // Use inArray for safe parameterized query instead of raw SQL
       const transcriptData = await db
         .select({ id: transcripts.id, recordingId: transcripts.recordingId })
         .from(transcripts)
-        .where(sql`${transcripts.id} = ANY(${transcriptIds})`);
+        .where(inArray(transcripts.id, transcriptIds));
 
       // For now, just use sample count. Duration calculation would need recording data.
       totalDuration = transcriptData.length * 60; // Estimate 60 seconds per transcript
