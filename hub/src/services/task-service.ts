@@ -26,6 +26,7 @@ export interface CreateTaskInput {
   projectId?: string;
   parentTaskId?: string;
   recurrenceRule?: string; // RRULE format
+  taskLabels?: string[]; // Labels for filtering (e.g., ['weekly-backlog'])
 }
 
 export interface UpdateTaskInput {
@@ -42,6 +43,7 @@ export interface UpdateTaskInput {
   projectId?: string;
   parentTaskId?: string | null; // For subtasks, null to clear
   recurrenceRule?: string | null; // RRULE format, null to clear
+  taskLabels?: string[] | null; // Labels for filtering, null to clear
 }
 
 export interface TaskFilters {
@@ -55,6 +57,7 @@ export interface TaskFilters {
   includeCompleted?: boolean;
   limit?: number;
   offset?: number;
+  label?: string; // Filter by taskLabels array contains this label
 }
 
 export interface TaskWithProject {
@@ -82,6 +85,8 @@ export interface TaskWithProject {
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
+  taskLabels: string[] | null;
+  sortOrder: number;
   subtaskCount?: number;
   completedSubtaskCount?: number;
   project?: {
@@ -120,6 +125,7 @@ export class TaskService {
         projectId: input.projectId,
         parentTaskId: input.parentTaskId,
         recurrenceRule: input.recurrenceRule,
+        taskLabels: input.taskLabels || [],
       })
       .returning();
 
@@ -176,6 +182,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       subtaskCount: counts.total,
       completedSubtaskCount: counts.completed,
       project: project?.id ? project : null,
@@ -206,6 +214,11 @@ export class TaskService {
 
     if (filters.projectId) {
       conditions.push(eq(tasks.projectId, filters.projectId));
+    }
+
+    if (filters.label) {
+      // Filter by taskLabels array contains the label
+      conditions.push(sql`${tasks.taskLabels} @> ARRAY[${filters.label}]::text[]`);
     }
 
     if (filters.dueBefore) {
@@ -275,6 +288,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
 
@@ -349,6 +364,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
 
@@ -414,6 +431,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
 
@@ -448,6 +467,7 @@ export class TaskService {
     if (input.waitingFor !== undefined) updateData.waitingFor = input.waitingFor;
     if (input.projectId !== undefined) updateData.projectId = input.projectId;
     if (input.recurrenceRule !== undefined) updateData.recurrenceRule = input.recurrenceRule;
+    if (input.taskLabels !== undefined) updateData.taskLabels = input.taskLabels;
 
     const [updated] = await db
       .update(tasks)
@@ -648,6 +668,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
 
@@ -702,6 +724,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
 
@@ -795,6 +819,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
 
@@ -848,6 +874,8 @@ export class TaskService {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       completedAt: task.completedAt,
+      taskLabels: task.taskLabels,
+      sortOrder: task.sortOrder,
       project: project?.id ? project : null,
     }));
   }
@@ -946,6 +974,30 @@ export class TaskService {
         completedSubtaskCount: counts?.completed ?? 0,
       };
     });
+  }
+
+  /**
+   * Reorder tasks by updating their sortOrder based on array position
+   */
+  async reorderTasks(taskIds: string[]): Promise<number> {
+    if (taskIds.length === 0) return 0;
+
+    // Update sortOrder for each task based on its position in the array
+    let updated = 0;
+    for (let i = 0; i < taskIds.length; i++) {
+      const result = await db
+        .update(tasks)
+        .set({
+          sortOrder: i,
+          updatedAt: new Date(),
+        })
+        .where(eq(tasks.id, taskIds[i]))
+        .returning();
+
+      if (result.length > 0) updated++;
+    }
+
+    return updated;
   }
 }
 

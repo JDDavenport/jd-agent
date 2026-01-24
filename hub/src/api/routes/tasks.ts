@@ -32,6 +32,7 @@ const createTaskSchema = z.object({
   projectId: z.string().uuid().optional(),
   parentTaskId: z.string().uuid().optional(),
   recurrenceRule: z.string().optional(), // RRULE format (e.g., "FREQ=WEEKLY;BYDAY=MO")
+  taskLabels: z.array(z.string()).optional(), // Labels for filtering (e.g., ['weekly-backlog'])
 });
 
 const updateTaskSchema = z.object({
@@ -48,6 +49,7 @@ const updateTaskSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
   parentTaskId: z.string().uuid().nullable().optional(), // For subtasks, null to clear
   recurrenceRule: z.string().nullable().optional(), // RRULE format, null to clear
+  taskLabels: z.array(z.string()).nullable().optional(), // Labels for filtering, null to clear
 });
 
 // Helper to parse date or datetime strings
@@ -70,6 +72,7 @@ const listFiltersSchema = z.object({
   includeCompleted: z.string().optional().transform(val => val === 'true'),
   limit: z.string().optional().transform(val => val ? parseInt(val, 10) : 30), // Default 30, prevents timeout
   offset: z.string().optional().transform(val => val ? parseInt(val, 10) : 0),
+  label: z.string().optional(), // Filter by taskLabels array contains this label
 });
 
 const scheduleTaskSchema = z.object({
@@ -193,6 +196,32 @@ tasksRouter.get('/archived', async (c) => {
 });
 
 /**
+ * POST /api/tasks/reorder
+ * Bulk reorder tasks by updating sortOrder based on array position
+ */
+tasksRouter.post('/reorder', async (c) => {
+  const body = await c.req.json();
+
+  const schema = z.object({
+    ids: z.array(z.string().uuid()).min(1, 'At least one task ID is required'),
+  });
+
+  const parseResult = schema.safeParse(body);
+
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.errors.map(e => e.message).join(', '));
+  }
+
+  const count = await taskService.reorderTasks(parseResult.data.ids);
+
+  return c.json({
+    success: true,
+    message: `Reordered ${count} tasks`,
+    count,
+  });
+});
+
+/**
  * GET /api/tasks/:id/subtasks
  * Get all subtasks of a parent task
  */
@@ -258,19 +287,65 @@ tasksRouter.post('/:id/subtasks', async (c) => {
 });
 
 /**
+ * GET /api/tasks/:id/canvas-item
+ * Get the Canvas item linked to this task (if it's a Canvas task)
+ */
+tasksRouter.get('/:id/canvas-item', async (c) => {
+  const id = c.req.param('id');
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError('Invalid task ID format');
+  }
+
+  const task = await taskService.getById(id);
+  if (!task) {
+    throw new NotFoundError('Task');
+  }
+
+  // Check if this is a Canvas task
+  if (task.source !== 'canvas' || !task.sourceRef) {
+    return c.json({
+      success: true,
+      data: null,
+      message: 'This task is not linked to a Canvas item',
+    });
+  }
+
+  // Import canvas integrity service dynamically to avoid circular deps
+  const { canvasIntegrityService } = await import('../../services/canvas-integrity-service');
+
+  // Find the canvas item by taskId
+  const items = await canvasIntegrityService.listItems({});
+  const canvasItem = items.find(item => item.taskId === id);
+
+  if (!canvasItem) {
+    return c.json({
+      success: true,
+      data: null,
+      message: 'Canvas item not found for this task',
+    });
+  }
+
+  return c.json({
+    success: true,
+    data: canvasItem,
+  });
+});
+
+/**
  * GET /api/tasks/:id
  * Get a single task by ID
  */
 tasksRouter.get('/:id', async (c) => {
   const id = c.req.param('id');
-  
+
   // Validate UUID format
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     throw new ValidationError('Invalid task ID format');
   }
 
   const task = await taskService.getById(id);
-  
+
   if (!task) {
     throw new NotFoundError('Task');
   }
