@@ -79,6 +79,12 @@ class CanvasIntegrityScheduler {
       this.registerJob('fullAudit', SCHEDULES.fullAudit.cron, async () => {
         console.log('[CanvasScheduler] Running full audit...');
         try {
+          // Check if an audit is already running to prevent concurrent runs
+          const runningAudit = await canvasIntegrityService.getRunningAudit();
+          if (runningAudit) {
+            console.log('[CanvasScheduler] Skipping full audit - audit already in progress');
+            return;
+          }
           const agent = getCanvasIntegrityAgent();
           const report = await agent.runFullAudit();
           await this.notifyAuditComplete('full', report);
@@ -94,6 +100,12 @@ class CanvasIntegrityScheduler {
       this.registerJob('incrementalAudit', SCHEDULES.incrementalAudit.cron, async () => {
         console.log('[CanvasScheduler] Running incremental audit...');
         try {
+          // Check if an audit is already running to prevent concurrent runs
+          const runningAudit = await canvasIntegrityService.getRunningAudit();
+          if (runningAudit) {
+            console.log('[CanvasScheduler] Skipping incremental audit - audit already in progress');
+            return;
+          }
           const agent = getCanvasIntegrityAgent();
           const report = await agent.runIncrementalAudit();
 
@@ -112,6 +124,12 @@ class CanvasIntegrityScheduler {
       this.registerJob('quickCheck', SCHEDULES.quickCheck.cron, async () => {
         console.log('[CanvasScheduler] Running quick check...');
         try {
+          // Check if an audit is already running to prevent concurrent runs
+          const runningAudit = await canvasIntegrityService.getRunningAudit();
+          if (runningAudit) {
+            console.log('[CanvasScheduler] Skipping quick check - audit already in progress');
+            return;
+          }
           const agent = getCanvasIntegrityAgent();
           await agent.runQuickCheck();
           // Silent - no notification unless critical issues

@@ -27,6 +27,7 @@ import {
   recordings,
   classes,
   classPages,
+  calendarEvents,
 } from '../db/schema';
 import { VaultPageService } from './vault-page-service';
 import { VaultBlockService } from './vault-block-service';
@@ -226,29 +227,50 @@ export class RemarkableService {
     classCode: string,
     noteDate: string
   ): Promise<string | undefined> {
-    // Try to find a class page with transcript for this class/date
+    // Parse noteDate to create date range for the day
+    const dateParts = noteDate.split('-');
+    if (dateParts.length !== 3) return undefined;
+
+    const startOfDay = new Date(`${noteDate}T00:00:00Z`);
+    const endOfDay = new Date(`${noteDate}T23:59:59Z`);
+
+    // Try to find a class page with transcript for this class AND date
+    // Join with calendarEvents to filter by date
     const classPageResults = await db
       .select({
         transcriptContent: classPages.transcriptContent,
+        startTime: calendarEvents.startTime,
+        title: calendarEvents.title,
       })
       .from(classPages)
-      .limit(5);
+      .innerJoin(calendarEvents, eq(classPages.calendarEventId, calendarEvents.id))
+      .where(
+        and(
+          gte(calendarEvents.startTime, startOfDay),
+          lte(calendarEvents.startTime, endOfDay)
+        )
+      )
+      .limit(10);
 
     // Look for transcripts that match the class code
     for (const cp of classPageResults) {
-      if (cp.transcriptContent && cp.transcriptContent.toLowerCase().includes(classCode.toLowerCase())) {
+      if (cp.transcriptContent &&
+          (cp.transcriptContent.toLowerCase().includes(classCode.toLowerCase()) ||
+           cp.title?.toLowerCase().includes(classCode.toLowerCase()))) {
         return cp.transcriptContent;
       }
     }
 
-    // Also try vault entries with recording source
+    // Also try vault entries with recording source, filtered by date
     const vaultRecordings = await db
       .select()
       .from(vaultEntries)
       .where(
         and(
           eq(vaultEntries.source, 'plaud'),
-          like(vaultEntries.context, `%${classCode}%`)
+          like(vaultEntries.context, `%${classCode}%`),
+          gte(vaultEntries.createdAt, startOfDay),
+          lte(vaultEntries.createdAt, endOfDay)
         )
       )
       .limit(5);

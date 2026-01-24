@@ -1,6 +1,6 @@
 import { BrowserManager, getBrowserManager, closeBrowserManager } from './browser-manager';
 import { PageNavigator, createPageNavigator, CanvasPage, Course } from './explorer/page-navigator';
-import { ContentExtractor, createContentExtractor, CanvasAssignment, CanvasModuleItem } from './explorer/content-extractor';
+import { ContentExtractor, createContentExtractor, CanvasAssignment, CanvasModuleItem, CanvasPageContent, CanvasFile, CanvasReading } from './explorer/content-extractor';
 import { canvasIntegrityService, AuditType, DiscoveryMethod, CanvasItemType } from '../../services/canvas-integrity-service';
 import { taskService } from '../../services/task-service';
 import { projectService } from '../../services/project-service';
@@ -154,40 +154,41 @@ export class CanvasIntegrityAgent {
     this.isRunning = true;
     const startedAt = new Date();
 
-    // Create audit record
-    const audit = await canvasIntegrityService.createAudit({
-      auditType: 'quick_check',
-      startedAt,
-    });
-
-    const findings: IntegrityReport['findings'] = {
-      newItems: [],
-      updatedItems: [],
-      mismatches: [],
-      errors: [],
-    };
-
-    let coursesAudited = 0;
-    let itemsDiscovered = 0;
-    let tasksVerified = 0;
-    let tasksCreated = 0;
-    let tasksUpdated = 0;
-    let discrepanciesFound = 0;
-
-    const apiToken = process.env.CANVAS_TOKEN;
-    const baseUrl = process.env.CANVAS_BASE_URL;
-
-    if (!apiToken || !baseUrl) {
-      await canvasIntegrityService.updateAudit(audit.id, {
-        completedAt: new Date(),
-        status: 'failed',
-        errors: { message: 'Missing CANVAS_TOKEN or CANVAS_BASE_URL' },
-      });
-      this.isRunning = false;
-      throw new Error('Missing CANVAS_TOKEN or CANVAS_BASE_URL environment variables');
-    }
-
+    // Use try-finally to ensure isRunning is always reset
     try {
+      // Create audit record
+      const audit = await canvasIntegrityService.createAudit({
+        auditType: 'quick_check',
+        startedAt,
+      });
+
+      const findings: IntegrityReport['findings'] = {
+        newItems: [],
+        updatedItems: [],
+        mismatches: [],
+        errors: [],
+      };
+
+      let coursesAudited = 0;
+      let itemsDiscovered = 0;
+      let tasksVerified = 0;
+      let tasksCreated = 0;
+      let tasksUpdated = 0;
+      let discrepanciesFound = 0;
+
+      const apiToken = process.env.CANVAS_TOKEN;
+      const baseUrl = process.env.CANVAS_BASE_URL;
+
+      if (!apiToken || !baseUrl) {
+        await canvasIntegrityService.updateAudit(audit.id, {
+          completedAt: new Date(),
+          status: 'failed',
+          errors: { message: 'Missing CANVAS_TOKEN or CANVAS_BASE_URL' },
+        });
+        throw new Error('Missing CANVAS_TOKEN or CANVAS_BASE_URL environment variables');
+      }
+
+      try {
       // Fetch courses with term info
       const coursesResponse = await fetch(
         `${baseUrl}/api/v1/courses?enrollment_state=active&include[]=term&per_page=50`,
@@ -361,8 +362,6 @@ export class CanvasIntegrityAgent {
         findings,
       });
 
-      this.isRunning = false;
-
       return {
         auditId: audit.id,
         auditType: 'quick_check',
@@ -380,15 +379,16 @@ export class CanvasIntegrityAgent {
         integrityScore,
         findings,
       };
-    } catch (error) {
-      await canvasIntegrityService.updateAudit(audit.id, {
-        completedAt: new Date(),
-        status: 'failed',
-        errors: { message: String(error) },
-      });
-
+      } catch (error) {
+        await canvasIntegrityService.updateAudit(audit.id, {
+          completedAt: new Date(),
+          status: 'failed',
+          errors: { message: String(error) },
+        });
+        throw error;
+      }
+    } finally {
       this.isRunning = false;
-      throw error;
     }
   }
 
@@ -448,8 +448,31 @@ export class CanvasIntegrityAgent {
         // Calculate scheduled date based on due date
         const scheduledDates = this.calculateScheduledDate(dueAt);
 
+        // Build description with Canvas link and assignment details
+        const descriptionParts: string[] = [];
+        if (assignment.html_url) {
+          descriptionParts.push(`**Canvas Link:** ${assignment.html_url}`);
+        }
+        if (assignment.description) {
+          // Strip HTML tags for plain text description
+          const plainDescription = assignment.description
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+          if (plainDescription) {
+            descriptionParts.push(`\n${plainDescription}`);
+          }
+        }
+        if (assignment.points_possible) {
+          descriptionParts.push(`\n**Points:** ${assignment.points_possible}`);
+        }
+
         const task = await taskService.create({
           title: assignment.name,
+          description: descriptionParts.length > 0 ? descriptionParts.join('\n') : undefined,
           dueDate: dueAt,
           dueDateIsHard: true,
           scheduledStart: scheduledDates?.scheduledStart,
@@ -532,29 +555,31 @@ export class CanvasIntegrityAgent {
     this.isRunning = true;
     const startedAt = new Date();
 
-    // Create audit record
-    const audit = await canvasIntegrityService.createAudit({
-      auditType,
-      startedAt,
-    });
-
-    const findings: IntegrityReport['findings'] = {
-      newItems: [],
-      updatedItems: [],
-      mismatches: [],
-      errors: [],
-    };
-
-    let coursesAudited = 0;
-    let pagesVisited = 0;
-    let screenshotsCaptured = 0;
-    let itemsDiscovered = 0;
-    let tasksVerified = 0;
-    let tasksCreated = 0;
-    let tasksUpdated = 0;
-    let discrepanciesFound = 0;
-
+    // Use try-finally to ensure isRunning is always reset
     try {
+      // Create audit record
+      const audit = await canvasIntegrityService.createAudit({
+        auditType,
+        startedAt,
+      });
+
+      const findings: IntegrityReport['findings'] = {
+        newItems: [],
+        updatedItems: [],
+        mismatches: [],
+        errors: [],
+      };
+
+      let coursesAudited = 0;
+      let pagesVisited = 0;
+      let screenshotsCaptured = 0;
+      let itemsDiscovered = 0;
+      let tasksVerified = 0;
+      let tasksCreated = 0;
+      let tasksUpdated = 0;
+      let discrepanciesFound = 0;
+
+      try {
       await this.initialize();
 
       if (!this.pageNavigator || !this.contentExtractor) {
@@ -657,8 +682,6 @@ export class CanvasIntegrityAgent {
         findings,
       });
 
-      this.isRunning = false;
-
       return {
         auditId: audit.id,
         auditType,
@@ -676,16 +699,17 @@ export class CanvasIntegrityAgent {
         integrityScore,
         findings,
       };
-    } catch (error) {
-      // Update audit as failed
-      await canvasIntegrityService.updateAudit(audit.id, {
-        completedAt: new Date(),
-        status: 'failed',
-        errors: { message: String(error) },
-      });
-
+      } catch (error) {
+        // Update audit as failed
+        await canvasIntegrityService.updateAudit(audit.id, {
+          completedAt: new Date(),
+          status: 'failed',
+          errors: { message: String(error) },
+        });
+        throw error;
+      }
+    } finally {
       this.isRunning = false;
-      throw error;
     }
   }
 
@@ -700,6 +724,8 @@ export class CanvasIntegrityAgent {
           CanvasPage.DISCUSSIONS,
           CanvasPage.ANNOUNCEMENTS,
           CanvasPage.QUIZZES,
+          CanvasPage.PAGES,
+          CanvasPage.FILES,
         ];
       case 'incremental':
         return [CanvasPage.ASSIGNMENTS, CanvasPage.ANNOUNCEMENTS];
@@ -710,7 +736,7 @@ export class CanvasIntegrityAgent {
     }
   }
 
-  private async extractContentFromPage(pageType: CanvasPage): Promise<Array<CanvasAssignment | CanvasModuleItem>> {
+  private async extractContentFromPage(pageType: CanvasPage): Promise<Array<CanvasAssignment | CanvasModuleItem | CanvasPageContent | CanvasFile | CanvasReading>> {
     if (!this.contentExtractor) {
       return [];
     }
@@ -719,18 +745,30 @@ export class CanvasIntegrityAgent {
       case CanvasPage.ASSIGNMENTS:
         return this.contentExtractor.extractAssignments();
       case CanvasPage.MODULES:
-        return this.contentExtractor.extractModuleItems();
+        // For modules, also extract readings
+        const moduleItems = await this.contentExtractor.extractModuleItems();
+        const readings = await this.contentExtractor.extractReadings();
+        console.log(`[CanvasIntegrityAgent] Extracted ${readings.length} readings from modules`);
+        return [...moduleItems, ...readings];
       case CanvasPage.DISCUSSIONS:
         return this.contentExtractor.extractDiscussions();
       case CanvasPage.QUIZZES:
         return this.contentExtractor.extractQuizzes();
+      case CanvasPage.PAGES:
+        const pages = await this.contentExtractor.extractPages();
+        console.log(`[CanvasIntegrityAgent] Extracted ${pages.length} wiki pages`);
+        return pages;
+      case CanvasPage.FILES:
+        const files = await this.contentExtractor.extractFiles();
+        console.log(`[CanvasIntegrityAgent] Extracted ${files.length} files`);
+        return files;
       default:
         return [];
     }
   }
 
   private async verifyAndSyncItem(
-    item: CanvasAssignment | CanvasModuleItem,
+    item: CanvasAssignment | CanvasModuleItem | CanvasPageContent | CanvasFile | CanvasReading,
     course: Course,
     projectId?: string
   ): Promise<{
@@ -751,14 +789,61 @@ export class CanvasIntegrityAgent {
     // Determine canvas type and discovery method
     let canvasType: CanvasItemType = 'assignment';
     let discoveredVia: DiscoveryMethod = 'browser_assignments';
+    let itemTitle = '';
+    let itemUrl: string | undefined;
+    let itemDescription: string | undefined;
+    let itemDueAt: Date | undefined;
+    let itemPoints: number | undefined;
 
+    // Handle different item types
     if ('isQuiz' in item && item.isQuiz) {
       canvasType = 'quiz';
+      itemTitle = item.title;
+      itemUrl = item.url;
+      itemDueAt = item.dueAt;
+      itemPoints = item.pointsPossible;
     } else if ('isDiscussion' in item && item.isDiscussion) {
       canvasType = 'discussion';
-    } else if ('itemType' in item) {
+      itemTitle = item.title;
+      itemUrl = item.url;
+      itemDueAt = item.dueAt;
+      itemPoints = item.pointsPossible;
+    } else if ('itemType' in item && 'moduleName' in item) {
+      // CanvasModuleItem
       canvasType = item.itemType as CanvasItemType;
       discoveredVia = 'browser_modules';
+      itemTitle = item.title;
+      itemUrl = item.url;
+      itemDueAt = item.dueAt;
+    } else if ('type' in item && 'moduleName' in item && 'isRequired' in item) {
+      // CanvasReading
+      canvasType = item.type === 'external_url' ? 'external_url' : item.type === 'file' ? 'file' : 'page';
+      discoveredVia = 'browser_modules';
+      itemTitle = item.title;
+      itemUrl = item.url;
+      itemDescription = `Reading from ${item.moduleName}${item.isRequired ? ' (Required)' : ''}`;
+    } else if ('htmlContent' in item) {
+      // CanvasPageContent
+      canvasType = 'page';
+      discoveredVia = 'browser_pages' as DiscoveryMethod;
+      itemTitle = item.title;
+      itemUrl = item.url;
+      itemDescription = item.content?.substring(0, 500);
+    } else if ('fileName' in item && 'contentType' in item) {
+      // CanvasFile
+      canvasType = 'file';
+      discoveredVia = 'browser_files' as DiscoveryMethod;
+      itemTitle = item.displayName || item.fileName;
+      itemUrl = item.url;
+      itemDescription = `File: ${item.contentType}${item.size ? ` (${Math.round(item.size / 1024)}KB)` : ''}`;
+    } else if ('isQuiz' in item || 'isDiscussion' in item || 'url' in item) {
+      // CanvasAssignment
+      canvasType = 'assignment';
+      itemTitle = item.title;
+      itemUrl = (item as CanvasAssignment).url;
+      itemDueAt = item.dueAt;
+      itemPoints = (item as CanvasAssignment).pointsPossible;
+      itemDescription = (item as CanvasAssignment).description;
     }
 
     // Check if canvas item exists
@@ -770,61 +855,86 @@ export class CanvasIntegrityAgent {
         canvasId: item.canvasId,
         canvasType,
         courseName: course.name,
-        title: item.title,
-        description: 'description' in item ? item.description : undefined,
-        url: 'url' in item ? item.url : undefined,
-        dueAt: item.dueAt,
-        pointsPossible: 'pointsPossible' in item ? item.pointsPossible : undefined,
+        title: itemTitle,
+        description: itemDescription,
+        url: itemUrl,
+        dueAt: itemDueAt,
+        pointsPossible: itemPoints,
         discoveredVia,
       });
 
-      // Create task for this item
-      const sourceRef = `canvas:${canvasType}:${item.canvasId}`;
-      const existingTasks = await taskService.list({ sourceRef });
+      // Only create tasks for actionable items (assignments, quizzes, discussions, required readings)
+      const isActionable = ['assignment', 'quiz', 'discussion'].includes(canvasType) ||
+        ('isRequired' in item && item.isRequired);
 
-      if (!existingTasks || existingTasks.length === 0) {
-        const task = await taskService.create({
-          title: item.title,
-          dueDate: item.dueAt,
-          dueDateIsHard: true,
-          source: 'canvas',
-          sourceRef,
-          context: course.name,
-          projectId,
-          status: 'inbox',
-          priority: this.calculatePriority(item),
-        });
+      if (isActionable) {
+        // Create task for this item
+        const sourceRef = `canvas:${canvasType}:${item.canvasId}`;
+        const existingTasks = await taskService.list({ sourceRef });
 
-        // Link task to canvas item
-        await canvasIntegrityService.updateItem(canvasItem.id, {
-          taskId: task.id,
-          projectId,
-          syncStatus: 'synced',
-        });
+        if (!existingTasks || existingTasks.length === 0) {
+          // Build description with Canvas link and details
+          const descriptionParts: string[] = [];
+          if (itemUrl) {
+            descriptionParts.push(`**Canvas Link:** ${itemUrl}`);
+          }
+          if (itemDescription) {
+            const plainDesc = itemDescription
+              .replace(/<[^>]*>/g, '')
+              .replace(/&nbsp;/g, ' ')
+              .trim();
+            if (plainDesc) {
+              descriptionParts.push(`\n${plainDesc}`);
+            }
+          }
+          if (itemPoints) {
+            descriptionParts.push(`\n**Points:** ${itemPoints}`);
+          }
 
-        // Create schedule tracking
-        await canvasIntegrityService.createScheduleTracking(canvasItem.id, task.id);
+          const task = await taskService.create({
+            title: itemTitle,
+            description: descriptionParts.length > 0 ? descriptionParts.join('\n') : undefined,
+            dueDate: itemDueAt,
+            dueDateIsHard: !!itemDueAt,
+            source: 'canvas',
+            sourceRef,
+            context: course.name,
+            projectId,
+            status: 'inbox',
+            priority: this.calculatePriority(item),
+          });
 
-        result.created = true;
+          // Link task to canvas item
+          await canvasIntegrityService.updateItem(canvasItem.id, {
+            taskId: task.id,
+            projectId,
+            syncStatus: 'synced',
+          });
+
+          // Create schedule tracking
+          await canvasIntegrityService.createScheduleTracking(canvasItem.id, task.id);
+
+          result.created = true;
+        }
       }
     } else {
       // Verify existing item
       result.verified = true;
 
       // Check for due date mismatch
-      if (canvasItem.dueAt?.getTime() !== item.dueAt?.getTime()) {
+      if (canvasItem.dueAt?.getTime() !== itemDueAt?.getTime()) {
         result.mismatch = true;
-        result.mismatchReason = `Due date mismatch: Canvas=${item.dueAt?.toISOString()} vs Local=${canvasItem.dueAt?.toISOString()}`;
+        result.mismatchReason = `Due date mismatch: Canvas=${itemDueAt?.toISOString()} vs Local=${canvasItem.dueAt?.toISOString()}`;
 
         // Update canvas item and task
         await canvasIntegrityService.updateItem(canvasItem.id, {
-          dueAt: item.dueAt,
+          dueAt: itemDueAt,
           syncStatus: 'synced',
         });
 
         if (canvasItem.taskId) {
           await taskService.update(canvasItem.taskId, {
-            dueDate: item.dueAt,
+            dueDate: itemDueAt,
           });
         }
 
@@ -838,9 +948,9 @@ export class CanvasIntegrityAgent {
     return result;
   }
 
-  private calculatePriority(item: CanvasAssignment | CanvasModuleItem): number {
+  private calculatePriority(item: CanvasAssignment | CanvasModuleItem | CanvasPageContent | CanvasFile | CanvasReading): number {
     // Check for high-stakes assignments
-    const title = item.title.toLowerCase();
+    const title = ('title' in item ? item.title : '').toLowerCase();
     if (title.includes('final') || title.includes('midterm') || title.includes('exam')) {
       return 4; // Urgent
     }
@@ -848,6 +958,11 @@ export class CanvasIntegrityAgent {
     if ('pointsPossible' in item && item.pointsPossible) {
       if (item.pointsPossible >= 100) return 3; // High
       if (item.pointsPossible >= 50) return 2; // Medium
+    }
+
+    // Required readings get higher priority
+    if ('isRequired' in item && item.isRequired) {
+      return 2; // Medium
     }
 
     return 2; // Default medium priority
