@@ -5,8 +5,11 @@ import {
   ChevronRightIcon,
   PhotoIcon,
   XMarkIcon,
+  MagnifyingGlassIcon,
+  ChevronLeftIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid';
+import { usePlatform } from '../hooks/usePlatform';
 import type { VaultPage, VaultPageBreadcrumb } from '../api';
 
 interface PageHeaderProps {
@@ -17,6 +20,7 @@ interface PageHeaderProps {
   onCoverChange: (coverUrl: string | null) => void;
   onToggleFavorite: () => void;
   onNavigate: (pageId: string) => void;
+  onOpenSearch?: () => void;
 }
 
 // Preset cover images (gradient colors and patterns)
@@ -45,7 +49,9 @@ export function PageHeader({
   onCoverChange,
   onToggleFavorite,
   onNavigate,
+  onOpenSearch,
 }: PageHeaderProps) {
+  const { isMobile } = usePlatform();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(page.title);
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -92,8 +98,59 @@ export function PageHeader({
 
   const hasCover = !!page.coverImage;
 
+  // Get parent page for back navigation
+  const parentPage = breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2] : null;
+
   return (
     <div>
+      {/* Mobile Header Bar with Search and Back */}
+      {isMobile && (
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-white sticky top-0 z-10">
+          {/* Back button */}
+          {parentPage ? (
+            <button
+              onClick={() => onNavigate(parentPage.id)}
+              className="flex items-center gap-1 p-2 -ml-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+              aria-label={`Back to ${parentPage.title}`}
+            >
+              <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+              <span className="text-sm text-gray-600 max-w-[80px] truncate">{parentPage.title}</span>
+            </button>
+          ) : (
+            <div className="w-10" />
+          )}
+
+          {/* Page title - centered */}
+          <div className="flex-1 text-center">
+            <span className="font-medium text-gray-900 truncate">{page.title || 'Untitled'}</span>
+          </div>
+
+          {/* Search button */}
+          {onOpenSearch && (
+            <button
+              onClick={onOpenSearch}
+              className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+              aria-label="Search notes"
+            >
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
+
+          {/* Favorite button */}
+          <button
+            onClick={onToggleFavorite}
+            className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+            aria-label={page.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            {page.isFavorite ? (
+              <StarSolid className="w-5 h-5 text-yellow-500" />
+            ) : (
+              <StarOutline className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Cover Image */}
       {hasCover && (
         <div
@@ -152,7 +209,7 @@ export function PageHeader({
         </div>
       )}
 
-      <div className={`px-24 ${hasCover ? 'pt-4' : 'pt-8'} pb-4`}>
+      <div className={`${isMobile ? 'px-4' : 'px-24'} ${hasCover ? 'pt-4' : isMobile ? 'pt-4' : 'pt-8'} pb-4`}>
         {/* Breadcrumbs */}
         {breadcrumbs.length > 1 && (
           <nav className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mb-4">

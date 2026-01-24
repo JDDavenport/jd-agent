@@ -2,6 +2,8 @@ import { useCallback, useState, useEffect } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { Backlinks } from '../components/Backlinks';
 import { BlockEditor } from '../editor/BlockEditor';
+import { MobileBlockEditor } from '../editor/mobile';
+import { usePlatform } from '../hooks/usePlatform';
 import {
   useVaultPage,
   useUpdateVaultPage,
@@ -12,9 +14,11 @@ import {
 interface BlockPageViewProps {
   pageId: string;
   onNavigate: (pageId: string) => void;
+  onOpenSearch?: () => void;
 }
 
-export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
+export function BlockPageView({ pageId, onNavigate, onOpenSearch }: BlockPageViewProps) {
+  const { isMobile } = usePlatform();
   const { data: pageData, isLoading, error } = useVaultPage(pageId);
   const updatePage = useUpdateVaultPage();
   const toggleFavorite = useToggleVaultPageFavorite();
@@ -131,6 +135,45 @@ export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
   const blocks = page.blocks || [];
   const breadcrumbs = page.breadcrumbs || [];
 
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 h-full">
+        <PageHeader
+          page={page}
+          breadcrumbs={breadcrumbs}
+          onTitleChange={handleTitleChange}
+          onIconChange={handleIconChange}
+          onCoverChange={handleCoverChange}
+          onToggleFavorite={handleToggleFavorite}
+          onNavigate={onNavigate}
+          onOpenSearch={onOpenSearch}
+        />
+
+        <div className="flex-1 overflow-hidden">
+          <MobileBlockEditor
+            pageId={pageId}
+            initialContent={blocks}
+            onContentChange={handleContentChange}
+            onSave={handleSave}
+            onCreatePage={handleCreatePage}
+            onPageClick={handlePageClick}
+            placeholder="Tap to start writing..."
+            autoFocus={blocks.length === 0}
+          />
+        </div>
+
+        {/* Unsaved changes indicator */}
+        {hasUnsavedChanges && (
+          <div className="fixed bottom-20 right-4 bg-gray-900 dark:bg-gray-700 text-white px-3 py-1.5 rounded-full text-sm shadow-lg">
+            Unsaved changes
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
       <PageHeader
@@ -141,6 +184,7 @@ export function BlockPageView({ pageId, onNavigate }: BlockPageViewProps) {
         onCoverChange={handleCoverChange}
         onToggleFavorite={handleToggleFavorite}
         onNavigate={onNavigate}
+        onOpenSearch={onOpenSearch}
       />
 
       <div className="px-24 pb-24">
