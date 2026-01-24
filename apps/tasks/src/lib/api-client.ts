@@ -39,8 +39,10 @@ export class ApiClient {
     const params = new URLSearchParams();
     if (filters?.status) params.set('status', filters.status);
     if (filters?.context) params.set('context', filters.context);
+    // Request all tasks for client-side filtering (backend defaults to 30)
+    params.set('limit', '1000');
     const query = params.toString();
-    return this.request('GET', `/api/tasks${query ? `?${query}` : ''}`);
+    return this.request('GET', `/api/tasks?${query}`);
   }
 
   async getTodayTasks(): Promise<Task[]> {
