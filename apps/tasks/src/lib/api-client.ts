@@ -82,6 +82,10 @@ export class ApiClient {
     return this.request('POST', `/api/tasks/${parentTaskId}/subtasks`, input);
   }
 
+  async reorderTasks(ids: string[]): Promise<{ count: number }> {
+    return this.request('POST', '/api/tasks/reorder', { ids });
+  }
+
   // Projects
   async listProjects(): Promise<Project[]> {
     return this.request('GET', '/api/projects');
