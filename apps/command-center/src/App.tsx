@@ -21,6 +21,7 @@ import Remarkable from './pages/Remarkable';
 import Acquisition from './pages/Acquisition';
 import Roadmap from './pages/Roadmap';
 import WeeklyPlanning from './pages/WeeklyPlanning';
+import Finance from './pages/Finance';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -47,6 +48,7 @@ function App() {
               <Route path="/progress" element={<Progress />} />
               <Route path="/goals" element={<Goals />} />
               <Route path="/acquisition" element={<Acquisition />} />
+              <Route path="/finance" element={<Finance />} />
               <Route path="/roadmap" element={<Roadmap />} />
               <Route path="/habits" element={<Habits />} />
               <Route path="/journal" element={<Journal />} />
