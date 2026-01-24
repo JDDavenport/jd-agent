@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NotionSidebar } from './components/NotionSidebar';
+import { MobileLayout, MobileHomeView, TabId } from './components/mobile';
+import { SyncProvider } from './contexts/SyncContext';
+import { usePlatform } from './hooks/usePlatform';
 import { BlockPageView } from './views/BlockPageView';
 import { SearchView } from './views/SearchView';
 import { JournalViewConnected } from './views/JournalViewConnected';
@@ -58,12 +61,18 @@ type ViewType =
   | 'legacy-page';
 
 function VaultApp() {
+  // Platform detection
+  const { isMobile } = usePlatform();
+
   // App mode: 'legacy' for vault entries (primary mode)
   const [appMode, setAppMode] = useState<AppMode>('legacy');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showChat, setShowChat] = useState(false);
+
+  // Mobile-specific state
+  const [mobileTab, setMobileTab] = useState<TabId>('home');
 
   // Legacy mode state
   const [_selectedView, setSelectedView] = useState('search');
@@ -94,7 +103,11 @@ function VaultApp() {
   const handleSelectPage = useCallback((pageId: string) => {
     setSelectedPageId(pageId);
     setAppMode('notion');
-  }, []);
+    // On mobile, switch to pages tab when viewing a page
+    if (isMobile) {
+      setMobileTab('pages');
+    }
+  }, [isMobile]);
 
   // Notion-style instant page creation - creates "Untitled" and navigates immediately
   const handleCreatePage = useCallback(
@@ -312,7 +325,7 @@ function VaultApp() {
   const renderMainContent = () => {
     // Notion mode: show block page view
     if (appMode === 'notion' && selectedPageId) {
-      return <BlockPageView pageId={selectedPageId} onNavigate={handleSelectPage} />;
+      return <BlockPageView pageId={selectedPageId} onNavigate={handleSelectPage} onOpenSearch={handleOpenSearch} />;
     }
 
     // Notion mode with no page selected: show welcome
@@ -437,6 +450,103 @@ function VaultApp() {
     }
   };
 
+  // Mobile tab change handler
+  const handleMobileTabChange = useCallback(
+    (tab: TabId) => {
+      setMobileTab(tab);
+      if (tab === 'new') {
+        handleCreatePage();
+        setMobileTab('pages');
+      } else if (tab === 'home') {
+        setViewType('search');
+        setAppMode('legacy');
+        setSelectedPageId(null);
+      } else if (tab === 'favorites') {
+        setViewType('favorites');
+        setAppMode('legacy');
+      } else if (tab === 'pages') {
+        // Stay on current page or show page list
+      }
+    },
+    [handleCreatePage]
+  );
+
+  // Mobile-specific content rendering
+  const renderMobileContent = () => {
+    // Home tab shows hierarchical page list
+    if (mobileTab === 'home') {
+      return (
+        <MobileHomeView
+          pageTree={pageTree}
+          favorites={favorites}
+          onSelectPage={handleSelectPage}
+          onCreatePage={handleCreatePage}
+        />
+      );
+    }
+
+    // Favorites tab shows favorite pages
+    if (mobileTab === 'favorites') {
+      return (
+        <MobileHomeView
+          pageTree={[]}
+          favorites={favorites}
+          onSelectPage={handleSelectPage}
+          onCreatePage={handleCreatePage}
+        />
+      );
+    }
+
+    // Pages tab or when a page is selected
+    return renderMainContent();
+  };
+
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <MobileLayout
+        pageTree={pageTree}
+        favorites={favorites}
+        selectedPageId={selectedPageId}
+        onSelectPage={handleSelectPage}
+        onCreatePage={handleCreatePage}
+        onOpenSearch={handleOpenSearch}
+        onOpenChat={() => setShowChat(true)}
+        showChat={showChat}
+        onCloseChat={() => setShowChat(false)}
+        chatContent={
+          <VaultChat
+            isOpen={true}
+            onClose={() => setShowChat(false)}
+            onNavigateToPage={handleSelectPage}
+            embedded
+          />
+        }
+        activeTab={mobileTab}
+        onTabChange={handleMobileTabChange}
+      >
+        {renderMobileContent()}
+
+        {/* Command Palette */}
+        <CommandPalette
+          isOpen={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          onSelectPage={handleSelectPage}
+          onSelectLegacyEntry={handleSelectEntry}
+          onCreatePage={handleCreatePage}
+        />
+
+        {/* Legacy New Entry Modal */}
+        <NewEntryModal
+          isOpen={showNewModal}
+          onClose={handleCloseNewModal}
+          parentId={newEntryParentId}
+        />
+      </MobileLayout>
+    );
+  }
+
+  // Desktop layout
   return (
     <div data-testid="vault-app" className="flex h-screen bg-white">
       {/* Notion-style Sidebar */}
@@ -494,7 +604,9 @@ function VaultApp() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <VaultApp />
+      <SyncProvider>
+        <VaultApp />
+      </SyncProvider>
     </QueryClientProvider>
   );
 }
