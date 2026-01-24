@@ -12,6 +12,8 @@ export const getTasks = async (filters?: TaskFilters): Promise<Task[]> => {
   if (filters?.includeCompleted !== undefined) {
     params.append('includeCompleted', filters.includeCompleted.toString());
   }
+  // Request all tasks for client-side filtering (backend defaults to 30)
+  params.append('limit', '1000');
 
   return apiClient.get(`/tasks?${params.toString()}`);
 };
