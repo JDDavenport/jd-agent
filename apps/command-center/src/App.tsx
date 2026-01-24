@@ -4,7 +4,7 @@ import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import VaultExplorer from './pages/VaultExplorer';
-import NoteEditor from './pages/NoteEditor';
+import VaultRedirect from './pages/VaultRedirect';
 import SystemHealth from './pages/SystemHealth';
 import PersonalHealth from './pages/PersonalHealth';
 import CanvasIntegrity from './pages/CanvasIntegrity';
@@ -18,6 +18,9 @@ import Progress from './pages/Progress';
 import Journal from './pages/Journal';
 import Recordings from './pages/Recordings';
 import Remarkable from './pages/Remarkable';
+import Acquisition from './pages/Acquisition';
+import Roadmap from './pages/Roadmap';
+import WeeklyPlanning from './pages/WeeklyPlanning';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -40,13 +43,16 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/calendar" element={<Calendar />} />
+              <Route path="/weekly-planning" element={<WeeklyPlanning />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/goals" element={<Goals />} />
+              <Route path="/acquisition" element={<Acquisition />} />
+              <Route path="/roadmap" element={<Roadmap />} />
               <Route path="/habits" element={<Habits />} />
               <Route path="/journal" element={<Journal />} />
               <Route path="/vault" element={<VaultExplorer />} />
-              <Route path="/vault/new" element={<NoteEditor />} />
-              <Route path="/vault/:id" element={<NoteEditor />} />
+              <Route path="/vault/new" element={<VaultRedirect />} />
+              <Route path="/vault/:id" element={<VaultRedirect />} />
               <Route path="/health" element={<SystemHealth />} />
               <Route path="/personal-health" element={<PersonalHealth />} />
               <Route path="/canvas" element={<CanvasIntegrity />} />
