@@ -105,6 +105,19 @@ export class TaskService {
    * Create a new task
    */
   async create(input: CreateTaskInput): Promise<TaskWithProject> {
+    // Get max sortOrder to place new task at the bottom
+    const [maxResult] = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(sort_order), -1)` })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.status, input.status || 'inbox'),
+          sql`${tasks.status} != 'done'`,
+          sql`${tasks.status} != 'archived'`
+        )
+      );
+    const nextSortOrder = (maxResult?.maxOrder ?? -1) + 1;
+
     const [task] = await db
       .insert(tasks)
       .values({
@@ -126,6 +139,7 @@ export class TaskService {
         parentTaskId: input.parentTaskId,
         recurrenceRule: input.recurrenceRule,
         taskLabels: input.taskLabels || [],
+        sortOrder: nextSortOrder,
       })
       .returning();
 
