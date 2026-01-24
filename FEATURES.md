@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 12, 2026
-> **Version:** 0.3.11
+> **Last Updated:** January 23, 2026
+> **Version:** 0.3.12
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -12,15 +12,23 @@ This document is the single source of truth for all current features and capabil
 
 ## Architecture Overview
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Hub (Backend API) | `/hub` | Central API server - single source of truth |
-| Command Center | `/apps/command-center` | Main React web dashboard (includes Journal) |
-| Tasks App | `/apps/tasks` | Focused task management interface |
-| Vault App | `/apps/vault` | Knowledge base (Notion-like) |
-| Jobs App | `/apps/jobs` | Job hunting agent interface |
-| Shared Types | `/packages/types` | TypeScript type definitions |
-| API Client | `/packages/api-client` | Typed API client library |
+| Component | Location | Purpose | Type |
+|-----------|----------|---------|------|
+| Hub (Backend API) | `/hub` | Central API server - single source of truth | Node.js + Hono |
+| Command Center | `/apps/command-center` | Main dashboard (includes Journal, Settings) | Tauri Desktop App |
+| Tasks App | `/apps/tasks` | Focused task management interface | Tauri Desktop App |
+| Vault App | `/apps/vault` | Knowledge base (Notion-like) | Tauri Desktop App |
+| Jobs App | `/apps/jobs` | Job hunting agent interface | Web App |
+| Shared Types | `/packages/types` | TypeScript type definitions | Library |
+| API Client | `/packages/api-client` | Typed API client library | Library |
+
+**Desktop Apps (Tauri):**
+- Command Center, Tasks, and Vault are native macOS desktop applications
+- Built with Tauri 2.x (Rust + WebView)
+- Auto-launch on system startup via LaunchAgent
+- Individual app icons and window management
+- Dev mode: `bun run tauri:dev` in each app directory
+- Production builds: `bun run tauri:build`
 
 ---
 
@@ -86,6 +94,23 @@ This document is the single source of truth for all current features and capabil
 - Section-based task organization (Todoist-style)
 
 ### 3. Vault (Knowledge Base)
+
+**Architecture:**
+The vault functionality is split across two apps for optimal user experience:
+
+**Command Center** (Browse & Search):
+- View vault entries in read-only mode
+- Search and filter across all content
+- Quick access from dashboard
+- Lightweight browsing experience
+- Redirects to Vault app for creation/editing
+
+**Vault App** (Create & Edit):
+- Full TipTap/Notion-style editor with rich formatting
+- Create new pages and notes
+- Edit existing entries with block-based editor
+- Advanced features (slash commands, markdown shortcuts, etc.)
+- Dedicated workspace for knowledge management
 
 **Content Types (Legacy):**
 - note, recording_summary, lecture, meeting, article, reference
@@ -206,6 +231,42 @@ This document is the single source of truth for all current features and capabil
 - All-day vs. timed events
 - Location tracking
 - Bidirectional sync with external calendar
+
+### 4.1 Weekly Planning Page (`/weekly-planning`) (NEW)
+
+**Purpose:** Dedicated planning interface for weekly planning sessions (Fridays).
+
+**Layout:**
+- **Left Panel (320px)**: Weekly Backlog - tasks tagged with `#weekly-backlog`
+- **Right Panel (flex)**: Planning Calendar - 17-day view (Friday + 2 weeks)
+
+**Weekly Backlog Features:**
+- Shows tasks with `#weekly-backlog` label
+- Drag-and-drop to reorder (sortOrder persisted via API)
+- Drag tasks to calendar to schedule them
+- Task cards show: title, time estimate, project, context
+- Priority indicator (color-coded border)
+- Complete task checkbox
+
+**Planning Calendar Features:**
+- 17-day horizontal view: Friday through Sunday of week-after-next
+- Droppable time slots for scheduling tasks
+- Displays Google Calendar events
+- Current time indicator (red line on today)
+- Scrollable time grid (6am-10pm)
+- Event type color coding
+
+**Drag-and-Drop:**
+- @dnd-kit library integration
+- Drag from backlog to reorder priority
+- Drag from backlog to calendar slot to schedule
+- Automatically calls `/api/tasks/:id/schedule` with calculated times
+- Uses task's `timeEstimateMinutes` for duration (default 60 min)
+
+**API Endpoints:**
+- `GET /api/tasks?label=weekly-backlog` - Fetch backlog tasks
+- `POST /api/tasks/reorder` - Persist task ordering
+- `POST /api/tasks/:id/schedule` - Schedule task (existing)
 
 ### 5. Master Agent (AI Assistant)
 
@@ -379,6 +440,11 @@ POST   /api/jobs/screening    # Add screening answer
 - Automatic task creation with both due date and scheduled date
 - Integrity audits (full, incremental, quick check)
 - Telegram nudges for unscheduled Canvas tasks
+- Full web scraping of course content:
+  - Wiki pages extraction with content and HTML
+  - Course files listing with download URLs
+  - Readings extraction from modules (external links, files, pages)
+  - Module items with position tracking
 
 **Database Tables:**
 - `canvas_items` - Track all Canvas assignments
@@ -1090,6 +1156,236 @@ See the Remarkable Integration PRD for detailed implementation plan.
 
 ---
 
+## Jupyter Notebook Integration (Data Analysis)
+
+Jupyter notebook integration for data analysis with Claude AI capabilities.
+
+### Features
+
+**Launch & Access:**
+- Quick launch from Command Center sidebar (Jupyter Lab in new tab)
+- Configurable via environment variables (`JUPYTER_URL`, `JUPYTER_PORT`, `JUPYTER_TOKEN`)
+- Server status checking via Hub API
+
+**Vault Integration:**
+- Auto-sync notebooks from `/hub/storage/notebooks/` to vault
+- Parse .ipynb files to extract code and markdown content
+- Full-text and semantic search across notebook content
+- File watcher for automatic sync on changes
+
+**Python Utilities (`jdagent` package):**
+- `hub` - Access tasks, projects, calendar, people, goals
+- `claude` - Pre-configured Claude AI for data analysis
+- `vault` - Search and create vault entries
+
+**Usage Example:**
+```python
+from jdagent import hub, claude, vault
+
+# Get today's tasks
+tasks = hub.tasks.today()
+
+# Analyze data with Claude
+insights = claude.analyze(my_dataframe, "What trends do you see?")
+
+# Save analysis to vault
+vault.save_analysis("Q1 Analysis", insights, tags=["analysis", "q1"])
+```
+
+**Analytics Environment:**
+Full data science stack with requirements.txt including:
+- Core: pandas, numpy, scipy
+- Visualization: matplotlib, seaborn, plotly
+- ML: scikit-learn, xgboost, lightgbm
+- Deep Learning: torch, transformers
+- AI Integration: anthropic, openai
+- Jupyter: jupyterlab, ipywidgets, jupyter-ai
+
+**MCP Server for Claude Code:**
+Enables Claude Code CLI to interact with Jupyter notebooks:
+- `notebook_list` - List all notebooks
+- `notebook_read` - Read notebook content
+- `notebook_read_cell` - Read specific cell
+- `cell_create` - Add new cells
+- `cell_update` - Modify cells
+- `cell_execute` - Execute code in running kernel
+- `kernel_list` / `kernel_restart` - Kernel management
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/jupyter/status` | GET | Check Jupyter server status |
+| `/api/jupyter/launch` | GET | Get launch URL for Jupyter Lab |
+| `/api/jupyter/notebooks` | GET | List tracked notebooks |
+| `/api/jupyter/notebooks/:id` | GET | Get specific notebook |
+| `/api/jupyter/search` | GET | Search notebooks by content |
+| `/api/jupyter/stats` | GET | Get notebook statistics |
+| `/api/jupyter/sync` | POST | Trigger notebook sync |
+| `/api/jupyter/watcher/start` | POST | Start file watcher |
+| `/api/jupyter/watcher/stop` | POST | Stop file watcher |
+| `/api/jupyter/kernels` | GET | List running kernels |
+| `/api/jupyter/sessions` | GET | List active sessions |
+
+### Configuration
+
+```bash
+# Environment Variables
+JUPYTER_URL=http://localhost:8888       # Jupyter server URL
+JUPYTER_PORT=8888                       # Jupyter server port
+JUPYTER_TOKEN=your-token                # Authentication token
+JUPYTER_NOTEBOOK_DIR=./storage/notebooks # Notebook directory
+
+# Command Center
+VITE_JUPYTER_URL=http://localhost:8888  # Frontend launch URL
+```
+
+### Setup
+
+1. Install Python requirements: `cd hub/notebooks && pip install -r requirements.txt`
+2. Start Jupyter Lab: `jupyter lab --notebook-dir=./storage/notebooks`
+3. Set `JUPYTER_TOKEN` in `.env` (from Jupyter startup output)
+4. Click "Jupyter" in Command Center sidebar
+
+### MCP Server Setup
+
+Add to `~/.config/claude/mcp_servers.json`:
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "bun",
+      "args": ["run", "hub/src/mcp/jupyter-server.ts"],
+      "env": {
+        "JUPYTER_URL": "http://localhost:8888",
+        "JUPYTER_NOTEBOOK_DIR": "./storage/notebooks"
+      }
+    }
+  }
+}
+```
+
+### Key Files
+
+- `/hub/src/services/notebook-service.ts` - Notebook parsing and vault sync
+- `/hub/src/services/notebook-watcher-service.ts` - File system watcher
+- `/hub/src/integrations/jupyter.ts` - Jupyter server integration
+- `/hub/src/api/routes/jupyter.ts` - API endpoints
+- `/hub/src/mcp/jupyter-server.ts` - MCP server for Claude Code
+- `/hub/notebooks/jdagent/` - Python utilities package
+- `/hub/notebooks/requirements.txt` - Python dependencies
+
+---
+
+## Acquisition System (Boomer Business Finder)
+
+Lead generation and CRM system for finding acquirable small businesses ("boomer businesses") - Utah companies 20-30 years old likely owned by retiring owners.
+
+### Features
+
+**Lead Management:**
+- Utah Business Registry scraping and import
+- Business data enrichment (Google Places, Yelp)
+- AI-powered acquisition scoring (Claude-based, 7 factors)
+- Pipeline stages: New → Researching → Qualified → Outreach → Conversation → Negotiating → Closed
+- Favorite/Hot lead flagging
+- Follow-up scheduling with task integration
+
+**Pipeline Board:**
+- Kanban-style board view with 6 active stages
+- Click-to-move stage changes with quick prev/next buttons
+- Dropdown menu for moving to any stage
+- Lead counts per stage with colored headers
+
+**AI Scoring (0-100 scale):**
+| Factor | Max Points | Description |
+|--------|------------|-------------|
+| Age Fit | 15 | Business age indicating owner retirement timing |
+| Entity Type | 10 | Ease of transfer (LLC preferred) |
+| Owner Age Signals | 15 | Digital presence indicators of owner age |
+| Online Presence | 15 | Modernization/automation opportunity |
+| Reputation | 15 | Reviews and customer satisfaction |
+| Industry Fit | 15 | Service businesses preferred |
+| Automation Potential | 15 | Opportunity for AI/automation improvements |
+
+**Data Enrichment:**
+- Google Places API: Business details, ratings, reviews
+- Yelp Fusion API: Ratings, review counts, categories
+- Batch enrichment via background jobs
+
+**Task Integration:**
+- Auto-create tasks when scheduling follow-ups
+- Tasks linked to leads via `sourceRef`
+- Daily 8 AM follow-up reminder notifications
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/acquisition/leads` | GET | List leads with filters |
+| `/api/acquisition/leads/:id` | GET | Get single lead with interactions |
+| `/api/acquisition/leads` | POST | Create new lead |
+| `/api/acquisition/leads/:id` | PATCH | Update lead |
+| `/api/acquisition/leads/:id` | DELETE | Delete lead |
+| `/api/acquisition/leads/import` | POST | Import from scraper |
+| `/api/acquisition/leads/:id/stage` | POST | Change pipeline stage |
+| `/api/acquisition/leads/:id/favorite` | POST | Toggle favorite |
+| `/api/acquisition/leads/:id/hot` | POST | Toggle hot status |
+| `/api/acquisition/leads/:id/pass` | POST | Pass on lead |
+| `/api/acquisition/leads/:id/follow-up` | POST | Set follow-up date (creates task) |
+| `/api/acquisition/leads/:id/enrich` | POST | Enrich single lead |
+| `/api/acquisition/leads/:id/score` | POST | Score single lead |
+| `/api/acquisition/enrich-batch` | POST | Batch enrich leads |
+| `/api/acquisition/score-batch` | POST | Batch score leads |
+| `/api/acquisition/stats` | GET | Pipeline statistics |
+| `/api/acquisition/follow-ups` | GET | Leads needing follow-up |
+| `/api/acquisition/hot` | GET | Hot leads |
+| `/api/acquisition/top` | GET | Top scored leads |
+| `/api/acquisition/interactions/:leadId` | GET | Lead interactions |
+| `/api/acquisition/interactions/:leadId` | POST | Log interaction |
+
+### Database Tables
+
+- `acquisition_leads` - Core lead data with scoring, pipeline stage, enrichment data
+- `acquisition_interactions` - Outreach log (calls, emails, meetings)
+- `acquisition_enrichment_log` - Track enrichment attempts per source
+
+### Key Files
+
+**Backend:**
+- `/hub/src/services/acquisition-service.ts` - Core CRUD & pipeline operations
+- `/hub/src/services/acquisition-enrichment-service.ts` - Google/Yelp enrichment
+- `/hub/src/services/acquisition-scoring-service.ts` - Claude AI scoring
+- `/hub/src/api/routes/acquisition.ts` - REST API endpoints
+- `/hub/src/jobs/processors/acquisition.ts` - Background job processors
+- `/hub/src/integrations/google-places.ts` - Google Places API client
+- `/hub/src/integrations/yelp.ts` - Yelp Fusion API client
+- `/hub/src/db/schema.ts` - Database tables
+
+**Frontend:**
+- `/apps/command-center/src/pages/Acquisition.tsx` - Main page with list/pipeline views
+- `/apps/command-center/src/components/acquisition/LeadList.tsx` - Lead table
+- `/apps/command-center/src/components/acquisition/LeadDetail.tsx` - Detail panel
+- `/apps/command-center/src/components/acquisition/PipelineBoard.tsx` - Kanban board
+- `/apps/command-center/src/components/acquisition/ScoreBreakdown.tsx` - Score visualization
+- `/apps/command-center/src/components/dashboard/AcquisitionWidget.tsx` - Dashboard widget
+- `/apps/command-center/src/api/acquisition.ts` - API client
+- `/apps/command-center/src/hooks/useAcquisition.ts` - React Query hooks
+- `/apps/command-center/src/types/acquisition.ts` - TypeScript types
+
+### Configuration
+
+```bash
+# Required for enrichment
+GOOGLE_PLACES_API_KEY=xxx    # Google Places API
+YELP_API_KEY=xxx             # Yelp Fusion API
+
+# Required for scoring
+ANTHROPIC_API_KEY=xxx        # Claude AI (already configured)
+```
+
+---
+
 ## Frontend Applications
 
 ### Command Center (`/apps/command-center`)
@@ -1099,12 +1395,17 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - Habits: Habit tracking with streak visualization
 - Journal: 7-step daily review workflow (integrated from standalone app)
 - Vault Explorer: Knowledge base browsing and search
+- Acquisition: Business lead CRM with pipeline board and AI scoring
+- Recordings: Audio recording management with transcription
+- Remarkable: Handwritten notes sync from Remarkable tablet
 - System Health: Backend health, integrity checks, services status
 - Personal Health: Whoop fitness metrics, recovery scores, sleep data
 - Settings: Configuration and preferences
 - Chat: Full-screen master agent chat
 - Brain Dump: Quick capture interface
 - Setup Wizard: Initial configuration
+- Native macOS app: Tauri desktop build and dev launcher
+- Installable PWA: Add to Dock on macOS, Add to Home Screen on iOS
 
 **Enhanced Dashboard (Phase 1 - Command Center v2.0):**
 6 Interactive metric cards with click-through navigation:
@@ -1193,6 +1494,8 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - Sidebar navigation with hierarchical project tree
 - Parent project navigation: Click project name to view, click chevron to expand/collapse children
 - Keyboard shortcuts: Q/N (quick add), G+I/T/U (navigation), Escape (close panels)
+- Native macOS app: Tauri desktop build and dev launcher
+- Installable PWA: Add to Dock on macOS, Add to Home Screen on iOS
 
 ### Vault App (`/apps/vault`)
 **Views (Notion Mode - NEW):**
@@ -1225,6 +1528,8 @@ See the Remarkable Integration PRD for detailed implementation plan.
 - Dark mode with system preference detection
 - Entity linking via `[[` trigger with task/goal/page tabs
 - Keyboard shortcuts: ⌘K (search), ⌘N (new), ⌘\ (sidebar), ⌘S (save)
+- Native macOS app: Tauri desktop build and dev launcher
+- Installable PWA: Add to Dock on macOS, Add to Home Screen on iOS
 - Full-text and semantic search (legacy)
 - Rich markdown editing (legacy)
 - Entry linking and related entries (legacy)
@@ -1442,6 +1747,150 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 23, 2026 - Weekly Planning Feature
+- **NEW**: Weekly Planning page (`/weekly-planning`) in Command Center
+  - Left panel: Weekly backlog showing tasks with `#weekly-backlog` label
+  - Right panel: 17-day calendar view (Friday + 2 weeks)
+  - Drag-and-drop task scheduling - drag from backlog to calendar slot
+  - Drag-and-drop reordering within backlog (sortOrder persisted)
+  - @dnd-kit library integration for smooth drag interactions
+  - Tasks auto-schedule with time estimate duration (default 60min)
+  - Files: `WeeklyPlanning.tsx`, `WeeklyBacklogPanel.tsx`, `PlanningCalendar.tsx`, `useWeeklyPlanning.ts`
+- **API**: New label filter for tasks endpoint
+  - `GET /api/tasks?label=weekly-backlog` filters by taskLabels array
+  - Files: `tasks.ts` (routes), `task-service.ts`
+- **API**: New reorder endpoint for task sorting
+  - `POST /api/tasks/reorder` - bulk update sortOrder based on array position
+  - Files: `tasks.ts` (routes), `task-service.ts`
+
+### January 23, 2026 - Native Desktop App Transformation & Testing
+- **Tauri Desktop Apps**: Command Center, Tasks, and Vault transformed into native macOS applications
+  - Built with Tauri 2.x framework (Rust + WebView)
+  - Individual app icons (.icns) and window configurations
+  - Each app runs as separate process with own dock icon
+  - `tauri:dev` and `tauri:build` scripts per app
+  - Desktop configs under `apps/*/src-tauri/`
+- **LaunchAgent Auto-start**: Fixed startup script to launch desktop apps
+  - Updated `scripts/start-frontends.sh` to run `tauri:dev` instead of web `dev`
+  - Apps auto-launch on system startup via `dev.jdagent.frontends.plist`
+  - Waits for Hub API health check before starting apps
+- **Bug Fix - BUG-018**: Duplicate app instances resolved
+  - Issue: Both web (Vite) and desktop (Tauri) versions running simultaneously
+  - Cause: LaunchAgent script was starting web servers instead of Tauri apps
+  - Fix: Updated startup script to launch correct desktop versions
+  - Result: Single instance of each app now runs properly
+- **Comprehensive Testing**: 271 automated tests + manual test suites created
+  - Command Center: 271 Playwright tests (~85% pass rate)
+  - Tasks: 50+ manual tests documented in `apps/tasks/test-manual.md`
+  - Vault: 80+ manual tests documented in `apps/vault/test-manual.md`
+  - Test report: `COMPREHENSIVE-TEST-REPORT.md`
+- **PWA Support**: Basic iOS install capability remains available for web access
+
+### January 22, 2026 - Command Center Health UI Fixes
+- **BUG-015 Fixed**: System Health uptime and integrity log rendering
+  - Handle string uptime values returned by `/api/system/info`
+  - Normalize integrity history timestamps and messages for display
+  - Files: `SystemHealth.tsx`, `IntegrityLog.tsx`, `health.ts`, `types/health.ts`
+- **BUG-016 Fixed**: Testing agent provider order and fallback
+  - Use cloud providers before falling back to local Ollama/llama
+  - Allow running tests without OpenAI keys if other providers or Ollama are configured
+  - Files: `vision-provider.ts`, `run-ai-tests.ts`
+- **BUG-017 Fixed**: Testing agent auto-downloads missing local Ollama models
+  - Pulls configured chat/vision models if they are not present locally
+  - Files: `vision-provider.ts`
+
+### January 17, 2026 - Canvas Web Scraping & Bug Fixes
+- **BUG-012 Fixed**: Full Canvas web scraping implementation
+  - Wiki pages extraction with content, HTML, and publishing status
+  - Course files listing with download URLs and file metadata
+  - Readings extraction from modules (external links, files, pages)
+  - Module items with position tracking for navigation
+  - New types: `CanvasPageContent`, `CanvasFile`, `CanvasReading`
+  - Files: `content-extractor.ts`, `canvas-integrity-service.ts`
+- **BUG-010 Fixed**: Vault/Canvas project hierarchy mismatch
+  - Added `getProjectByCourseCode()` and `getCourseProjectMap()` to canvas-integrity-service
+  - Updated `getOrCreateClassFolder()` to link vault folders to Canvas projects
+  - Updated `createClassVaultEntry()` to include projectId
+  - Added `scripts/link-vault-to-canvas-projects.ts` backfill script
+  - Vault entries now properly linked to Canvas class projects
+- **BUG-011 Fixed**: Duplicate Vault pages
+  - Added `findOrCreate()` method to VaultPageService to prevent duplicates
+  - Added `findByTitleAndParent()` for dedup queries
+  - Added `findDuplicates()` and `mergeDuplicates()` methods
+  - Updated plaud-api.ts, ingestion.ts, plaud-gdrive-sync.ts to use findOrCreate
+  - Added API endpoints: GET `/api/vault/pages/duplicates`, POST `/api/vault/pages/merge-duplicates`
+  - Added `scripts/dedupe-vault-pages.ts` cleanup script
+- **BUG-009 Fixed**: Recording null titles in database
+  - Added fallbacks in all recording creation points (plaud-api.ts, plaud-sync.ts, plaud.ts, vip-service.ts)
+  - Generated titles from recording date when source title is null
+  - Added `scripts/fix-recording-titles.ts` to fix existing null titles
+- **BUG-008 Fixed**: Canvas tasks now include description, URL, and points
+- **BUG-013 Fixed**: GET `/api/tasks/:id/canvas-item` endpoint for task → Canvas item lookup
+- **BUG-014 Fixed**: Recordings auto-link to vault day pages with summary/transcript
+  - Class detection from recording content
+  - CLASS_CODE_MAPPING for MBA courses
+  - File: `class-detection-service.ts`
+
+### January 15, 2026 - Acquisition System (Boomer Business Finder)
+- **Lead Management CRM**: Full pipeline for business acquisition leads
+  - Utah Business Registry scraping and import
+  - Pipeline stages: New → Researching → Qualified → Outreach → Conversation → Negotiating → Closed
+  - Favorite/Hot lead flagging
+  - Files: `acquisition-service.ts`, `acquisition.ts` (routes)
+- **Data Enrichment**: Multi-source business data enrichment
+  - Google Places API integration (ratings, reviews, details)
+  - Yelp Fusion API integration (ratings, review counts)
+  - Batch enrichment via background jobs
+  - Files: `google-places.ts`, `yelp.ts`, `acquisition-enrichment-service.ts`
+- **AI Scoring**: Claude-powered lead scoring (0-100)
+  - 7 weighted factors: Age Fit, Entity Type, Owner Signals, Online Presence, Reputation, Industry Fit, Automation Potential
+  - Batch scoring via background jobs
+  - File: `acquisition-scoring-service.ts`
+- **Pipeline Board UI**: Kanban-style pipeline view
+  - 6-column board with click-to-move functionality
+  - Quick prev/next stage buttons and dropdown menu
+  - Stage-colored headers with lead counts
+  - File: `PipelineBoard.tsx`
+- **Task Integration**: Follow-up scheduling creates tasks
+  - Tasks linked to leads via `source: 'acquisition'`
+  - Daily 8 AM follow-up reminder notifications
+  - Scheduler integration: `acquisition-follow-up-reminder` job
+- **Dashboard Widget**: Pipeline summary on main dashboard
+  - Pipeline progress bar with stage breakdown
+  - Hot leads, follow-ups due, top prospects sections
+  - File: `AcquisitionWidget.tsx`
+- **Frontend**: Complete Acquisition page with list/pipeline views
+  - LeadList, LeadDetail, ScoreBreakdown components
+  - Slide-out detail panel in pipeline view
+  - Full React Query integration
+
+### January 14, 2026 - Jupyter Notebook Integration
+- **Jupyter Lab Integration**: Launch Jupyter from Command Center sidebar
+  - Quick launch button opens Jupyter Lab in new browser tab
+  - Server status checking via API
+  - Configurable via environment variables
+- **Vault Sync**: Auto-sync notebooks to vault for search
+  - Parse .ipynb files to extract code and markdown
+  - Full-text and semantic search across notebook content
+  - File watcher for automatic sync on changes
+  - Files: `notebook-service.ts`, `notebook-watcher-service.ts`
+- **Python Utilities (`jdagent` package)**:
+  - `hub` client for tasks, projects, calendar, people, goals
+  - `claude` helper for AI-powered data analysis
+  - `vault` client for search and entry creation
+  - Files: `hub/notebooks/jdagent/`
+- **Analytics Environment**: Full data science stack
+  - Core: pandas, numpy, scipy
+  - ML: scikit-learn, xgboost, torch, transformers
+  - Visualization: matplotlib, seaborn, plotly
+  - AI: anthropic, openai, jupyterlab
+- **MCP Server for Claude Code**: Bidirectional Claude integration
+  - Read/create/update notebook cells
+  - Execute code in running kernels
+  - List notebooks and manage sessions
+  - File: `hub/src/mcp/jupyter-server.ts`
+- **API Endpoints**: `/api/jupyter/*` for status, notebooks, sync, kernels
 
 ### January 13, 2026 - Remarkable Cloud Sync & UI
 - **Cloud API Integration**: Direct sync with Remarkable Cloud servers
@@ -2179,6 +2628,31 @@ See `CLAUDE.md` for full documentation requirements.
 - **Files Modified**:
   - `hub/src/services/dashboard-service.ts` - Query optimizations for grouped endpoints
   - `hub/src/index.ts` - CORS configuration
+
+### January 23, 2026 - Test Suite Improvements & Vault Architecture Documentation
+- **Vault Architecture Documented**: Clarified split between Command Center (browse/search) and Vault app (create/edit)
+- **Vault Redirect Component**: Created user-friendly redirect when accessing `/vault/new` or `/vault/:id` from Command Center
+  - Auto-redirects to Vault app (localhost:5181) after 3 seconds
+  - Provides manual "Open Vault App Now" button
+  - Explains architecture change with helpful tips
+- **Dashboard Test Improvements**: Fixed 3 dashboard load tests with better wait conditions
+  - Increased timeouts to 10-15 seconds for cascading loads
+  - Added explicit visibility waits instead of simple presence checks
+  - All 5 dashboard tests now passing
+- **Chat API Tests**: Properly skipped 2 chat endpoint tests requiring OpenAI API
+  - Added comprehensive documentation explaining skip reason
+  - Added TODO for future mocking strategy
+- **Test Results**: Improved test stability and user experience
+  - Dashboard tests: 100% passing (5/5)
+  - API tests: 100% passing (37/37 excluding skipped)
+  - Vault workflows: 80% passing (4/5, 2 creation tests correctly skipped)
+- **Files Modified**:
+  - `apps/command-center/src/pages/VaultRedirect.tsx` (created) - User-friendly redirect component
+  - `apps/command-center/src/App.tsx` - Router configuration for vault redirects
+  - `apps/command-center/e2e/app.spec.ts` - Dashboard test timing improvements
+  - `apps/command-center/e2e/api-tests.spec.ts` - Chat API test skipping with documentation
+  - `FEATURES.md` - Vault architecture documentation
+  - `apps/command-center/TEST-IMPROVEMENTS-JAN-23.md` (created) - Comprehensive test improvements report
 
 ---
 
