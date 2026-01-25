@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { SystemInfo, HealthMetrics, IntegrityCheck, ActivityLog } from '../types/health';
+import type { SystemInfo, HealthMetrics, IntegrityCheck, ActivityLog, CommunicationMonitorStatus } from '../types/health';
 
 export interface PersonalHealthData {
   configured: boolean;
@@ -24,6 +24,51 @@ export interface PersonalHealthData {
   } | null;
   timestamp: string;
   message?: string;
+}
+
+// Garmin types
+export interface GarminStatus {
+  configured: boolean;
+  installed: boolean;
+  authenticated: boolean;
+  displayName: string | null;
+  error: string | null;
+}
+
+export interface GarminActivity {
+  activityId: number;
+  activityName: string;
+  activityType: string | null;
+  startTime: string;
+  duration: number | null;
+  distance: number | null;
+  calories: number | null;
+  avgHR: number | null;
+  maxHR: number | null;
+}
+
+export interface GarminDailyMetrics {
+  steps: number | null;
+  restingHR: number | null;
+  sleepHours: number | null;
+  sleepScore: number | null;
+  stressLevel: number | null;
+  bodyBattery: number | null;
+}
+
+export interface CombinedHealthData {
+  timestamp: string;
+  whoop: {
+    recovery: {
+      score: number;
+      restingHeartRate: number;
+      hrv: number;
+    } | null;
+    sleep: {
+      totalSleepHours: number;
+    } | null;
+  } | null;
+  garmin: GarminDailyMetrics | null;
 }
 
 export interface BasicHealthResponse {
@@ -54,7 +99,32 @@ export const healthApi = {
   },
 
   getIntegrityChecks: async (limit: number = 20): Promise<IntegrityCheck[]> => {
-    return apiClient.get(`/system/integrity/history?limit=${limit}`);
+    const checks = await apiClient.get(`/system/integrity/history?limit=${limit}`);
+    if (!Array.isArray(checks)) {
+      return [];
+    }
+
+    return checks.map((check, index) => {
+      const timestamp =
+        check.timestamp
+        || check.createdAt
+        || check.completedAt
+        || check.updatedAt
+        || new Date().toISOString();
+      const status: IntegrityCheck['status'] = check.status
+        || (check.passed === true ? 'pass' : check.passed === false ? 'fail' : 'warning');
+      const message = check.message || check.details?.message;
+      const id = check.id || `${check.type || 'check'}-${timestamp}-${index}`;
+
+      return {
+        id,
+        type: check.type || check.name || 'unknown',
+        status,
+        message,
+        timestamp,
+        details: check.details,
+      };
+    });
   },
 
   getActivityLogs: async (limit: number = 20): Promise<ActivityLog[]> => {
@@ -79,5 +149,37 @@ export const healthApi = {
     hasData: boolean;
   }> => {
     return apiClient.get('/health/status');
+  },
+
+  getCommunicationStatus: async (): Promise<CommunicationMonitorStatus> => {
+    return apiClient.get('/system/communications/status');
+  },
+
+  runCommunicationCheck: async (): Promise<{
+    outlook: { new: number; urgent: number; notified: number };
+    imessage: { new: number; urgent: number; notified: number };
+    phoneCalls: { new: number; urgent: number; notified: number };
+    totalNew: number;
+    totalUrgent: number;
+    totalNotified: number;
+  }> => {
+    return apiClient.post('/system/communications/check', {});
+  },
+
+  // Garmin endpoints
+  getGarminStatus: async (): Promise<GarminStatus> => {
+    return apiClient.get('/garmin/status');
+  },
+
+  getGarminActivities: async (limit: number = 5): Promise<GarminActivity[]> => {
+    return apiClient.get(`/garmin/activities?limit=${limit}`);
+  },
+
+  getGarminMetrics: async (): Promise<GarminDailyMetrics> => {
+    return apiClient.get('/garmin/metrics');
+  },
+
+  getCombinedHealth: async (): Promise<CombinedHealthData> => {
+    return apiClient.get('/health/combined');
   },
 };

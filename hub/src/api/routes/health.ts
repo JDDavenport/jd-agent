@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { checkDatabaseConnection } from '../../db/client';
 import { getWhoopIntegration } from '../../integrations/whoop';
+import { garminIntegration } from '../../integrations/garmin';
+import { whoopAutoAuth } from '../../services/whoop-auto-auth';
 
 const health = new Hono();
 
@@ -93,7 +95,24 @@ health.get('/personal', async (c) => {
     }
 
     // Check if authorized
-    const isAuthorized = await whoop.isAuthorized();
+    let isAuthorized = await whoop.isAuthorized();
+
+    // If not authorized and auto-auth is configured, try to auto-authenticate
+    if (!isAuthorized && whoopAutoAuth.isConfigured()) {
+      console.log('[Health] WHOOP not authorized, attempting auto-auth...');
+      try {
+        const autoAuthResult = await whoopAutoAuth.authenticate();
+        if (autoAuthResult.success) {
+          console.log('[Health] Auto-auth successful, proceeding with data fetch');
+          isAuthorized = true;
+        } else {
+          console.log('[Health] Auto-auth failed:', autoAuthResult.error);
+        }
+      } catch (autoAuthError) {
+        console.error('[Health] Auto-auth error:', autoAuthError);
+      }
+    }
+
     if (!isAuthorized) {
       return c.json({
         success: true,
@@ -257,6 +276,133 @@ health.get('/detailed', async (c) => {
     timestamp: new Date().toISOString(),
     checks,
   });
+});
+
+// Combined health dashboard with WHOOP + Garmin data
+health.get('/combined', async (c) => {
+  try {
+    const whoop = getWhoopIntegration();
+    const results: any = {
+      timestamp: new Date().toISOString(),
+      whoop: null,
+      garmin: null,
+    };
+
+    // Fetch WHOOP data if configured
+    if (whoop.isConfigured() && await whoop.isAuthorized()) {
+      try {
+        const [recovery, sleep] = await Promise.all([
+          whoop.getTodayRecovery(),
+          whoop.getLastNightSleep(),
+        ]);
+
+        results.whoop = {
+          recovery: recovery ? {
+            score: recovery.score.recovery_score,
+            restingHeartRate: recovery.score.resting_heart_rate,
+            hrv: recovery.score.hrv_rmssd_milli,
+          } : null,
+          sleep: sleep ? {
+            totalSleepHours: (() => {
+              const stageSummary = sleep.score.stage_summary;
+              const totalSleepMilli = (stageSummary.total_light_sleep_time_milli || 0) +
+                                     (stageSummary.total_slow_wave_sleep_time_milli || 0) +
+                                     (stageSummary.total_rem_sleep_time_milli || 0);
+              return parseFloat((totalSleepMilli / (1000 * 60 * 60)).toFixed(2));
+            })(),
+          } : null,
+        };
+      } catch (error) {
+        console.error('[Health] WHOOP data fetch error:', error);
+      }
+    }
+
+    // Fetch Garmin data if configured
+    if (garminIntegration.isConfigured()) {
+      try {
+        const garminMetrics = await garminIntegration.getDailyMetrics();
+        results.garmin = {
+          steps: garminMetrics.steps,
+          restingHR: garminMetrics.restingHR,
+          sleepHours: garminMetrics.sleepHours,
+          sleepScore: garminMetrics.sleepScore,
+          stressLevel: garminMetrics.stressLevel,
+          bodyBattery: garminMetrics.bodyBattery,
+        };
+      } catch (error) {
+        console.error('[Health] Garmin data fetch error:', error);
+      }
+    }
+
+    return c.json({
+      success: true,
+      data: results,
+    });
+  } catch (error) {
+    console.error('[Health] Combined data error:', error);
+    return c.json({
+      success: false,
+      error: {
+        code: 'COMBINED_HEALTH_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch combined health data',
+      },
+    }, 500);
+  }
+});
+
+// WHOOP auto-auth status
+health.get('/whoop-auto-auth/status', async (c) => {
+  try {
+    const status = await whoopAutoAuth.getStatus();
+    return c.json({
+      success: true,
+      data: status,
+    });
+  } catch (error) {
+    console.error('[Health] WHOOP auto-auth status error:', error);
+    return c.json({
+      success: false,
+      error: {
+        code: 'WHOOP_AUTO_AUTH_STATUS_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to get WHOOP auto-auth status',
+      },
+    }, 500);
+  }
+});
+
+// Trigger WHOOP auto-auth
+health.post('/whoop-auto-auth/authenticate', async (c) => {
+  try {
+    console.log('[Health] Triggering WHOOP auto-auth...');
+    const result = await whoopAutoAuth.authenticate();
+
+    if (result.success) {
+      return c.json({
+        success: true,
+        data: {
+          message: 'WHOOP authentication successful',
+          expiresAt: result.expiresAt,
+        },
+      });
+    }
+
+    return c.json({
+      success: false,
+      error: {
+        code: 'WHOOP_AUTO_AUTH_FAILED',
+        message: result.error || 'WHOOP auto-authentication failed',
+      },
+    }, 401);
+  } catch (error) {
+    console.error('[Health] WHOOP auto-auth error:', error);
+    return c.json({
+      success: false,
+      error: {
+        code: 'WHOOP_AUTO_AUTH_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to authenticate with WHOOP',
+      },
+    }, 500);
+  }
 });
 
 export { health };

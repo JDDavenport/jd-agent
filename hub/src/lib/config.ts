@@ -59,6 +59,12 @@ const envSchema = z.object({
   WHOOP_CLIENT_ID: z.string().optional(),
   WHOOP_CLIENT_SECRET: z.string().optional(),
   WHOOP_REDIRECT_URI: z.string().url().optional(),
+  WHOOP_EMAIL: z.string().email().optional(),
+  WHOOP_PASSWORD: z.string().optional(),
+
+  // Garmin Connect (health & fitness)
+  GARMIN_EMAIL: z.string().email().optional(),
+  GARMIN_PASSWORD: z.string().optional(),
 
   // Plaid (finance)
   PLAID_CLIENT_ID: z.string().optional(),
