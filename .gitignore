@@ -86,3 +86,7 @@ __pycache__/
 test-report.json
 .vercel
 .env*.local
+# Xcode user data
+apps/jd-tasks-ios/JDTasks.xcodeproj/project.xcworkspace/xcuserdata/
+apps/jd-tasks-ios/JDTasks.xcodeproj/xcuserdata/
+*.xcuserstate
