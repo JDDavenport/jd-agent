@@ -1,20 +1,38 @@
 /**
  * FitnessWidget - Phase 3
  *
- * Displays fitness and wellness data from Whoop including:
+ * Displays fitness and wellness data from Whoop and Garmin including:
  * - Workout streak badge
  * - Today's recovery score
  * - Average sleep hours
  * - Last workout info
+ * - Recent Garmin activities
  */
 
+import { useQuery } from '@tanstack/react-query';
 import { useFitness } from '../../hooks/useDashboardEnhanced';
+import { healthApi, type GarminActivity, type GarminStatus } from '../../api/health';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { ProgressBar } from './shared';
 import { format, parseISO } from 'date-fns';
 
 function FitnessWidget() {
   const { data, isLoading, error } = useFitness();
+
+  const { data: garminStatus } = useQuery<GarminStatus>({
+    queryKey: ['garmin-status-widget'],
+    queryFn: healthApi.getGarminStatus,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: garminActivities } = useQuery<GarminActivity[]>({
+    queryKey: ['garmin-activities-widget'],
+    queryFn: () => healthApi.getGarminActivities(1),
+    enabled: garminStatus?.configured && garminStatus?.authenticated,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const latestGarminActivity = garminActivities?.[0];
 
   if (isLoading) {
     return (
@@ -145,6 +163,56 @@ function FitnessWidget() {
                 />
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Latest Garmin Activity */}
+      {garminStatus?.configured && garminStatus?.authenticated && latestGarminActivity && (
+        <div className="mt-4 pt-4 border-t border-dark-border">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">⌚</span>
+            <h3 className="text-xs text-text-muted">Latest Garmin Activity</h3>
+          </div>
+          <div className="p-3 bg-dark-bg rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">
+                  {latestGarminActivity.activityType === 'running' ? '🏃' :
+                   latestGarminActivity.activityType === 'cycling' ? '🚴' :
+                   latestGarminActivity.activityType === 'swimming' ? '🏊' :
+                   latestGarminActivity.activityType === 'walking' ? '🚶' :
+                   latestGarminActivity.activityType === 'yoga' ? '🧘' :
+                   latestGarminActivity.activityType === 'strength_training' ? '💪' :
+                   '🏋️'}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-text truncate">
+                    {latestGarminActivity.activityName}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {format(parseISO(latestGarminActivity.startTime), 'MMM d, h:mm a')}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 mt-2 text-xs">
+              {latestGarminActivity.duration && (
+                <span className="text-text-muted">
+                  ⏱️ {Math.round(latestGarminActivity.duration / 60)}m
+                </span>
+              )}
+              {latestGarminActivity.calories && (
+                <span className="text-text-muted">
+                  🔥 {latestGarminActivity.calories} cal
+                </span>
+              )}
+              {latestGarminActivity.avgHR && (
+                <span className="text-text-muted">
+                  ❤️ {latestGarminActivity.avgHR} bpm
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

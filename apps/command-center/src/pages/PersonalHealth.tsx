@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { healthApi, type PersonalHealthData } from '../api/health';
+import { healthApi, type PersonalHealthData, type GarminStatus, type GarminActivity } from '../api/health';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -18,6 +18,19 @@ function PersonalHealth() {
     queryKey: ['personal-health'],
     queryFn: healthApi.getPersonalHealth,
     refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
+
+  const { data: garminStatus } = useQuery<GarminStatus>({
+    queryKey: ['garmin-status'],
+    queryFn: healthApi.getGarminStatus,
+    refetchInterval: 5 * 60 * 1000,
+  });
+
+  const { data: garminActivities } = useQuery<GarminActivity[]>({
+    queryKey: ['garmin-activities'],
+    queryFn: () => healthApi.getGarminActivities(5),
+    enabled: garminStatus?.configured && garminStatus?.authenticated,
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const getRecoveryColor = (score: number) => {
@@ -66,7 +79,7 @@ function PersonalHealth() {
             Personal Health
           </h1>
           <p className="text-text-muted mt-1">
-            Track your recovery, sleep, and fitness metrics from Whoop
+            Track your recovery, sleep, and fitness metrics from Whoop and Garmin
           </p>
         </div>
 
@@ -248,6 +261,16 @@ function PersonalHealth() {
                   📱 Open Whoop App
                 </a>
               </Button>
+              <Button variant="secondary">
+                <a
+                  href="https://connect.garmin.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="no-underline"
+                >
+                  ⌚ Open Garmin Connect
+                </a>
+              </Button>
               <Button variant="secondary" onClick={() => refetch()}>
                 🔄 Refresh Data
               </Button>
@@ -255,6 +278,99 @@ function PersonalHealth() {
           </div>
         </>
       )}
+
+      {/* Garmin Section */}
+      <div className="space-y-6 mt-6">
+        <h2 className="text-2xl font-bold flex items-center">
+          <span className="mr-2">⌚</span>
+          Garmin Connect
+        </h2>
+
+        {!garminStatus?.configured ? (
+          <div className="card">
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">⌚</div>
+              <h3 className="text-xl font-semibold mb-2">Garmin Not Configured</h3>
+              <p className="text-text-muted mb-4">
+                Add GARMIN_EMAIL and GARMIN_PASSWORD to your environment to enable Garmin Connect integration.
+              </p>
+            </div>
+          </div>
+        ) : !garminStatus?.authenticated ? (
+          <div className="card">
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">⌚</div>
+              <h3 className="text-xl font-semibold mb-2">Garmin Authentication Required</h3>
+              <p className="text-text-muted mb-4">
+                {garminStatus?.error || 'Unable to authenticate with Garmin Connect. Check your credentials.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <span className="mr-2">🏃</span>
+              Recent Activities
+            </h3>
+            {garminActivities && garminActivities.length > 0 ? (
+              <div className="space-y-3">
+                {garminActivities.map((activity) => (
+                  <div
+                    key={activity.activityId}
+                    className="flex items-center justify-between p-3 bg-surface-hover rounded-lg"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">
+                        {activity.activityType === 'running' ? '🏃' :
+                         activity.activityType === 'cycling' ? '🚴' :
+                         activity.activityType === 'swimming' ? '🏊' :
+                         activity.activityType === 'walking' ? '🚶' :
+                         activity.activityType === 'yoga' ? '🧘' :
+                         activity.activityType === 'strength_training' ? '💪' :
+                         '🏋️'}
+                      </span>
+                      <div>
+                        <p className="font-semibold">{activity.activityName}</p>
+                        <p className="text-sm text-text-muted">
+                          {new Date(activity.startTime).toLocaleDateString()} at{' '}
+                          {new Date(activity.startTime).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center space-x-4 text-sm">
+                        {activity.duration && (
+                          <div>
+                            <p className="text-text-muted">Duration</p>
+                            <p className="font-semibold">{Math.round(activity.duration / 60)}m</p>
+                          </div>
+                        )}
+                        {activity.calories && (
+                          <div>
+                            <p className="text-text-muted">Calories</p>
+                            <p className="font-semibold">{activity.calories}</p>
+                          </div>
+                        )}
+                        {activity.avgHR && (
+                          <div>
+                            <p className="text-text-muted">Avg HR</p>
+                            <p className="font-semibold">{activity.avgHR} bpm</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-text-muted text-center py-4">No recent activities found</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

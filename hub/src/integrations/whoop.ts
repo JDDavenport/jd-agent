@@ -153,6 +153,29 @@ class WhoopIntegration {
   }
 
   /**
+   * Force reload tokens from database (called after auto-auth saves new tokens)
+   */
+  async reloadTokens(): Promise<void> {
+    try {
+      const credentials = await db
+        .select()
+        .from(integrationCredentials)
+        .where(eq(integrationCredentials.integration, 'whoop'))
+        .limit(1);
+
+      if (credentials.length > 0) {
+        const cred = credentials[0];
+        this.accessToken = cred.accessToken;
+        this.refreshToken = cred.refreshToken;
+        this.tokenExpiresAt = cred.expiresAt;
+        console.log('[Whoop] Reloaded tokens from database');
+      }
+    } catch (error) {
+      console.error('[Whoop] Failed to reload tokens from database:', error);
+    }
+  }
+
+  /**
    * Save tokens to database
    */
   private async saveTokens(): Promise<void> {

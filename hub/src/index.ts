@@ -36,7 +36,11 @@ if (existsSync(rootEnvPath)) {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#')) {
       const [key, ...valueParts] = trimmed.split('=');
-      const value = valueParts.join('=');
+      let value = valueParts.join('=');
+      // Remove surrounding quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
       if (key && value && !process.env[key]) {
         process.env[key] = value;
       }
@@ -88,6 +92,16 @@ import { journalRouter } from './api/routes/journal';
 import { voiceProfilesRouter } from './api/routes/voice-profiles';
 import { financeRouter } from './api/routes/finance';
 import recordingsRouter from './api/routes/recordings';
+import { acquisitionRouter } from './api/routes/acquisition';
+import { roadmapRouter } from './api/routes/roadmap';
+import jupyterRouter from './api/routes/jupyter';
+import { cryptoRouter } from './api/routes/crypto';
+import adExchangeRouter from './api/routes/ad-exchange';
+import sosatisfyingRouter from './api/routes/sosatisfying';
+import { briefingRouter } from './api/routes/briefing';
+import { productivityRouter } from './api/routes/productivity';
+import { garmin } from './api/routes/garmin';
+import { classesRouter } from './api/routes/classes';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -190,6 +204,11 @@ app.get('/', (c) => {
       oauth: '/api/oauth',
       voiceProfiles: '/api/voice-profiles',
       finance: '/api/finance',
+      crypto: '/api/crypto',
+      briefing: '/api/briefing',
+      productivity: '/api/productivity',
+      roadmap: '/api/roadmap',
+      garmin: '/api/garmin',
     },
     privacyPolicy: '/privacy',
     setupWizard: '/setup',
@@ -234,6 +253,16 @@ app.route('/api/journal', journalRouter);
 app.route('/api/voice-profiles', voiceProfilesRouter);
 app.route('/api/finance', financeRouter);
 app.route('/api/recordings', recordingsRouter);
+app.route('/api/acquisition', acquisitionRouter);
+app.route('/api/roadmap', roadmapRouter);
+app.route('/api/jupyter', jupyterRouter);
+app.route('/api/crypto', cryptoRouter);
+app.route('/api/ad-exchange', adExchangeRouter);
+app.route('/api/v1/sosatisfying', sosatisfyingRouter);
+app.route('/api/briefing', briefingRouter);
+app.route('/api/productivity', productivityRouter);
+app.route('/api/garmin', garmin);
+app.route('/api/classes', classesRouter);
 
 // Web UI
 app.route('/setup', setupUI);
