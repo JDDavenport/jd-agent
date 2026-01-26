@@ -274,6 +274,23 @@ export interface VaultSearchParams {
   limit?: number;
 }
 
+// PARA Types
+export type PARAType = 'projects' | 'areas' | 'resources' | 'archive';
+
+export interface PARAFolder {
+  id: string;
+  title: string;
+  paraType: PARAType;
+  icon: string | null;
+  childCount: number;
+}
+
+export interface InitializePARAResult {
+  created: number;
+  existing: number;
+  folders: PARAFolder[];
+}
+
 // Vault Pages (Notion-like)
 export interface VaultPage {
   id: string;
@@ -284,6 +301,8 @@ export interface VaultPage {
   isFavorite: boolean;
   isArchived: boolean;
   sortOrder: number;
+  paraType?: PARAType | null;
+  isSystem?: boolean;
   legacyEntryId?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -296,6 +315,8 @@ export interface VaultPageTreeNode {
   icon?: string | null;
   parentId: string | null;
   isFavorite: boolean;
+  paraType?: PARAType | null;
+  isSystem?: boolean;
   children: VaultPageTreeNode[];
   createdAt: string;
   updatedAt: string;
@@ -604,6 +625,191 @@ export interface ReviewHistoryItem {
   habitsCompletedCount: number;
   habitsTotalCount: number;
   completedAt?: string;
+}
+
+// ============================================
+// MBA Class Types
+// ============================================
+
+export interface ClassSummary {
+  code: string;
+  name: string;
+  semester: string;
+  noteCount: number;
+  lastNoteDate?: string;
+  hasPlaud: boolean;
+  hasRemarkable: boolean;
+  nextClass?: string;
+}
+
+export interface ClassDay {
+  date: string;
+  hasTypedNotes: boolean;
+  hasPlaudRecording: boolean;
+  hasRemarkableNotes: boolean;
+  isCombined: boolean;
+  vaultPageId?: string;
+  plaudRecordingId?: string;
+  remarkableNoteId?: string;
+}
+
+export interface ClassDayContent {
+  classCode: string;
+  noteDate: string;
+  semester: string;
+  typedNotes?: string;
+  plaudTranscript?: string;
+  remarkableOcr?: string;
+  remarkablePdfPath?: string;
+  combinedMarkdown?: string;
+  vaultPageId?: string;
+}
+
+export interface ClassDetails {
+  class: {
+    id: string;
+    code: string;
+    name: string;
+    semester?: string;
+  };
+  classDays: ClassDay[];
+  totalDays: number;
+  combinedCount: number;
+  pendingCombine: number;
+}
+
+// ============================================
+// MBA Classes Types (Vault-Based)
+// ============================================
+
+export interface MbaRecording {
+  id: string;
+  title: string;
+  recordedAt: string;
+  durationSeconds?: number;
+  hasTranscript: boolean;
+  status: string;
+}
+
+export interface MbaRemarkableNote {
+  id: string;
+  title: string;
+  icon?: string | null;
+}
+
+export interface MbaClassSession {
+  id: string;
+  date: string;
+  icon?: string | null;
+  remarkableNotes: MbaRemarkableNote[];
+  recordings: MbaRecording[];
+}
+
+export interface MbaClass {
+  id: string;
+  title: string;
+  icon?: string | null;
+  sessions: MbaClassSession[];
+}
+
+export interface MbaSemester {
+  id: string;
+  title: string;
+  icon?: string | null;
+  classes: MbaClass[];
+}
+
+export interface MbaClassesResponse {
+  root: {
+    id: string;
+    title: string;
+    icon?: string | null;
+  };
+  semesters: MbaSemester[];
+  stats: {
+    totalSemesters: number;
+    totalClasses: number;
+    totalSessions: number;
+    sessionsWithRecordings: number;
+    totalRecordings: number;
+  };
+}
+
+export interface MbaClassSummary {
+  overview: string;
+  keyPoints: string[];
+  topics: string[];
+}
+
+export interface MbaClassSessionStats {
+  totalRecordings: number;
+  totalDurationMinutes: number;
+  hasTranscripts: number;
+  hasPdf: boolean;
+  hasOcrText: boolean;
+}
+
+export interface MbaClassSessionResponse {
+  session: VaultPage;
+  blocks: VaultBlock[];
+  remarkableNotes: Array<VaultPage & { blocks: VaultBlock[] }>;
+  className: string | null;
+  breadcrumbs: VaultPageBreadcrumb[];
+
+  // Enhanced fields
+  summary: MbaClassSummary | null;
+  pdfUrl: string | null;
+  pdfFilename: string | null;
+  ocrText: string;
+  confidence: number;
+  stats: MbaClassSessionStats;
+  calendarEvent?: {
+    id: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    location?: string | null;
+  } | null;
+
+  recordings: Array<{
+    id: string;
+    title: string;
+    recordedAt: string;
+    durationSeconds?: number;
+    // Effective duration within class time (for partial recordings)
+    effectiveDurationSeconds?: number;
+    status: string;
+    confidence: number;
+    transcript?: {
+      id: string;
+      // Full text (original recording)
+      fullText?: string;
+      // Filtered text (only segments within class time)
+      text: string;
+      summary?: MbaClassSummary;
+      // Whether the text was filtered for partial recording
+      isFiltered?: boolean;
+    } | null;
+    verification?: {
+      keywordsFound: string[];
+      classScores: Record<string, { count: number; keywords: string[] }>;
+      bestMatchClass: string | null;
+      isBestMatch: boolean;
+      confidenceReason: string;
+      recordingTime: string | null;
+      timeMatch: 'good' | 'warning' | 'unknown';
+      // Calendar-based matching info
+      calendarMatch?: boolean;
+      overlapMinutes?: number | null;
+      // Segment timing for partial recordings
+      effectiveStartSeconds?: number | null;
+      effectiveEndSeconds?: number | null;
+      totalSegments?: number;
+      relevantSegments?: number;
+      segmentNote?: string | null;
+    };
+  }>;
+  totalRecordingsForDate: number;
 }
 
 // ============================================
