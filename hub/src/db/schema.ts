@@ -292,6 +292,10 @@ export const transcripts = pgTable('transcripts', {
   wordCount: integer('word_count'),
   speakerCount: integer('speaker_count'),
   confidenceScore: real('confidence_score'),
+  // AI-generated analysis
+  summary: jsonb('summary'), // {overview, keyPoints, participants, topics}
+  extractedTasks: jsonb('extracted_tasks'), // Array of {title, description, assignee, priority, dueDate, context}
+  analyzedAt: timestamp('analyzed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -1485,6 +1489,20 @@ export const canvasItems = pgTable(
     isDiscussion: boolean('is_discussion').default(false).notNull(),
     isGraded: boolean('is_graded').default(true).notNull(),
 
+    // Rich Assignment Details (Canvas Complete Phase 1)
+    instructions: text('instructions'), // Cleaned text instructions
+    instructionsHtml: text('instructions_html'), // Original HTML
+    rubric: jsonb('rubric'), // [{criterion, points, description, ratings}]
+    allowedExtensions: text('allowed_extensions').array(), // ['.pdf', '.docx']
+    wordCountMin: integer('word_count_min'),
+    wordCountMax: integer('word_count_max'),
+    isGroupAssignment: boolean('is_group_assignment').default(false).notNull(),
+    hasPeerReview: boolean('has_peer_review').default(false).notNull(),
+    attachedFileIds: text('attached_file_ids').array(), // Canvas file IDs
+    estimatedMinutes: integer('estimated_minutes'), // AI-estimated time
+    lockInfo: jsonb('lock_info'), // Lock/unlock information
+    gradingType: text('grading_type'), // points, percent, letter_grade, gpa_scale, pass_fail
+
     // Discovery
     discoveredVia: text('discovered_via').notNull(), // api, browser_assignments, browser_modules, browser_home
     firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
@@ -1493,7 +1511,20 @@ export const canvasItems = pgTable(
     // Task Linkage
     taskId: uuid('task_id').references(() => tasks.id),
     projectId: uuid('project_id').references(() => projects.id),
+    vaultPageId: uuid('vault_page_id').references(() => vaultPages.id), // Assignment detail page
     syncStatus: text('sync_status').default('pending').notNull(), // pending, synced, mismatch, orphaned
+
+    // Submission & Grading (Canvas Complete Phase 5)
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    grade: text('grade'), // Letter grade or status
+    score: real('score'), // Numeric score
+    gradedAt: timestamp('graded_at', { withTimezone: true }),
+    isLate: boolean('is_late').default(false).notNull(),
+    isMissing: boolean('is_missing').default(false).notNull(),
+
+    // Canvas IDs for API calls
+    canvasCourseId: text('canvas_course_id'),
+    canvasAssignmentId: text('canvas_assignment_id'),
 
     // Verification
     browserVerified: boolean('browser_verified').default(false).notNull(),
@@ -1515,6 +1546,7 @@ export const canvasItems = pgTable(
     index('canvas_items_type_idx').on(table.canvasType),
     index('canvas_items_sync_idx').on(table.syncStatus),
     index('canvas_items_task_idx').on(table.taskId),
+    index('canvas_items_vault_page_idx').on(table.vaultPageId),
   ]
 );
 
@@ -1640,6 +1672,132 @@ export const canvasScheduleTracking = pgTable(
     index('canvas_schedule_item_idx').on(table.canvasItemId),
     index('canvas_schedule_task_idx').on(table.taskId),
     index('canvas_schedule_is_scheduled_idx').on(table.isScheduled),
+  ]
+);
+
+// ============================================
+// CANVAS COMPLETE - ASSIGNMENT SUBTASKS
+// ============================================
+
+export const canvasAssignmentSubtasks = pgTable(
+  'canvas_assignment_subtasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    canvasItemId: uuid('canvas_item_id')
+      .references(() => canvasItems.id, { onDelete: 'cascade' })
+      .notNull(),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+
+    title: text('title').notNull(),
+    subtaskType: text('subtask_type'), // reading, research, writing, review, submission
+    sortOrder: integer('sort_order').default(0).notNull(),
+    isCompleted: boolean('is_completed').default(false).notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+
+    // AI generation tracking
+    generatedBy: text('generated_by').default('manual').notNull(), // 'ai' or 'manual'
+    generationPrompt: text('generation_prompt'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('canvas_subtasks_item_idx').on(table.canvasItemId),
+    index('canvas_subtasks_task_idx').on(table.taskId),
+  ]
+);
+
+// ============================================
+// CANVAS COMPLETE - ASSIGNMENT VAULT PAGES
+// ============================================
+
+export const canvasAssignmentPages = pgTable(
+  'canvas_assignment_pages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    canvasItemId: uuid('canvas_item_id')
+      .references(() => canvasItems.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+    vaultPageId: uuid('vault_page_id')
+      .references(() => vaultPages.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Embedded content snapshots
+    instructionsSnapshot: text('instructions_snapshot'),
+    rubricSnapshot: jsonb('rubric_snapshot'),
+
+    // User additions
+    userNotes: text('user_notes'),
+    submissionDraftPath: text('submission_draft_path'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('canvas_assignment_pages_vault_idx').on(table.vaultPageId)]
+);
+
+// ============================================
+// CANVAS COMPLETE - COURSE MATERIALS
+// ============================================
+
+export const canvasMaterials = pgTable(
+  'canvas_materials',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Canvas Identity
+    canvasItemId: uuid('canvas_item_id').references(() => canvasItems.id, { onDelete: 'set null' }),
+    canvasFileId: text('canvas_file_id').unique(), // Canvas's file ID
+    courseId: uuid('course_id')
+      .references(() => classes.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // File Details
+    fileName: text('file_name').notNull(),
+    displayName: text('display_name'),
+    fileType: text('file_type').notNull(), // pdf, pptx, docx, xlsx, url
+    mimeType: text('mime_type'),
+    fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+    localPath: text('local_path'), // hub/storage/canvas/...
+    downloadUrl: text('download_url'),
+    canvasUrl: text('canvas_url'),
+
+    // Organization
+    moduleName: text('module_name'),
+    modulePosition: integer('module_position'),
+    materialType: text('material_type'), // case, reading, lecture, syllabus, template, data
+
+    // Content Extraction
+    pageCount: integer('page_count'),
+    extractedText: text('extracted_text'), // For search
+    aiSummary: text('ai_summary'),
+
+    // Vault Integration
+    vaultPageId: uuid('vault_page_id').references(() => vaultPages.id, { onDelete: 'set null' }),
+
+    // Reading Tracking
+    readStatus: text('read_status').default('unread').notNull(), // unread, in_progress, completed
+    readProgress: integer('read_progress').default(0).notNull(), // 0-100%
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+
+    // Relationships
+    relatedAssignmentIds: uuid('related_assignment_ids').array(), // Links to canvas_items
+
+    // Sync Tracking
+    downloadedAt: timestamp('downloaded_at', { withTimezone: true }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('canvas_materials_course_idx').on(table.courseId),
+    index('canvas_materials_canvas_item_idx').on(table.canvasItemId),
+    index('canvas_materials_file_type_idx').on(table.fileType),
+    index('canvas_materials_material_type_idx').on(table.materialType),
+    index('canvas_materials_read_status_idx').on(table.readStatus),
+    index('canvas_materials_vault_page_idx').on(table.vaultPageId),
   ]
 );
 
@@ -2122,10 +2280,18 @@ export const financeBudgets = pgTable(
 
     // Budget definition
     name: text('name').notNull(),
+    groupName: text('group_name'),
     category: text('category').notNull(), // Category to track
+    groupOrder: integer('group_order').default(0),
+    budgetOrder: integer('budget_order').default(0),
 
     // Amount (stored as cents)
     amountCents: integer('amount_cents').notNull(), // Monthly budget limit
+
+    // Target rules (YNAB-style)
+    targetType: text('target_type').default('monthly'),
+    targetAmountCents: integer('target_amount_cents'),
+    targetDate: date('target_date'),
 
     // Period
     periodType: text('period_type').default('monthly'), // 'weekly', 'monthly', 'yearly'
@@ -2135,6 +2301,7 @@ export const financeBudgets = pgTable(
     // Rollover
     rolloverEnabled: boolean('rollover_enabled').default(false),
     rolloverAmountCents: integer('rollover_amount_cents').default(0),
+    carryoverOverspent: boolean('carryover_overspent').default(true),
 
     // Alerts
     alertThreshold: integer('alert_threshold').default(80), // Percentage to alert (0-100)
@@ -2150,6 +2317,29 @@ export const financeBudgets = pgTable(
   (table) => [
     index('finance_budgets_category_idx').on(table.category),
     index('finance_budgets_active_idx').on(table.isActive),
+  ]
+);
+
+// ============================================
+// FINANCE - BUDGET ALLOCATIONS (Per-month assigned amounts)
+// ============================================
+
+export const financeBudgetAllocations = pgTable(
+  'finance_budget_allocations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    budgetId: uuid('budget_id')
+      .notNull()
+      .references(() => financeBudgets.id, { onDelete: 'cascade' }),
+    month: text('month').notNull(), // YYYY-MM
+    amountCents: integer('amount_cents').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('finance_budget_allocations_budget_idx').on(table.budgetId),
+    index('finance_budget_allocations_month_idx').on(table.month),
+    index('finance_budget_allocations_unique_idx').on(table.budgetId, table.month),
   ]
 );
 
@@ -2201,6 +2391,62 @@ export const financeInsights = pgTable(
     index('finance_insights_expires_idx').on(table.expiresAt),
   ]
 );
+
+// ============================================
+// FINANCE - BUDGET REPORTS (Daily/Weekly report history)
+// ============================================
+
+export const budgetReports = pgTable(
+  'budget_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Report type
+    reportType: text('report_type').notNull(), // 'daily', 'weekly', 'monthly'
+    reportDate: date('report_date').notNull(),
+
+    // Report data (JSON snapshot of the report)
+    data: jsonb('data').notNull(),
+
+    // Delivery status
+    emailSentAt: timestamp('email_sent_at', { withTimezone: true }),
+    smsSentAt: timestamp('sms_sent_at', { withTimezone: true }),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('budget_reports_type_date_idx').on(table.reportType, table.reportDate),
+  ]
+);
+
+// ============================================
+// FINANCE - BUDGET REPORT PREFERENCES
+// ============================================
+
+export const budgetReportPreferences = pgTable('budget_report_preferences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Daily report settings
+  dailyEmailEnabled: boolean('daily_email_enabled').default(true).notNull(),
+  dailySmsEnabled: boolean('daily_sms_enabled').default(true).notNull(),
+  dailyTime: text('daily_time').default('07:00').notNull(), // HH:MM format
+
+  // Weekly report settings
+  weeklyEmailEnabled: boolean('weekly_email_enabled').default(true).notNull(),
+  weeklySmsEnabled: boolean('weekly_sms_enabled').default(true).notNull(),
+  weeklyDay: integer('weekly_day').default(0).notNull(), // 0 = Sunday
+  weeklyTime: text('weekly_time').default('09:00').notNull(), // HH:MM format
+
+  // Alert settings
+  alertsEnabled: boolean('alerts_enabled').default(true).notNull(),
+  largeTransactionThresholdCents: integer('large_transaction_threshold_cents').default(10000).notNull(),
+  unusualSpendingMultiplier: real('unusual_spending_multiplier').default(2.0).notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 // ============================================
 // FINANCE - RECURRING TRANSACTIONS (Detected subscriptions/bills)
@@ -2309,5 +2555,1420 @@ export const testSessions = pgTable(
     index('test_sessions_status_idx').on(table.status),
     index('test_sessions_created_idx').on(table.createdAt),
     index('test_sessions_job_idx').on(table.jobId),
+  ]
+);
+
+// ============================================
+// ACQUISITION LEADS (Boomer Business Finder)
+// ============================================
+
+export const acquisitionLeads = pgTable(
+  'acquisition_leads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Utah Registry Data
+    entityNumber: text('entity_number').unique().notNull(),
+    businessName: text('business_name').notNull(),
+    dbaName: text('dba_name'),
+    entityType: text('entity_type'), // LLC, Corporation, Partnership, etc.
+    subtype: text('subtype'),
+
+    // Filing Info
+    filingDate: timestamp('filing_date', { withTimezone: true }),
+    businessAge: integer('business_age'), // Years since filing
+    status: text('status'), // Active, Inactive, etc.
+    statusDetails: text('status_details'), // Current, Delinquent, etc.
+
+    // Registered Agent & Address
+    registeredAgent: text('registered_agent'),
+    principalAddress: text('principal_address'),
+    mailingAddress: text('mailing_address'),
+
+    // Owner/Contact Info (from enrichment)
+    ownerName: text('owner_name'),
+    ownerLinkedIn: text('owner_linkedin'),
+    ownerEmail: text('owner_email'),
+    ownerPhone: text('owner_phone'),
+    websiteUrl: text('website_url'),
+
+    // Google Places Data
+    googlePlaceId: text('google_place_id'),
+    googleRating: real('google_rating'),
+    googleReviewCount: integer('google_review_count'),
+
+    // Yelp Data
+    yelpBusinessId: text('yelp_business_id'),
+    yelpRating: real('yelp_rating'),
+    yelpReviewCount: integer('yelp_review_count'),
+
+    // Business Classification
+    industry: text('industry'),
+    naicsCode: text('naics_code'),
+    employeeCount: integer('employee_count'),
+    revenueEstimate: text('revenue_estimate'), // Range like "$1M-$5M"
+
+    // AI Scoring
+    acquisitionScore: integer('acquisition_score'), // 0-100
+    scoreBreakdown: jsonb('score_breakdown'), // { ageFit: 15, entityType: 10, ... }
+    automationPotential: text('automation_potential'), // 'high', 'medium', 'low'
+    scoreSummary: text('score_summary'),
+
+    // Pipeline Stage
+    pipelineStage: text('pipeline_stage').default('new').notNull(),
+    // 'new', 'researching', 'qualified', 'outreach', 'conversation', 'negotiating', 'closed_won', 'closed_lost', 'passed'
+
+    // CRM Tracking
+    lastContactedAt: timestamp('last_contacted_at', { withTimezone: true }),
+    nextFollowUpAt: timestamp('next_follow_up_at', { withTimezone: true }),
+    contactAttempts: integer('contact_attempts').default(0).notNull(),
+
+    // Flags
+    isFavorite: boolean('is_favorite').default(false).notNull(),
+    isHot: boolean('is_hot').default(false).notNull(),
+    doNotContact: boolean('do_not_contact').default(false).notNull(),
+    passReason: text('pass_reason'),
+
+    // Notes & Vault Link
+    notes: text('notes'),
+    vaultEntryId: uuid('vault_entry_id').references(() => vaultEntries.id),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    enrichedAt: timestamp('enriched_at', { withTimezone: true }),
+    scoredAt: timestamp('scored_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('acquisition_leads_stage_idx').on(table.pipelineStage),
+    index('acquisition_leads_score_idx').on(table.acquisitionScore),
+    index('acquisition_leads_entity_idx').on(table.entityNumber),
+    index('acquisition_leads_favorite_idx').on(table.isFavorite),
+    index('acquisition_leads_hot_idx').on(table.isHot),
+    index('acquisition_leads_follow_up_idx').on(table.nextFollowUpAt),
+  ]
+);
+
+// ============================================
+// ACQUISITION INTERACTIONS (CRM Activity Log)
+// ============================================
+
+export const acquisitionInteractions = pgTable(
+  'acquisition_interactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    leadId: uuid('lead_id')
+      .references(() => acquisitionLeads.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Interaction Details
+    interactionType: text('interaction_type').notNull(),
+    // 'call', 'email', 'meeting', 'site_visit', 'linkedin', 'letter', 'note'
+    interactionDate: timestamp('interaction_date', { withTimezone: true }).notNull(),
+    direction: text('direction'), // 'inbound', 'outbound'
+
+    // Content
+    subject: text('subject'),
+    summary: text('summary'),
+    outcome: text('outcome'), // 'positive', 'neutral', 'negative', 'no_response'
+
+    // Follow-up
+    followUpNeeded: boolean('follow_up_needed').default(false).notNull(),
+    followUpDate: timestamp('follow_up_date', { withTimezone: true }),
+    followUpNotes: text('follow_up_notes'),
+
+    // Links to other systems
+    taskId: uuid('task_id').references(() => tasks.id),
+    recordingId: uuid('recording_id').references(() => recordings.id),
+    emailMessageId: uuid('email_message_id').references(() => emailMessages.id),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('acquisition_interactions_lead_idx').on(table.leadId),
+    index('acquisition_interactions_date_idx').on(table.interactionDate),
+    index('acquisition_interactions_type_idx').on(table.interactionType),
+  ]
+);
+
+// ============================================
+// ACQUISITION ENRICHMENT LOG (Track Data Sources)
+// ============================================
+
+export const acquisitionEnrichmentLog = pgTable(
+  'acquisition_enrichment_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    leadId: uuid('lead_id')
+      .references(() => acquisitionLeads.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Source Details
+    source: text('source').notNull(),
+    // 'utah_registry', 'google_places', 'yelp', 'linkedin', 'website', 'dnb'
+    status: text('status').notNull(),
+    // 'success', 'not_found', 'error', 'rate_limited'
+
+    // Results
+    dataFound: jsonb('data_found'), // What fields were populated
+    errorMessage: text('error_message'),
+
+    // Timestamps
+    attemptedAt: timestamp('attempted_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('acquisition_enrichment_lead_idx').on(table.leadId),
+    index('acquisition_enrichment_source_idx').on(table.source),
+  ]
+);
+
+// ============================================
+// JUPYTER NOTEBOOKS (Data Analysis Integration)
+// ============================================
+
+/**
+ * Tracks Jupyter notebooks synced to vault for search and reference.
+ * Notebooks are stored in /hub/storage/notebooks/ and synced automatically.
+ */
+export const jupyterNotebooks = pgTable(
+  'jupyter_notebooks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // File tracking
+    filename: text('filename').notNull(),
+    filePath: text('file_path').notNull().unique(),
+    fileHash: text('file_hash').notNull(), // SHA256 for change detection
+
+    // Notebook metadata (parsed from .ipynb)
+    kernelName: text('kernel_name'), // e.g., 'python3'
+    kernelDisplayName: text('kernel_display_name'), // e.g., 'Python 3'
+    cellCount: integer('cell_count').default(0),
+    codeCellCount: integer('code_cell_count').default(0),
+    markdownCellCount: integer('markdown_cell_count').default(0),
+
+    // Content extraction for search
+    extractedText: text('extracted_text'), // Combined text from all cells
+    extractedCode: text('extracted_code'), // Just code cells
+    extractedMarkdown: text('extracted_markdown'), // Just markdown cells
+
+    // Vault integration
+    vaultPageId: uuid('vault_page_id').references(() => vaultPages.id, { onDelete: 'set null' }),
+    vaultEntryId: uuid('vault_entry_id').references(() => vaultEntries.id, { onDelete: 'set null' }), // Legacy
+
+    // Processing status
+    syncStatus: text('sync_status').default('pending').notNull(), // 'pending', 'processing', 'synced', 'error'
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    errorMessage: text('error_message'),
+
+    // File stats
+    fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+    notebookModifiedAt: timestamp('notebook_modified_at', { withTimezone: true }),
+
+    // Source tracking
+    source: text('source').default('local'), // 'local', 'upload'
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('jupyter_notebooks_file_path_idx').on(table.filePath),
+    index('jupyter_notebooks_sync_status_idx').on(table.syncStatus),
+    index('jupyter_notebooks_vault_page_idx').on(table.vaultPageId),
+    index('jupyter_notebooks_kernel_idx').on(table.kernelName),
+  ]
+);
+
+// ============================================
+// CRYPTO TRACKER (PoW Coins)
+// ============================================
+
+export const cryptoCoins = pgTable(
+  'crypto_coins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Identity
+    coingeckoId: text('coingecko_id').notNull().unique(),
+    symbol: text('symbol').notNull(),
+    name: text('name').notNull(),
+
+    // PoW metadata
+    algorithm: text('algorithm'),
+    genesisDate: date('genesis_date'),
+    privacyLevel: text('privacy_level').default('none').notNull(), // none, optional, default, mandatory
+    miningPoolStatsId: text('mining_poolstats_id'),
+
+    // Links
+    websiteUrl: text('website_url'),
+    githubUrl: text('github_url'),
+    whitepaperUrl: text('whitepaper_url'),
+    explorerUrl: text('explorer_url'),
+    redditUrl: text('reddit_url'),
+    discordUrl: text('discord_url'),
+    telegramUrl: text('telegram_url'),
+
+    // Cypherpunk scores (0-10)
+    privacyScore: real('privacy_score'),
+    decentralizationScore: real('decentralization_score'),
+    censorshipResistanceScore: real('censorship_resistance_score'),
+    devActivityScore: real('dev_activity_score'),
+    maturityScore: real('maturity_score'),
+    cypherpunkScore: real('cypherpunk_score'),
+
+    // Development metrics (GitHub)
+    githubStars: integer('github_stars'),
+    githubForks: integer('github_forks'),
+    githubOpenIssues: integer('github_open_issues'),
+    githubContributorCount: integer('github_contributor_count'),
+    githubPushedAt: timestamp('github_pushed_at', { withTimezone: true }),
+    githubUpdatedAt: timestamp('github_updated_at', { withTimezone: true }),
+    lastDevDataAt: timestamp('last_dev_data_at', { withTimezone: true }),
+
+    // Display
+    sortOrder: integer('sort_order').default(0).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+
+    // Latest market snapshot (denormalized for fast table view)
+    priceUsd: real('price_usd'),
+    marketCap: bigint('market_cap', { mode: 'number' }),
+    volume24h: bigint('volume_24h', { mode: 'number' }),
+    priceChange24h: real('price_change_24h'),
+    priceChange7d: real('price_change_7d'),
+    circulatingSupply: bigint('circulating_supply', { mode: 'number' }),
+    maxSupply: bigint('max_supply', { mode: 'number' }),
+    athPriceUsd: real('ath_price_usd'),
+    athDate: timestamp('ath_date', { withTimezone: true }),
+    lastMarketDataAt: timestamp('last_market_data_at', { withTimezone: true }),
+
+    // Latest network snapshot
+    networkHashRate: real('network_hash_rate'),
+    networkHashRateUnit: text('network_hash_rate_unit'),
+    networkDifficulty: real('network_difficulty'),
+    networkBlockHeight: bigint('network_block_height', { mode: 'number' }),
+    networkBlockTimeActual: real('network_block_time_actual'),
+    networkBlockTimeTarget: real('network_block_time_target'),
+    networkBlockReward: real('network_block_reward'),
+    lastNetworkDataAt: timestamp('last_network_data_at', { withTimezone: true }),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('crypto_coins_symbol_idx').on(table.symbol),
+    index('crypto_coins_algorithm_idx').on(table.algorithm),
+    index('crypto_coins_privacy_idx').on(table.privacyLevel),
+    index('crypto_coins_active_idx').on(table.isActive),
+    index('crypto_coins_market_cap_idx').on(table.marketCap),
+  ]
+);
+
+export const cryptoMarketData = pgTable(
+  'crypto_market_data',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    coinId: uuid('coin_id')
+      .references(() => cryptoCoins.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    priceUsd: real('price_usd'),
+    marketCap: bigint('market_cap', { mode: 'number' }),
+    volume24h: bigint('volume_24h', { mode: 'number' }),
+    priceChange24h: real('price_change_24h'),
+    priceChange7d: real('price_change_7d'),
+    circulatingSupply: bigint('circulating_supply', { mode: 'number' }),
+    maxSupply: bigint('max_supply', { mode: 'number' }),
+    athPriceUsd: real('ath_price_usd'),
+    athDate: timestamp('ath_date', { withTimezone: true }),
+
+    timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('crypto_market_data_coin_idx').on(table.coinId),
+    index('crypto_market_data_time_idx').on(table.timestamp),
+  ]
+);
+
+export const cryptoNetworkData = pgTable(
+  'crypto_network_data',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    coinId: uuid('coin_id')
+      .references(() => cryptoCoins.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    hashRate: real('hash_rate'),
+    hashRateUnit: text('hash_rate_unit'),
+    difficulty: real('difficulty'),
+    blockHeight: bigint('block_height', { mode: 'number' }),
+    blockTimeActual: real('block_time_actual'),
+    blockTimeTarget: real('block_time_target'),
+    blockReward: real('block_reward'),
+
+    timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('crypto_network_data_coin_idx').on(table.coinId),
+    index('crypto_network_data_time_idx').on(table.timestamp),
+  ]
+);
+
+export const cryptoMiningPools = pgTable(
+  'crypto_mining_pools',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    coinId: uuid('coin_id')
+      .references(() => cryptoCoins.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    poolName: text('pool_name').notNull(),
+    hashRatePercentage: real('hash_rate_percentage'),
+
+    timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('crypto_mining_pools_coin_idx').on(table.coinId),
+    index('crypto_mining_pools_time_idx').on(table.timestamp),
+  ]
+);
+
+// ============================================
+// AD EXCHANGE (Gadz.io)
+// ============================================
+
+export const adSpaces = pgTable(
+  'ad_spaces',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Ownership
+    creatorAddress: text('creator_address').notNull(),
+    creatorAddressEncrypted: text('creator_address_encrypted'),
+    creatorAddressHash: text('creator_address_hash'),
+    currentOwnerAddress: text('current_owner_address').notNull(),
+    currentOwnerAddressEncrypted: text('current_owner_address_encrypted'),
+    currentOwnerAddressHash: text('current_owner_address_hash'),
+    previousOwnerAddress: text('previous_owner_address'),
+    previousOwnerAddressEncrypted: text('previous_owner_address_encrypted'),
+    previousOwnerAddressHash: text('previous_owner_address_hash'),
+
+    // Inventory
+    weeklyImpressions: bigint('weekly_impressions', { mode: 'number' }).notNull(),
+
+    // Pricing
+    currentReservePrice: real('current_reserve_price').notNull(),
+    ownershipTransferPrice: real('ownership_transfer_price'),
+    weeklyHoldingFee: real('weekly_holding_fee').notNull(),
+
+    // Contract terms
+    creatorSaleSharePercent: real('creator_sale_share_percent').notNull(),
+    creatorFeeSharePercent: real('creator_fee_share_percent').notNull(),
+    customContractTerms: jsonb('custom_contract_terms'),
+
+    // Metadata
+    name: text('name').notNull(),
+    description: text('description'),
+    category: text('category'),
+    tags: text('tags').array(),
+
+    // Status
+    isActive: boolean('is_active').default(true),
+    isAdultAllowed: boolean('is_adult_allowed').default(false),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    ownershipAcquiredAt: timestamp('ownership_acquired_at', { withTimezone: true }),
+    lastPaymentAt: timestamp('last_payment_at', { withTimezone: true }),
+    nextPaymentDue: timestamp('next_payment_due', { withTimezone: true }),
+  },
+  (table) => [
+    index('ad_spaces_owner_idx').on(table.currentOwnerAddress),
+    index('ad_spaces_creator_idx').on(table.creatorAddress),
+    index('ad_spaces_active_idx').on(table.isActive),
+    index('ad_spaces_category_idx').on(table.category),
+  ]
+);
+
+export const advertiserAllocations = pgTable(
+  'advertiser_allocations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adSpaceId: uuid('ad_space_id')
+      .references(() => adSpaces.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Ownership
+    currentOwnerAddress: text('current_owner_address').notNull(),
+    currentOwnerAddressEncrypted: text('current_owner_address_encrypted'),
+    currentOwnerAddressHash: text('current_owner_address_hash'),
+    previousOwnerAddress: text('previous_owner_address'),
+    previousOwnerAddressEncrypted: text('previous_owner_address_encrypted'),
+    previousOwnerAddressHash: text('previous_owner_address_hash'),
+
+    // Allocation
+    allocationUnits: integer('allocation_units').notNull(),
+    impressionsPerWeek: bigint('impressions_per_week', { mode: 'number' }).notNull(),
+
+    // Pricing
+    acquisitionPrice: real('acquisition_price'),
+    weeklyFee: real('weekly_fee').notNull(),
+
+    // Creative
+    creativeAssetUrls: text('creative_asset_urls').array(),
+    clickThroughUrl: text('click_through_url'),
+    contentCategory: text('content_category'),
+    isAdult: boolean('is_adult').default(false),
+    moderationStatus: text('moderation_status').default('pending'),
+    moderationReason: text('moderation_reason'),
+    flaggedAt: timestamp('flagged_at', { withTimezone: true }),
+
+    // Status
+    isActive: boolean('is_active').default(true),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    allocationAcquiredAt: timestamp('allocation_acquired_at', { withTimezone: true }),
+    lastPaymentAt: timestamp('last_payment_at', { withTimezone: true }),
+    nextPaymentDue: timestamp('next_payment_due', { withTimezone: true }),
+  },
+  (table) => [
+    index('advertiser_allocations_ad_space_idx').on(table.adSpaceId),
+    index('advertiser_allocations_owner_idx').on(table.currentOwnerAddress),
+    index('advertiser_allocations_active_idx').on(table.isActive),
+  ]
+);
+
+export const adPayments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    paymentType: text('payment_type').notNull(),
+
+    // References
+    adSpaceId: uuid('ad_space_id').references(() => adSpaces.id, { onDelete: 'set null' }),
+    allocationId: uuid('allocation_id').references(() => advertiserAllocations.id, { onDelete: 'set null' }),
+
+    // Transaction
+    payerAddress: text('payer_address').notNull(),
+    payerAddressEncrypted: text('payer_address_encrypted'),
+    payerAddressHash: text('payer_address_hash'),
+    amount: real('amount').notNull(),
+    transactionHash: text('transaction_hash'),
+
+    // Revenue distribution
+    revenueDistribution: jsonb('revenue_distribution'),
+
+    // Status
+    status: text('status').notNull(),
+
+    // Timestamps
+    dueDate: timestamp('due_date', { withTimezone: true }).notNull(),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('ad_payments_due_idx').on(table.dueDate, table.status),
+    index('ad_payments_space_idx').on(table.adSpaceId),
+    index('ad_payments_allocation_idx').on(table.allocationId),
+  ]
+);
+
+export const ownershipTransfers = pgTable(
+  'ownership_transfers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    transferType: text('transfer_type').notNull(),
+
+    // References
+    adSpaceId: uuid('ad_space_id').references(() => adSpaces.id, { onDelete: 'set null' }),
+    allocationId: uuid('allocation_id').references(() => advertiserAllocations.id, { onDelete: 'set null' }),
+
+    // Transfer details
+    fromAddress: text('from_address').notNull(),
+    fromAddressEncrypted: text('from_address_encrypted'),
+    fromAddressHash: text('from_address_hash'),
+    toAddress: text('to_address').notNull(),
+    toAddressEncrypted: text('to_address_encrypted'),
+    toAddressHash: text('to_address_hash'),
+    transferPrice: real('transfer_price'),
+    reason: text('reason').notNull(),
+
+    // Transaction
+    transactionHash: text('transaction_hash'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('ownership_transfers_space_idx').on(table.adSpaceId),
+    index('ownership_transfers_allocation_idx').on(table.allocationId),
+    index('ownership_transfers_type_idx').on(table.transferType),
+  ]
+);
+
+export const performanceMetrics = pgTable(
+  'performance_metrics',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adSpaceId: uuid('ad_space_id').references(() => adSpaces.id, { onDelete: 'cascade' }),
+    allocationId: uuid('allocation_id').references(() => advertiserAllocations.id, { onDelete: 'cascade' }),
+
+    // Time period
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+
+    // Metrics
+    impressionsDelivered: bigint('impressions_delivered', { mode: 'number' }).default(0),
+    clicks: bigint('clicks', { mode: 'number' }).default(0),
+    ctr: real('ctr'),
+    revenueGenerated: real('revenue_generated'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('performance_metrics_space_idx').on(table.adSpaceId),
+    index('performance_metrics_allocation_idx').on(table.allocationId),
+    index('performance_metrics_period_idx').on(table.periodStart, table.periodEnd),
+  ]
+);
+
+export const marketListings = pgTable(
+  'market_listings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    listingType: text('listing_type').notNull(),
+
+    // References
+    adSpaceId: uuid('ad_space_id').references(() => adSpaces.id, { onDelete: 'set null' }),
+    allocationId: uuid('allocation_id').references(() => advertiserAllocations.id, { onDelete: 'set null' }),
+
+    // Listing details
+    sellerAddress: text('seller_address').notNull(),
+    sellerAddressEncrypted: text('seller_address_encrypted'),
+    sellerAddressHash: text('seller_address_hash'),
+    askPrice: real('ask_price').notNull(),
+    minPrice: real('min_price'),
+
+    // Status
+    status: text('status').notNull(),
+
+    // Timestamps
+    listedAt: timestamp('listed_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    soldAt: timestamp('sold_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('market_listings_status_idx').on(table.status),
+    index('market_listings_space_idx').on(table.adSpaceId),
+    index('market_listings_allocation_idx').on(table.allocationId),
+  ]
+);
+
+export const adSpacePriceHistory = pgTable(
+  'ad_space_price_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adSpaceId: uuid('ad_space_id')
+      .references(() => adSpaces.id, { onDelete: 'cascade' })
+      .notNull(),
+    priceType: text('price_type').notNull(), // reserve, transfer, listing
+    price: real('price').notNull(),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).defaultNow().notNull(),
+    metadata: jsonb('metadata'),
+  },
+  (table) => [
+    index('ad_space_price_history_space_idx').on(table.adSpaceId),
+    index('ad_space_price_history_recorded_idx').on(table.recordedAt),
+  ]
+);
+
+// ============================================
+// SOSATISFYING.COM (Community Content Platform)
+// ============================================
+
+export const sosUsers = pgTable(
+  'sos_users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    username: text('username').notNull().unique(),
+    email: text('email').notNull().unique(),
+    passwordHash: text('password_hash').notNull(),
+    avatarUrl: text('avatar_url'),
+    bio: text('bio'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    emailVerified: boolean('email_verified').default(false).notNull(),
+    isBanned: boolean('is_banned').default(false).notNull(),
+    ageVerified21Plus: boolean('age_verified_21plus').default(false).notNull(),
+  },
+  (table) => [
+    index('sos_users_username_idx').on(table.username),
+    index('sos_users_email_idx').on(table.email),
+  ]
+);
+
+export const sosGroups = pgTable(
+  'sos_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull().unique(),
+    displayTitle: text('display_title').notNull(),
+    description: text('description'),
+    category: text('category'),
+    is21Plus: boolean('is_21plus').default(false).notNull(),
+    bannerUrl: text('banner_url'),
+    iconUrl: text('icon_url'),
+    creatorId: uuid('creator_id').references(() => sosUsers.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    subscriberCount: integer('subscriber_count').default(0).notNull(),
+    rules: jsonb('rules'),
+  },
+  (table) => [
+    index('sos_groups_name_idx').on(table.name),
+    index('sos_groups_category_idx').on(table.category),
+    index('sos_groups_creator_idx').on(table.creatorId),
+  ]
+);
+
+export const sosPosts = pgTable(
+  'sos_posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .references(() => sosGroups.id, { onDelete: 'cascade' })
+      .notNull(),
+    authorId: uuid('author_id').references(() => sosUsers.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    contentType: text('content_type').notNull(),
+    contentUrl: text('content_url'),
+    contentText: text('content_text'),
+    thumbnailUrl: text('thumbnail_url'),
+    is21Plus: boolean('is_21plus').default(false).notNull(),
+    isOriginalContent: boolean('is_original_content').default(false).notNull(),
+    flair: text('flair'),
+    upvotes: integer('upvotes').default(0).notNull(),
+    downvotes: integer('downvotes').default(0).notNull(),
+    commentCount: integer('comment_count').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    isDeleted: boolean('is_deleted').default(false).notNull(),
+    isPinned: boolean('is_pinned').default(false).notNull(),
+  },
+  (table) => [
+    index('sos_posts_group_idx').on(table.groupId),
+    index('sos_posts_created_idx').on(table.createdAt),
+    index('sos_posts_group_created_idx').on(table.groupId, table.createdAt),
+  ]
+);
+
+export const sosComments = pgTable(
+  'sos_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    postId: uuid('post_id')
+      .references(() => sosPosts.id, { onDelete: 'cascade' })
+      .notNull(),
+    authorId: uuid('author_id').references(() => sosUsers.id, { onDelete: 'set null' }),
+    parentCommentId: uuid('parent_comment_id').references(() => sosComments.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    upvotes: integer('upvotes').default(0).notNull(),
+    downvotes: integer('downvotes').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    isDeleted: boolean('is_deleted').default(false).notNull(),
+    depth: integer('depth').default(0).notNull(),
+  },
+  (table) => [
+    index('sos_comments_post_idx').on(table.postId),
+    index('sos_comments_post_created_idx').on(table.postId, table.createdAt),
+  ]
+);
+
+export const sosVotes = pgTable(
+  'sos_votes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => sosUsers.id, { onDelete: 'cascade' })
+      .notNull(),
+    postId: uuid('post_id').references(() => sosPosts.id, { onDelete: 'cascade' }),
+    commentId: uuid('comment_id').references(() => sosComments.id, { onDelete: 'cascade' }),
+    voteType: integer('vote_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('sos_votes_user_idx').on(table.userId),
+    index('sos_votes_post_idx').on(table.postId),
+    index('sos_votes_comment_idx').on(table.commentId),
+  ]
+);
+
+export const sosSubscriptions = pgTable(
+  'sos_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => sosUsers.id, { onDelete: 'cascade' })
+      .notNull(),
+    groupId: uuid('group_id')
+      .references(() => sosGroups.id, { onDelete: 'cascade' })
+      .notNull(),
+    subscribedAt: timestamp('subscribed_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('sos_subscriptions_user_idx').on(table.userId),
+    index('sos_subscriptions_group_idx').on(table.groupId),
+  ]
+);
+
+export const sosModerators = pgTable(
+  'sos_moderators',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => sosUsers.id, { onDelete: 'cascade' })
+      .notNull(),
+    groupId: uuid('group_id')
+      .references(() => sosGroups.id, { onDelete: 'cascade' })
+      .notNull(),
+    addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+    permissions: jsonb('permissions'),
+  },
+  (table) => [
+    index('sos_moderators_user_idx').on(table.userId),
+    index('sos_moderators_group_idx').on(table.groupId),
+  ]
+);
+
+export const sosReports = pgTable(
+  'sos_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reporterId: uuid('reporter_id').references(() => sosUsers.id, { onDelete: 'set null' }),
+    postId: uuid('post_id').references(() => sosPosts.id, { onDelete: 'cascade' }),
+    commentId: uuid('comment_id').references(() => sosComments.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    details: text('details'),
+    status: text('status').default('pending').notNull(),
+    reviewedBy: uuid('reviewed_by').references(() => sosUsers.id, { onDelete: 'set null' }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('sos_reports_status_idx').on(table.status),
+    index('sos_reports_post_idx').on(table.postId),
+    index('sos_reports_comment_idx').on(table.commentId),
+  ]
+);
+
+export const sosAdRevenue = pgTable(
+  'sos_ad_revenue',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .references(() => sosGroups.id, { onDelete: 'cascade' })
+      .notNull(),
+    date: date('date').notNull(),
+    impressions: integer('impressions').default(0).notNull(),
+    clicks: integer('clicks').default(0).notNull(),
+    revenueCents: integer('revenue_cents').default(0).notNull(),
+    creatorShareCents: integer('creator_share_cents').default(0).notNull(),
+  },
+  (table) => [
+    index('sos_ad_revenue_group_idx').on(table.groupId),
+    index('sos_ad_revenue_date_idx').on(table.date),
+  ]
+);
+
+// ============================================
+// AI AGENT TREE STRATEGIC ROADMAP
+// ============================================
+
+/**
+ * Roadmap phases representing major strategic milestones.
+ * Phase 1: Acquisition & Optimization (0-12 months)
+ * Phase 2: Full Business Automation (1-3 years)
+ * Phase 3: Platform & Equity Model (3-5+ years)
+ */
+export const roadmapPhases = pgTable(
+  'roadmap_phases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Phase Identity
+    phaseNumber: integer('phase_number').notNull().unique(),
+    title: text('title').notNull(),
+    subtitle: text('subtitle'),
+    timeline: text('timeline').notNull(), // '0-12 months', '1-3 years', etc.
+
+    // Status & Progress
+    status: text('status').default('not_started').notNull(), // not_started, in_progress, completed
+    progress: integer('progress').default(0).notNull(), // 0-100
+
+    // Visual
+    color: text('color').notNull(), // Tailwind gradient class e.g., 'from-emerald-500 to-teal-500'
+    icon: text('icon').notNull(), // Emoji icon
+
+    // Strategy Details
+    goal: text('goal').notNull(),
+    strategy: text('strategy').notNull(),
+    outcome: text('outcome').notNull(),
+    keyMetrics: jsonb('key_metrics').$type<string[]>().default([]).notNull(),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('roadmap_phases_status_idx').on(table.status),
+    index('roadmap_phases_number_idx').on(table.phaseNumber),
+  ]
+);
+
+/**
+ * Roadmap milestones within each phase.
+ * Tracks individual deliverables and their progress.
+ */
+export const roadmapMilestones = pgTable(
+  'roadmap_milestones',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Parent Phase
+    phaseId: uuid('phase_id')
+      .references(() => roadmapPhases.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Milestone Details
+    title: text('title').notNull(),
+    description: text('description'),
+    sortOrder: integer('sort_order').default(0).notNull(),
+
+    // Status
+    status: text('status').default('pending').notNull(), // pending, in_progress, completed, blocked
+
+    // Dates
+    targetDate: date('target_date'),
+    completedDate: date('completed_date'),
+
+    // Metrics (optional tracking data)
+    metrics: jsonb('metrics').$type<Array<{ label: string; target: string | number; current?: string | number }>>(),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('roadmap_milestones_phase_idx').on(table.phaseId),
+    index('roadmap_milestones_status_idx').on(table.status),
+    index('roadmap_milestones_sort_idx').on(table.phaseId, table.sortOrder),
+  ]
+);
+
+// ============================================
+// SCREEN TIME REPORTS (iOS productivity tracking)
+// ============================================
+
+export const screenTimeReports = pgTable(
+  'screen_time_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reportDate: date('report_date').notNull(),
+    deviceId: text('device_id').notNull(),
+
+    // Core metrics
+    totalScreenTimeMinutes: integer('total_screen_time_minutes').notNull().default(0),
+    pickupCount: integer('pickup_count').default(0),
+    notificationCount: integer('notification_count').default(0),
+
+    // Detailed breakdown
+    categoryBreakdown: jsonb('category_breakdown').default({}),
+    topApps: jsonb('top_apps').default([]),
+    hourlyBreakdown: jsonb('hourly_breakdown').default([]),
+
+    // Sync metadata
+    syncedAt: timestamp('synced_at', { withTimezone: true }).defaultNow().notNull(),
+    sourceVersion: text('source_version'),
+
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('screen_time_date_idx').on(table.reportDate),
+    index('screen_time_device_idx').on(table.deviceId),
+  ]
+);
+
+// ============================================
+// COMMUNICATION MONITORING
+// ============================================
+// Tracks messages from all communication channels (Gmail, Outlook, iMessage, phone calls)
+// with AI triage results and notification status
+
+export const communicationMessages = pgTable(
+  'communication_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Channel identification
+    channel: text('channel').notNull(), // 'gmail', 'outlook', 'imessage', 'sms', 'phone_call'
+    externalId: text('external_id').notNull(), // ID from source system
+    threadId: text('thread_id'), // For threaded conversations
+
+    // Sender info
+    fromAddress: text('from_address').notNull(), // Email or phone
+    fromName: text('from_name'),
+    toAddress: text('to_address'), // Recipient
+
+    // Content
+    subject: text('subject'), // For emails
+    preview: text('preview'), // First 200 chars
+    fullContent: text('full_content'), // Full message body
+
+    // Call-specific fields
+    callType: text('call_type'), // 'incoming', 'outgoing', 'missed'
+    callDuration: integer('call_duration'), // seconds
+
+    // Timestamps
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
+
+    // Triage results
+    triaged: boolean('triaged').default(false).notNull(),
+    triagedAt: timestamp('triaged_at', { withTimezone: true }),
+    importance: text('importance'), // 'critical', 'urgent', 'normal', 'low'
+    category: text('category'), // 'action_required', 'fyi', 'social', 'spam', 'personal'
+    requiresAction: boolean('requires_action'),
+    triageReasoning: text('triage_reasoning'),
+
+    // Notification tracking
+    notified: boolean('notified').default(false).notNull(),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+    notificationChannel: text('notification_channel'), // 'sms', 'telegram', 'none'
+
+    // Processing
+    processed: boolean('processed').default(false).notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+    linkedTaskId: uuid('linked_task_id').references(() => tasks.id),
+
+    // Metadata
+    metadata: jsonb('metadata'), // Channel-specific data
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('comm_messages_channel_idx').on(table.channel),
+    index('comm_messages_external_id_idx').on(table.externalId),
+    index('comm_messages_from_idx').on(table.fromAddress),
+    index('comm_messages_received_idx').on(table.receivedAt),
+    index('comm_messages_triaged_idx').on(table.triaged),
+    index('comm_messages_importance_idx').on(table.importance),
+    index('comm_messages_notified_idx').on(table.notified),
+  ]
+);
+
+// VIP contacts for instant notification (bypass AI triage delay)
+export const communicationVipContacts = pgTable(
+  'communication_vip_contacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Contact identification
+    identifier: text('identifier').notNull().unique(), // Email or phone
+    identifierType: text('identifier_type').notNull(), // 'email', 'phone'
+    name: text('name'),
+
+    // Priority settings
+    priority: text('priority').default('high').notNull(), // 'critical', 'high', 'normal'
+    alwaysNotify: boolean('always_notify').default(true).notNull(),
+
+    // Notification preferences
+    notifyOnEmail: boolean('notify_on_email').default(true).notNull(),
+    notifyOnMessage: boolean('notify_on_message').default(true).notNull(),
+    notifyOnCall: boolean('notify_on_call').default(true).notNull(),
+
+    // Metadata
+    notes: text('notes'),
+    personId: uuid('person_id').references(() => people.id),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('comm_vip_identifier_idx').on(table.identifier),
+    index('comm_vip_priority_idx').on(table.priority),
+  ]
+);
+
+// Session storage for browser-based scrapers (Outlook)
+export const communicationScraperSessions = pgTable(
+  'communication_scraper_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    channel: text('channel').notNull().unique(), // 'outlook', etc.
+
+    // Session data
+    sessionData: jsonb('session_data'), // Encrypted cookies/tokens
+
+    // Status
+    isValid: boolean('is_valid').default(true).notNull(),
+    lastValidated: timestamp('last_validated', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+
+    // Error tracking
+    lastError: text('last_error'),
+    errorCount: integer('error_count').default(0).notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('comm_scraper_channel_idx').on(table.channel),
+    index('comm_scraper_valid_idx').on(table.isValid),
+  ]
+);
+
+// Monitor status tracking for system health display
+export const communicationMonitorStatus = pgTable(
+  'communication_monitor_status',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    channel: text('channel').notNull().unique(), // 'gmail', 'outlook', 'imessage', 'phone_calls'
+
+    // Status
+    status: text('status').default('unknown').notNull(), // 'healthy', 'degraded', 'error', 'disabled'
+    enabled: boolean('enabled').default(true).notNull(),
+
+    // Last check info
+    lastCheckAt: timestamp('last_check_at', { withTimezone: true }),
+    lastSuccessAt: timestamp('last_success_at', { withTimezone: true }),
+    lastErrorAt: timestamp('last_error_at', { withTimezone: true }),
+    lastErrorMessage: text('last_error_message'),
+
+    // Stats
+    unreadCount: integer('unread_count').default(0),
+    urgentCount: integer('urgent_count').default(0),
+    messagesCheckedToday: integer('messages_checked_today').default(0),
+    alertsSentToday: integer('alerts_sent_today').default(0),
+
+    // Channel-specific
+    sessionValid: boolean('session_valid'), // For Outlook
+    hasAccess: boolean('has_access'), // For iMessage (Full Disk Access)
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('comm_monitor_channel_idx').on(table.channel),
+    index('comm_monitor_status_idx').on(table.status),
+  ]
+);
+
+// ============================================
+// READ HELP - Personal Book Learning Assistant
+// ============================================
+
+export const readHelpBooks = pgTable(
+  'read_help_books',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Core metadata
+    title: text('title').notNull(),
+    author: text('author'),
+    isbn: text('isbn'),
+    publisher: text('publisher'),
+    publishedYear: integer('published_year'),
+
+    // File info
+    filePath: text('file_path').notNull(),
+    fileSizeBytes: integer('file_size_bytes'),
+    fileHash: text('file_hash'), // SHA256 for deduplication
+    pageCount: integer('page_count'),
+    coverImagePath: text('cover_image_path'),
+
+    // Processing status
+    status: text('status').default('processing').notNull(), // processing, ready, error
+    processingError: text('processing_error'),
+    processingProgress: integer('processing_progress').default(0), // 0-100
+
+    // Content info
+    totalWordCount: integer('total_word_count'),
+    language: text('language').default('en'),
+
+    // User metadata
+    tags: text('tags').array(),
+    notes: text('notes'),
+    rating: integer('rating'), // 1-5
+
+    // Reading state
+    isArchived: boolean('is_archived').default(false).notNull(),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_books_status_idx').on(table.status),
+    index('read_help_books_title_idx').on(table.title),
+    index('read_help_books_author_idx').on(table.author),
+    index('read_help_books_archived_idx').on(table.isArchived),
+  ]
+);
+
+export const readHelpChapters = pgTable(
+  'read_help_chapters',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull(),
+
+    // Chapter info
+    chapterNumber: integer('chapter_number').notNull(),
+    title: text('title'),
+    startPage: integer('start_page'),
+    endPage: integer('end_page'),
+
+    // Content
+    content: text('content').notNull(),
+    wordCount: integer('word_count'),
+
+    // AI-generated summaries (cached)
+    summaryShort: text('summary_short'), // ~500 words, 5 min read
+    summaryMedium: text('summary_medium'), // ~1500 words, 15 min read
+    summaryLong: text('summary_long'), // ~3000 words, 30 min read
+    summaryGeneratedAt: timestamp('summary_generated_at', { withTimezone: true }),
+
+    // Key concepts extracted
+    keyConcepts: jsonb('key_concepts'), // [{term, definition, pageNumbers}]
+    keyQuotes: jsonb('key_quotes'), // [{quote, pageNumber, context}]
+    frameworks: jsonb('frameworks'), // [{name, description, pageNumbers}]
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_chapters_book_idx').on(table.bookId),
+    index('read_help_chapters_number_idx').on(table.chapterNumber),
+  ]
+);
+
+// Full-text search index using PostgreSQL tsvector
+export const readHelpSearchIndex = pgTable(
+  'read_help_search_index',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull(),
+    chapterId: uuid('chapter_id')
+      .references(() => readHelpChapters.id, { onDelete: 'cascade' }),
+
+    // Content chunk (pages are split into searchable chunks)
+    pageNumber: integer('page_number'),
+    chunkIndex: integer('chunk_index').default(0), // Multiple chunks per page
+    content: text('content').notNull(),
+
+    // Search vector (automatically populated by trigger)
+    searchVector: text('search_vector'), // Will store tsvector as text, convert in queries
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_search_book_idx').on(table.bookId),
+    index('read_help_search_chapter_idx').on(table.chapterId),
+    index('read_help_search_page_idx').on(table.pageNumber),
+  ]
+);
+
+export const readHelpConversations = pgTable(
+  'read_help_conversations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull(),
+    chapterId: uuid('chapter_id')
+      .references(() => readHelpChapters.id, { onDelete: 'set null' }),
+
+    // Conversation context
+    title: text('title'), // Auto-generated from first message
+    context: text('context'), // 'chapter', 'book', 'general'
+
+    // Messages array: [{role: 'user'|'assistant', content: string, timestamp: string, citations?: [{page, text}]}]
+    messages: jsonb('messages').default('[]').notNull(),
+
+    // Token tracking for context management
+    totalTokens: integer('total_tokens').default(0),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_conv_book_idx').on(table.bookId),
+    index('read_help_conv_chapter_idx').on(table.chapterId),
+  ]
+);
+
+export const readHelpHighlights = pgTable(
+  'read_help_highlights',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull(),
+    chapterId: uuid('chapter_id')
+      .references(() => readHelpChapters.id, { onDelete: 'set null' }),
+
+    // Location
+    pageNumber: integer('page_number'),
+    startOffset: integer('start_offset'), // Character offset in page content
+    endOffset: integer('end_offset'),
+
+    // Content
+    highlightedText: text('highlighted_text').notNull(),
+    note: text('note'),
+
+    // Styling
+    color: text('color').default('yellow').notNull(), // yellow, green, blue, pink, purple
+
+    // Tags for organization
+    tags: text('tags').array(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_highlights_book_idx').on(table.bookId),
+    index('read_help_highlights_chapter_idx').on(table.chapterId),
+    index('read_help_highlights_page_idx').on(table.pageNumber),
+  ]
+);
+
+export const readHelpQuizzes = pgTable(
+  'read_help_quizzes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull(),
+    chapterId: uuid('chapter_id')
+      .references(() => readHelpChapters.id, { onDelete: 'set null' }),
+
+    // Quiz metadata
+    title: text('title'),
+    difficulty: text('difficulty').default('medium'), // easy, medium, hard
+    questionCount: integer('question_count').notNull(),
+
+    // Questions: [{id, type: 'multiple_choice'|'true_false'|'short_answer', question, options?, correctAnswer, explanation, pageRef}]
+    questions: jsonb('questions').notNull(),
+
+    // Results (null until taken)
+    answers: jsonb('answers'), // [{questionId, userAnswer, isCorrect}]
+    score: real('score'), // 0-100
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+
+    // Spaced repetition
+    nextReviewAt: timestamp('next_review_at', { withTimezone: true }),
+    reviewCount: integer('review_count').default(0),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_quizzes_book_idx').on(table.bookId),
+    index('read_help_quizzes_chapter_idx').on(table.chapterId),
+    index('read_help_quizzes_review_idx').on(table.nextReviewAt),
+  ]
+);
+
+export const readHelpProgress = pgTable(
+  'read_help_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(), // One progress record per book
+
+    // Current position
+    currentPage: integer('current_page').default(1).notNull(),
+    currentChapterId: uuid('current_chapter_id')
+      .references(() => readHelpChapters.id, { onDelete: 'set null' }),
+
+    // Progress tracking
+    percentComplete: real('percent_complete').default(0).notNull(),
+    pagesRead: integer('pages_read').default(0).notNull(),
+    chaptersCompleted: integer('chapters_completed').default(0).notNull(),
+
+    // Time tracking
+    totalReadingTimeMinutes: integer('total_reading_time_minutes').default(0).notNull(),
+    averageSessionMinutes: integer('average_session_minutes'),
+    sessionCount: integer('session_count').default(0).notNull(),
+
+    // Reading sessions log: [{startedAt, endedAt, pagesRead, chapterId}]
+    sessions: jsonb('sessions').default('[]'),
+
+    // Completion
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_progress_book_idx').on(table.bookId),
+    index('read_help_progress_last_read_idx').on(table.lastReadAt),
+  ]
+);
+
+// Flashcards for spaced repetition learning
+export const readHelpFlashcards = pgTable(
+  'read_help_flashcards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookId: uuid('book_id')
+      .references(() => readHelpBooks.id, { onDelete: 'cascade' })
+      .notNull(),
+    chapterId: uuid('chapter_id')
+      .references(() => readHelpChapters.id, { onDelete: 'set null' }),
+
+    // Card content
+    front: text('front').notNull(), // Question or term
+    back: text('back').notNull(), // Answer or definition
+    pageReference: integer('page_reference'),
+
+    // Card type
+    cardType: text('card_type').default('concept').notNull(), // concept, quote, framework, custom
+
+    // Spaced repetition (SM-2 algorithm)
+    easeFactor: real('ease_factor').default(2.5).notNull(), // Difficulty multiplier
+    interval: integer('interval').default(1).notNull(), // Days until next review
+    repetitions: integer('repetitions').default(0).notNull(), // Successful reviews in a row
+    nextReviewAt: timestamp('next_review_at', { withTimezone: true }),
+    lastReviewedAt: timestamp('last_reviewed_at', { withTimezone: true }),
+
+    // Stats
+    totalReviews: integer('total_reviews').default(0).notNull(),
+    correctCount: integer('correct_count').default(0).notNull(),
+
+    // Status
+    isArchived: boolean('is_archived').default(false).notNull(),
+    isSuspended: boolean('is_suspended').default(false).notNull(), // Temporarily skip
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_flashcards_book_idx').on(table.bookId),
+    index('read_help_flashcards_chapter_idx').on(table.chapterId),
+    index('read_help_flashcards_review_idx').on(table.nextReviewAt),
+    index('read_help_flashcards_archived_idx').on(table.isArchived),
   ]
 );

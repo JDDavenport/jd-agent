@@ -1,6 +1,6 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 23, 2026
+> **Last Updated:** January 24, 2026
 > **Version:** 0.3.12
 > **Phase:** Phase 3 - Verify & Coach
 
@@ -19,6 +19,8 @@ This document is the single source of truth for all current features and capabil
 | Tasks App | `/apps/tasks` | Focused task management interface | Tauri Desktop App |
 | Vault App | `/apps/vault` | Knowledge base (Notion-like) | Tauri Desktop App |
 | Jobs App | `/apps/jobs` | Job hunting agent interface | Web App |
+| Tasks iOS | `/apps/jd-tasks-ios` | Native iOS task management | iOS App (SwiftUI) |
+| Command Center iOS | `/apps/jd-command-center-ios` | Native iOS briefing & productivity | iOS App (SwiftUI) |
 | Shared Types | `/packages/types` | TypeScript type definitions | Library |
 | API Client | `/packages/api-client` | Typed API client library | Library |
 
@@ -29,6 +31,14 @@ This document is the single source of truth for all current features and capabil
 - Individual app icons and window management
 - Dev mode: `bun run tauri:dev` in each app directory
 - Production builds: `bun run tauri:build`
+
+**iOS Apps (Native SwiftUI):**
+- Tasks iOS and Command Center iOS are native iPhone applications
+- Built with Swift 5.9+ and SwiftUI (iOS 16+)
+- Siri Shortcuts integration for voice commands
+- XcodeGen project configuration (`project.yml`)
+- Dev mode: Open `.xcodeproj` in Xcode, build to device
+- Production builds: Archive via Xcode
 
 ---
 
@@ -93,7 +103,22 @@ This document is the single source of truth for all current features and capabil
 - Linked vault folders for project notes
 - Section-based task organization (Todoist-style)
 
-### 3. Vault (Knowledge Base)
+### 3. Finance & Budgeting
+
+**Budget Monitoring:**
+- Plaid Link connection (Chase supported) with secure token encryption
+- Manual CSV import fallback for bank exports
+- Category budgets with weekly/monthly/yearly periods
+- Remaining spend + percent used for current period
+- YNAB-style envelope budgeting with “To Be Budgeted” tracking
+- Category groups and move-money adjustments between budgets
+- Category targets (weekly/monthly/yearly) with funded progress and overspending carry
+- Month selector with per‑month budgeted allocations
+- Budget dashboard for whole-budget at-a-glance
+- Budget alerts via Email/SMS/Telegram with threshold controls
+- Background sync jobs for near real-time updates
+
+### 4. Vault (Knowledge Base)
 
 **Architecture:**
 The vault functionality is split across two apps for optimal user experience:
@@ -431,7 +456,7 @@ POST   /api/jobs/screening    # Add screening answer
 
 ### 8. Canvas Integrity Agent
 
-**Purpose:** Autonomous verification that all Canvas LMS assignments exist as tasks with correct due dates and project assignments.
+**Purpose:** Autonomous verification that all Canvas LMS assignments exist as tasks with correct due dates and project assignments. Plus complete homework experience without needing to visit Canvas.
 
 **Features:**
 - Browser automation via Playwright for Canvas scraping
@@ -446,19 +471,145 @@ POST   /api/jobs/screening    # Add screening answer
   - Readings extraction from modules (external links, files, pages)
   - Module items with position tracking
 
+**Canvas Complete Phase 1 - Rich Assignment Details:**
+- Full assignment instructions with HTML and cleaned text
+- Rubric extraction with criteria, points, and ratings
+- Word count requirements parsing from instructions
+- AI-powered time estimation for assignments
+- Group assignment and peer review detection
+- Subtask/checklist generation for assignments
+- Assignment detail modal with tabs for Details, Rubric, Checklist
+
+**Canvas Complete Phase 2 - Course Materials:**
+- Automatic file download from Canvas (PDFs, slides, documents)
+- Storage organization by course: `hub/storage/canvas/{course}/`
+- Material type detection (case, reading, lecture, syllabus, template)
+- Reading progress tracking (unread, in_progress, completed)
+- Vault page creation for materials (searchable in Vault)
+- Course Materials UI component with module grouping
+- Related materials linked to assignments
+
+**Canvas Complete Phase 3 - Connected Workflow:**
+- Auto-generated Vault pages for assignments with structured content:
+  - Header callout with key info (course, due date, points, time estimate)
+  - Assignment details section with submission requirements
+  - Full instructions content
+  - Rubric with expandable criteria and ratings
+  - Materials section linked to downloaded files
+  - Notes section for working on the assignment
+  - Checklist with default items
+  - Canvas link for fallback access
+- Task-to-Vault-page linking for seamless navigation
+- Quick actions on task cards and modals:
+  - Open Assignment Page (create/view Vault page)
+  - View Materials (jump to related files)
+  - Add Note (quick note creation)
+  - Open in Canvas (fallback)
+- CanvasQuickActions component for inline task actions
+
+**Canvas Complete Phase 4 - Homework Hub Dashboard:**
+- Homework Hub dashboard widget with centralized homework view:
+  - Due Today section with urgency indicators (critical, high, medium, low)
+  - Due This Week section with assignments grouped by date
+  - Readings Due section with read progress tracking
+  - Upcoming assignments (next 2 weeks)
+- Summary statistics:
+  - Count of items due today, this week, upcoming
+  - Total estimated time for today and week
+  - Critical/urgent assignment count
+- Progress tracking for multi-part assignments:
+  - Subtask completion percentage
+  - Status indicators (not_started, in_progress, ready_to_submit, completed)
+- Urgency calculations based on hours until due:
+  - Critical: < 24 hours or past due
+  - High: 24-48 hours
+  - Medium: 48-72 hours
+  - Low: > 72 hours
+- Compact widget mode for dashboard layouts
+- Reading progress display with unread/in-progress status
+
+**Canvas Complete Phase 5 - Direct Submission:**
+- Submit assignments directly from JD Agent without opening Canvas:
+  - Text entry submission
+  - URL submission
+  - File upload submission (coming soon)
+- Submission status tracking:
+  - Current submission state (submitted, graded, pending_review)
+  - Submission attempt count
+  - Late/missing flags
+  - Grade and score display
+- Submission history with all attempts
+- Instructor comments display
+- Submitted files list
+- SubmissionPanel component with tabbed interface
+- Auto-marks linked task as completed on successful submission
+
+**Canvas Complete Phase 5 - Grade Tracking:**
+- Grade summary across all courses:
+  - Overall average percentage and letter grade
+  - Total graded vs pending assignments
+  - Course-by-course averages
+- Recent grades display with scores and percentages
+- New grade alerts with pulse animation notification
+- Course-specific grade views
+- Pending grades list (submitted but not graded)
+- Grade color coding by percentage:
+  - Green: 90%+ (A range)
+  - Blue: 80-89% (B range)
+  - Yellow: 70-79% (C range)
+  - Orange: 60-69% (D range)
+  - Red: <60% (F)
+- GradesWidget for dashboard (compact and full modes)
+- Database fields: grade, score, gradedAt, isLate, isMissing
+
 **Database Tables:**
-- `canvas_items` - Track all Canvas assignments
+- `canvas_items` - Track all Canvas assignments with rich details (including grade fields)
 - `canvas_audits` - Audit run history and findings
 - `class_project_mapping` - Link Canvas courses to projects
 - `canvas_schedule_tracking` - Track scheduling status
+- `canvas_assignment_subtasks` - AI-generated or manual checklists
+- `canvas_assignment_pages` - Vault page links for assignments
+- `canvas_materials` - Downloaded course files with reading tracking
 
 **API Endpoints:**
 ```
-POST /api/canvas-integrity/audit       # Trigger full audit
-POST /api/canvas-integrity/audit/quick # Quick API-only check
-GET  /api/canvas-integrity/status      # Current integrity status
-GET  /api/canvas-integrity/unscheduled # List unscheduled tasks
-POST /api/canvas-integrity/nudge       # Send nudge now
+POST /api/canvas-integrity/audit         # Trigger full audit
+POST /api/canvas-integrity/audit/quick   # Quick API-only check
+GET  /api/canvas-integrity/status        # Current integrity status
+GET  /api/canvas-integrity/unscheduled   # List unscheduled tasks
+POST /api/canvas-integrity/nudge         # Send nudge now
+GET  /api/canvas-integrity/assignments/:id/full    # Full assignment details
+GET  /api/canvas-integrity/homework      # Homework dashboard data
+
+# Course Materials API
+GET  /api/canvas-materials               # List all materials
+GET  /api/canvas-materials/by-course/:id # Materials grouped by module
+GET  /api/canvas-materials/readings      # Reading list
+GET  /api/canvas-materials/:id/download  # Download file
+GET  /api/canvas-materials/:id/view      # View file inline
+PATCH /api/canvas-materials/:id/progress # Update reading progress
+POST /api/canvas-materials/sync/:courseId # Sync from Canvas
+
+# Homework Hub API
+GET  /api/canvas-integrity/homework-hub          # Full homework hub data
+GET  /api/canvas-integrity/homework-hub/summary  # Summary statistics
+GET  /api/canvas-integrity/homework-hub/due-today    # Assignments due today
+GET  /api/canvas-integrity/homework-hub/due-this-week # Due this week
+GET  /api/canvas-integrity/homework-hub/critical     # Critical/urgent items
+
+# Submission API (Phase 5)
+GET  /api/canvas-integrity/assignments/:id/submission           # Submission status
+GET  /api/canvas-integrity/assignments/:id/submission/can-submit # Check if can submit
+GET  /api/canvas-integrity/assignments/:id/submission/history   # Submission history
+POST /api/canvas-integrity/assignments/:id/submit/text          # Submit text entry
+POST /api/canvas-integrity/assignments/:id/submit/url           # Submit URL
+POST /api/canvas-integrity/assignments/:id/submit/file          # Submit file
+
+# Grades API (Phase 5)
+GET  /api/canvas-integrity/grades/summary              # Grade summary
+GET  /api/canvas-integrity/grades/check                # Check for new grades
+GET  /api/canvas-integrity/grades/pending              # Pending grades
+GET  /api/canvas-integrity/grades/course/:courseId     # Course grades
 ```
 
 ### 9. Ceremonies System
@@ -835,7 +986,8 @@ Extended `dailyReviews` table with:
 | **Voyage AI** | Partial | Embeddings schema ready, search wiring in progress |
 | **Twilio** | Configured | SMS notifications |
 | **Resend** | Configured | Email notifications |
-| **Whoop** | Active | Recovery, strain, sleep metrics |
+| **Whoop** | Active | Recovery, strain, sleep metrics + auto-reauthorization via Playwright |
+| **Garmin Connect** | Active | Steps, heart rate, sleep, stress, body battery, activities via python-garminconnect |
 | **Linear** | Deprecated | Removed per roadmap v3 (PostgreSQL is source of truth) |
 
 ---
@@ -863,6 +1015,10 @@ Extended `dailyReviews` table with:
 | `/api/webhooks` | POST | Integration webhooks |
 | `/api/logs` | GET | Activity and system logs |
 | `/api/whoop` | GET, POST | Whoop fitness data |
+| `/api/garmin` | GET | Garmin Connect health data (steps, HR, sleep, stress, body battery) |
+| `/api/health/combined` | GET | Combined health data from Whoop + Garmin |
+| `/api/health/whoop-auto-auth/status` | GET | WHOOP auto-auth status |
+| `/api/health/whoop-auto-auth/authenticate` | POST | Trigger WHOOP auto-reauthorization |
 | `/api/testing` | GET, POST | AI-powered testing agent |
 | `/api/labels` | GET, POST, PATCH, DELETE | Tag taxonomy with categories, suggestions, validation |
 
@@ -1393,6 +1549,7 @@ ANTHROPIC_API_KEY=xxx        # Claude AI (already configured)
 - Dashboard: Today's view with enhanced metric cards
 - Goals: Goal management with life area breakdown
 - Habits: Habit tracking with streak visualization
+- Budget: Real-time budget monitoring with Plaid sync and alerts
 - Journal: 7-step daily review workflow (integrated from standalone app)
 - Vault Explorer: Knowledge base browsing and search
 - Acquisition: Business lead CRM with pipeline board and AI scoring
@@ -1528,6 +1685,11 @@ ANTHROPIC_API_KEY=xxx        # Claude AI (already configured)
 - Dark mode with system preference detection
 - Entity linking via `[[` trigger with task/goal/page tabs
 - Keyboard shortcuts: ⌘K (search), ⌘N (new), ⌘\ (sidebar), ⌘S (save)
+- iOS PWA UX: recents + quick actions, pull-to-refresh, swipe actions, save status, keyboard-safe layout
+- Floating New Note button on mobile for one-tap capture
+- PWA update prompt to refresh when new build is available
+- Mobile build timestamp for troubleshooting
+- Ask AI quick action on mobile home
 - Native macOS app: Tauri desktop build and dev launcher
 - Installable PWA: Add to Dock on macOS, Add to Home Screen on iOS
 - Full-text and semantic search (legacy)
@@ -1747,6 +1909,205 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### January 26, 2026 - Canvas Complete Phase 5: Grade Tracking
+- **NEW**: Grade tracking and notifications
+  - Grade summary across all courses with overall average
+  - Course-by-course grade averages
+  - Recent grades display
+  - New grade alerts
+- **NEW**: GradesWidget dashboard component
+  - Compact mode for dashboard grid
+  - Full mode with detailed breakdowns
+  - Color-coded grades by percentage
+  - Letter grade display
+- **NEW**: Grade API endpoints
+  - GET /grades/summary - overall grade summary
+  - GET /grades/check - check for new grades
+  - GET /grades/pending - assignments awaiting grades
+  - GET /grades/course/:courseId - course-specific grades
+- **NEW**: Database schema updates for grades
+  - Added: grade, score, gradedAt, isLate, isMissing fields
+  - Added: canvasCourseId, canvasAssignmentId for API calls
+- Files: `canvas-grades-service.ts`, `useGrades.ts`, `GradesWidget.tsx`
+
+### January 26, 2026 - Canvas Complete Phase 5: Direct Submission
+- **NEW**: Submit assignments directly from JD Agent
+  - Text entry submission for online_text_entry assignments
+  - URL submission for online_url assignments
+  - File upload preparation (UI ready, backend implemented)
+- **NEW**: Submission status tracking
+  - Current submission state (submitted, graded, pending_review, unsubmitted)
+  - Late and missing flags
+  - Grade and score display when graded
+  - Submission attempt count
+- **NEW**: Submission history view
+  - All submission attempts visible
+  - Instructor comments displayed
+  - Submitted files listed with sizes
+- **NEW**: SubmissionPanel component
+  - Integrated into AssignmentDetailModal as "Submit" tab
+  - Tabbed interface for status and submit forms
+  - Real-time submission feedback
+- **NEW**: Submission API endpoints
+  - GET /submission - current status
+  - GET /submission/can-submit - eligibility check
+  - GET /submission/history - all attempts
+  - POST /submit/text - text submission
+  - POST /submit/url - URL submission
+  - POST /submit/file - file submission
+- Auto-completes linked task on successful submission
+- Files: `canvas-submission-service.ts`, `SubmissionPanel.tsx`, updated `useCanvasComplete.ts`
+
+### January 26, 2026 - Canvas Complete Phase 4: Homework Hub Dashboard
+- **NEW**: Homework Hub dashboard widget for centralized homework view
+  - Due Today section with critical urgency indicators
+  - Due This Week section with assignments grouped
+  - Readings Due section with progress tracking
+  - Upcoming assignments (next 2 weeks preview)
+- **NEW**: Homework summary statistics
+  - Count of items due today, this week, upcoming
+  - Total estimated work time for today and week
+  - Critical/urgent assignment alerts with pulse animation
+- **NEW**: Progress tracking for assignments
+  - Subtask completion percentage with progress bars
+  - Status indicators (not_started, in_progress, ready_to_submit, completed)
+  - Color-coded progress (red → orange → yellow → green)
+- **NEW**: Urgency level calculations
+  - Critical (red): <24 hours or past due
+  - High (orange): 24-48 hours
+  - Medium (yellow): 48-72 hours
+  - Low (green): >72 hours
+- **NEW**: Homework Hub API endpoints
+  - GET /api/canvas-integrity/homework-hub (full data)
+  - GET /api/canvas-integrity/homework-hub/summary
+  - GET /api/canvas-integrity/homework-hub/due-today
+  - GET /api/canvas-integrity/homework-hub/due-this-week
+  - GET /api/canvas-integrity/homework-hub/critical
+- Files: `homework-hub-service.ts`, `useHomeworkHub.ts`, `HomeworkHubWidget.tsx`
+
+### January 26, 2026 - Canvas Complete Phase 3: Connected Workflow
+- **NEW**: Auto-generated Vault pages for assignments
+  - Rich structured pages with all assignment context
+  - Header callout with course, due date, points, time estimate
+  - Full instructions and rubric with expandable criteria
+  - Materials section linked to downloaded course files
+  - Notes section for working on assignments
+  - Default checklist items for tracking progress
+- **NEW**: Task-to-Vault linking
+  - Canvas tasks link directly to Vault assignment pages
+  - Lazy page creation on first access
+  - References tracked in vault_references table
+- **NEW**: Quick Actions for Canvas tasks
+  - CanvasQuickActions component with compact and full modes
+  - Open Assignment Page (creates if needed)
+  - View Materials shortcut
+  - Add Note action
+  - Open in Canvas fallback
+  - InlineCanvasActions for task list items
+- **NEW**: Assignment page API endpoints
+  - GET/POST /api/canvas-integrity/assignments/:id/page
+  - GET /api/canvas-integrity/assignments/:id/page-or-create
+  - GET /api/canvas-integrity/by-task/:taskId/page
+  - PATCH /api/canvas-integrity/assignment-pages/:id/notes
+  - POST /api/canvas-integrity/courses/:courseId/create-all-pages
+- Files: `canvas-assignment-page-service.ts`, `CanvasQuickActions.tsx`, updated `useCanvasComplete.ts`
+
+### January 26, 2026 - Canvas Complete Phase 2: Course Materials
+- **NEW**: Canvas materials download and management system
+  - Automatic file download from Canvas (PDFs, PowerPoints, Word docs, Excel)
+  - Storage organized by course: `hub/storage/canvas/{course}/`
+  - Material type auto-detection (case, reading, lecture, syllabus, template, data)
+- **NEW**: Reading progress tracking
+  - Track reading status: unread, in_progress, completed
+  - Progress percentage tracking for each material
+  - Unread counts per course
+- **NEW**: Vault integration for materials
+  - Create Vault pages for downloaded materials
+  - Materials become searchable in Vault
+  - Course materials folders auto-created
+- **NEW**: Course Materials UI component
+  - Materials grouped by Canvas module
+  - Expand/collapse module sections
+  - Download, view inline, and track progress
+  - Quick status badges (unread/in progress/completed)
+- **NEW**: Canvas materials API (`/api/canvas-materials/*`)
+  - List, filter, download materials
+  - Sync materials from Canvas
+  - Update reading progress
+  - Create Vault pages for materials
+- **DB**: New `canvas_materials` table
+- Files: `canvas-materials-service.ts`, `canvas-materials.ts` (routes), `useCanvasMaterials.ts`, `CourseMaterials.tsx`
+
+### January 24, 2026 - Command Center iOS App
+- **NEW**: Native iOS Command Center app (`/apps/jd-command-center-ios`)
+  - AI-powered daily briefings with personalized summaries
+  - Integration status monitoring (Plaud, Remarkable, Canvas, Calendar)
+  - Screen Time productivity tracking synced to Hub
+  - Tab-based navigation: Briefing, Productivity, Settings
+  - SwiftUI + iOS 16+ with XcodeGen project configuration
+- **NEW**: Briefing API (`/api/briefing`)
+  - On-demand personalized briefing generation
+  - AI summary using LLM provider chain
+  - Integration health aggregation
+  - Preview endpoint for widgets
+- **NEW**: Productivity API (`/api/productivity`)
+  - Screen Time data sync from iOS DeviceActivity framework
+  - Daily, weekly, monthly analytics with trends
+  - AI-generated productivity insights
+  - Category and app usage breakdowns
+- **NEW**: Siri Shortcuts integration
+  - "Give me my JD briefing" - generates spoken summary
+  - "Check my integrations" - reports integration health
+  - "How much screen time did I have" - productivity report
+- **DB**: New `screen_time_reports` table for productivity data
+- Files: `briefing-service.ts`, `productivity-service.ts`, `briefing.ts`, `productivity.ts`
+
+### January 25, 2026 - Health Data Automation (WHOOP Auto-Auth + Garmin Integration)
+- **NEW**: WHOOP auto-reauthorization using Playwright browser automation
+  - Automatically re-authenticates when OAuth refresh tokens expire
+  - Auto-triggers when Personal Health page loads and WHOOP is disconnected
+  - No manual "Connect" clicking needed - seamless background re-auth
+  - Uses the same pattern as Plaud web scraper
+  - Configurable via `WHOOP_EMAIL` and `WHOOP_PASSWORD` environment variables
+- **NEW**: Garmin Connect integration via python-garminconnect library
+  - Steps, heart rate, sleep, stress, body battery, activities
+  - Full health report endpoint with all metrics combined
+  - TypeScript wrapper calls Python subprocess for authentication
+  - Session tokens persist to ~/.garminconnect for seamless re-auth
+  - Personal Health page shows Garmin recent activities with duration, calories, HR
+  - FitnessWidget displays latest Garmin activity
+- **NEW**: Combined health endpoint `/api/health/combined` aggregates WHOOP + Garmin data
+- **NEW**: Garmin API routes at `/api/garmin/*` for all health metrics
+- **ENH**: Health dashboard can now show data from multiple fitness sources
+- Files: `whoop-auto-auth.ts`, `garmin.ts`, `garmin-client.py`, `garmin.ts` (routes), `health.ts`
+
+### January 24, 2026 - Budget Monitoring & Alerts
+- **NEW**: Budget page in Command Center with category budgets and remaining spend
+- **NEW**: Plaid Link connection (Chase supported) + CSV import fallback
+- **NEW**: Budget alerts via Email/SMS/Telegram with threshold controls
+- **NEW**: Background finance sync + budget alert checks
+- **ENH**: YNAB-style envelope budgeting with “To Be Budgeted” summary
+- **ENH**: Category groups and move-money workflow
+- **ENH**: Command Center macOS bundle includes proper app icons for discovery
+- **ENH**: Category targets with funded progress and overspending carry toggle
+- **ENH**: Month selector with per‑month budget allocations
+- **ENH**: Budget dashboard summary with category overview
+
+### January 24, 2026 - Command Center Desktop Discovery
+- **ENH**: Command Center auto-launches installed app when available
+- **ENH**: Install script for `/Applications` bundle (`scripts/install-command-center-app.sh`)
+
+### January 24, 2026 - Vault Mobile Usability Fixes
+- **FIX**: Mobile Vault editor now persists Notion-style page edits (block serialization + batch save)
+- **FIX**: iOS layout polish (no duplicate header, correct safe area spacing, hide nav when keyboard open)
+- **FIX**: Mobile page tree expand/collapse controls and add buttons now work reliably
+- **ENH**: iOS home now includes recents, quick actions, and pull-to-refresh
+- **ENH**: iOS swipe actions for favorite/archive/delete on page lists
+- **ENH**: Floating New Note button on mobile
+- **ENH**: PWA update prompt when new build is ready
+- **ENH**: Mobile build stamp for troubleshooting
+- **ENH**: Ask AI quick action on mobile home
 
 ### January 23, 2026 - Weekly Planning Feature
 - **NEW**: Weekly Planning page (`/weekly-planning`) in Command Center

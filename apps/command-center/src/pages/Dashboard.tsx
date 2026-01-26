@@ -27,6 +27,9 @@ const SystemMonitor = lazy(() => import('../components/dashboard/SystemMonitor')
 const FinanceWidget = lazy(() => import('../components/dashboard/FinanceWidget'));
 const AIInsights = lazy(() => import('../components/dashboard/AIInsights'));
 const QuickChat = lazy(() => import('../components/dashboard/QuickChat'));
+const AcquisitionWidget = lazy(() => import('../components/dashboard/AcquisitionWidget'));
+const HomeworkHubWidget = lazy(() => import('../components/dashboard/HomeworkHubWidget'));
+const GradesWidget = lazy(() => import('../components/dashboard/GradesWidget'));
 
 // Loading fallback for lazy components
 function SectionLoader() {
@@ -111,22 +114,28 @@ function Dashboard() {
         <StatsCards />
       </section>
 
-      {/* Row 2: Tasks and Deadlines - Load in Phase 2 */}
+      {/* Row 2: Tasks, Homework Hub, and Deadlines - Load in Phase 2 */}
       {loadPhase >= 2 ? (
         <section
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-          aria-label="Tasks and deadlines"
+          className="grid grid-cols-1 lg:grid-cols-4 gap-6"
+          aria-label="Tasks, homework, and deadlines"
         >
           <div className="lg:col-span-2">
             <TodayTasks />
+          </div>
+          <div>
+            <Suspense fallback={<SectionLoader />}>
+              <HomeworkHubWidget compact />
+            </Suspense>
           </div>
           <div>
             <DeadlineWidget />
           </div>
         </section>
       ) : (
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-2"><SectionLoader /></div>
+          <div><SectionLoader /></div>
           <div><SectionLoader /></div>
         </section>
       )}
@@ -153,14 +162,14 @@ function Dashboard() {
         </section>
       )}
 
-      {/* Row 4: Canvas, Fitness, Finance, System Monitor - Load in Phase 4 */}
+      {/* Row 4: Grades, Fitness, Finance, System Monitor - Load in Phase 4 */}
       {loadPhase >= 4 ? (
         <section
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
           aria-label="Integrations overview"
         >
           <Suspense fallback={<SectionLoader />}>
-            <CanvasHub />
+            <GradesWidget compact />
           </Suspense>
           <Suspense fallback={<SectionLoader />}>
             <FitnessWidget />
@@ -181,19 +190,23 @@ function Dashboard() {
         </section>
       )}
 
-      {/* Row 5: Goals and Quick Chat - Load in Phase 5 */}
+      {/* Row 5: Goals, Acquisition, and Quick Chat - Load in Phase 5 */}
       {loadPhase >= 5 ? (
         <section
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-          aria-label="Goals and chat"
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          aria-label="Goals, acquisition, and chat"
         >
           <GoalsPanel />
+          <Suspense fallback={<SectionLoader />}>
+            <AcquisitionWidget />
+          </Suspense>
           <Suspense fallback={<SectionLoader />}>
             <QuickChat />
           </Suspense>
         </section>
       ) : (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <SectionLoader />
           <SectionLoader />
           <SectionLoader />
         </section>
