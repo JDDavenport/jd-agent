@@ -2,13 +2,21 @@
 
 > See what we're building, what's next, and share your feedback
 
-**Last Updated:** January 10, 2026 | **Version:** 0.3.3
+**Last Updated:** January 24, 2026 | **Version:** 0.3.4
 
 ---
 
 ## Shipped
 
 Recently released features and improvements.
+
+### Budget Monitoring & Alerts
+- **Category:** Finance
+- **Released:** January 2026
+- Plaid Link connection (Chase supported)
+- Budget page in Command Center with category limits
+- Real-time sync + manual sync
+- Email/SMS/Telegram budget alerts with threshold controls
 
 ### Remarkable Integration
 - **Category:** Integrations
@@ -39,6 +47,12 @@ Recently released features and improvements.
 - Public roadmap with transparency
 - Getting started guides and tutorials
 - Searchable knowledge base
+
+### Native macOS Apps (Tauri)
+- **Category:** Platform
+- **Released:** January 2026
+- Tasks, Vault, and Command Center run as native macOS apps
+- Tauri-based desktop builds with dedicated app windows
 
 ### Goals & Habits Tracking
 - **Category:** Productivity
@@ -116,6 +130,15 @@ Recently released features and improvements.
 
 Actively being built right now.
 
+### Vault iOS Experience
+- **Category:** Knowledge
+- **Progress:** 20%
+- Notion-competitive mobile UX for Vault
+- Home with recents, favorites, and quick actions
+- Auto-save with visible status + keyboard-safe layout
+- Pull-to-refresh and haptic feedback
+- PRD: `/docs/plans/vault-ios-prd.md`
+
 ### Semantic Search
 - **Category:** AI/Search
 - **Progress:** 70%
@@ -162,7 +185,8 @@ Committed for the near term.
 ### Mobile App (iOS)
 - **Category:** Platform
 - **Priority:** High
-- React Native iOS app
+- React Native iOS app (native UI)
+- Basic PWA install support available for early testing
 - Offline support
 - Push notifications
 
@@ -208,7 +232,7 @@ Items we've decided not to pursue (for now).
 
 ### Desktop App (Electron)
 - **Reason:** Web apps provide sufficient functionality
-- **Alternative:** PWA support planned instead
+- **Alternative:** Native macOS apps shipped via Tauri
 
 ### Windows Support
 - **Reason:** Current user base is macOS focused

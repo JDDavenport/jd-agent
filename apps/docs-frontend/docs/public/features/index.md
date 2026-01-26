@@ -30,6 +30,12 @@ Keep track of your schedule.
 - Conflict detection
 - Time blocking
 
+### [Budget & Finance](./finance/index.md)
+Monitor spending and manage category budgets.
+- Plaid Link (Chase supported)
+- Budget tracking with remaining spend
+- Email/SMS/Telegram alerts
+
 ### [AI Agent](./agent/index.md)
 Your intelligent assistant.
 - 37 specialized tools
@@ -125,6 +131,8 @@ Autonomous AI-powered testing using GPT-4 Vision.
 | **Jobs** | 5176 | Job hunting agent |
 | **Docs** | 5177 | Documentation frontend |
 
+All core apps (Tasks, Vault, Command Center) support native macOS builds via Tauri, plus installable PWA mode for basic iOS usage.
+
 ---
 
 ## Quick Links
@@ -141,4 +149,4 @@ Autonomous AI-powered testing using GPT-4 Vision.
 
 ---
 
-*Last updated: January 9, 2026*
+*Last updated: January 23, 2026*

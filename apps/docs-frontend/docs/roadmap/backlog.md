@@ -2,7 +2,7 @@
 
 > Known issues, planned enhancements, and feature requests
 
-**Last Updated:** January 15, 2026
+**Last Updated:** January 24, 2026
 
 ---
 
@@ -38,6 +38,13 @@ This backlog provides transparency into:
 | BUG-005 | Gmail task extraction limited accuracy | 🟡 Medium | Open | Needs prompt tuning |
 | BUG-006 | Vault flat structure makes navigation difficult | 🟡 Medium | Planned | PARA restructure planned |
 | BUG-007 | Docker CLI can't connect to daemon socket | 🟢 Low | Open | Services run natively as workaround |
+| BUG-008 | Canvas tasks missing description/URL | 🟠 High | Fixed | Now passes description, URL, points to new tasks |
+| BUG-009 | Recordings have null titles in database | 🟡 Medium | Fixed | Added fallbacks in all recording creation points + fix script |
+| BUG-010 | Vault/Canvas project hierarchy mismatch | 🟡 Medium | Fixed | Vault entries now linked to Canvas projects via projectId |
+| BUG-011 | Duplicate Vault pages | 🟢 Low | Fixed | findOrCreate prevents duplicates + merge API + cleanup script |
+| BUG-012 | Canvas only does API sync, no web scraping | 🟡 Medium | Fixed | Full web scraping: pages, files, readings extraction added |
+| BUG-013 | No API to get Canvas item from task | 🟡 Medium | Fixed | GET /api/tasks/:id/canvas-item endpoint added |
+| BUG-014 | Daily class pages not linked to recordings | 🟠 High | Fixed | Recordings now auto-link to vault day pages with summary/transcript |
 
 ---
 
@@ -103,6 +110,19 @@ Items recently moved from backlog to done.
 
 | ID | Description | Completed | Notes |
 |----|-------------|-----------|-------|
+| FEAT-021 | Budget monitoring + alerts | Jan 24, 2026 | Plaid Link, budget page, sync jobs, notifications |
+| ENH-025 | Vault iOS home refresh + quick actions | Jan 24, 2026 | Recents, pull-to-refresh, mobile quick actions |
+| ENH-026 | Vault iOS swipe actions | Jan 24, 2026 | Favorite/archive/delete from list rows |
+| ENH-027 | Vault iOS floating new note button | Jan 24, 2026 | Always-visible mobile create CTA |
+| ENH-028 | Vault PWA update prompt | Jan 24, 2026 | Refresh banner when new build is available |
+| ENH-029 | Vault mobile build stamp | Jan 24, 2026 | Build timestamp for verification |
+| ENH-030 | Vault Ask AI quick action | Jan 24, 2026 | One-tap chat entry from home |
+| BUG-018 | Vault mobile editor not saving / UI overlap | Jan 24, 2026 | Block serialization + batch save; hide nav on keyboard |
+| ENH-024 | Native macOS apps (Tauri) for Tasks/Vault/Command Center | Jan 23, 2026 | Desktop builds and dev launchers |
+| ENH-023 | Installable web apps (PWA) for Tasks/Vault/Command Center | Jan 23, 2026 | Add to Dock/Home Screen with manifest + icons |
+| BUG-017 | Testing agent does not auto-download local Ollama models | Jan 22, 2026 | Pulls configured chat/vision models on demand |
+| BUG-016 | Testing agent provider order prioritizes local over cloud | Jan 22, 2026 | Use cloud providers before Ollama; relax OpenAI requirement |
+| BUG-015 | Command Center health UI shows NaN/Invalid Date | Jan 22, 2026 | Normalize uptime and integrity log timestamps |
 | ENH-003 | Faceted search API | Jan 10, 2026 | getFacets(), facetedSearch(), /facets and /faceted-search endpoints |
 | ENH-017 | Vault chat interface | Jan 10, 2026 | VaultChat.tsx + chat.ts API (pre-existing, verified) |
 | ENH-018 | Semantic search pipeline | Jan 10, 2026 | Full pipeline with embeddings (pre-existing, verified) |
