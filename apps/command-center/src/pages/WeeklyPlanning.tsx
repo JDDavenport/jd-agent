@@ -3,20 +3,23 @@
  *
  * A drag-and-drop interface for weekly planning sessions:
  * - Left panel: Weekly backlog (tasks tagged #weekly-backlog)
- * - Right panel: Calendar (Friday through next Sunday) showing events and scheduled tasks
+ * - Right panel: Calendar (Sunday through Saturday) showing events and scheduled tasks
  *
  * Features:
  * - Drag tasks from backlog to calendar to schedule them
  * - Drag within backlog to reorder priority
+ * - Drag scheduled tasks to reschedule them
  * - Week navigation to plan future weeks
  * - View Google Calendar events alongside scheduled tasks
+ * - Double-click tasks to view details
+ * - Overlapping tasks displayed side-by-side
  */
 
 import { useState, useMemo, useCallback } from 'react';
 import { addDays, format, getDay, startOfDay } from 'date-fns';
 import {
   DndContext,
-  closestCenter,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -32,8 +35,8 @@ import {
 } from '@dnd-kit/sortable';
 import WeeklyBacklogPanel from '../components/weekly-planning/WeeklyBacklogPanel';
 import PlanningCalendar from '../components/weekly-planning/PlanningCalendar';
-import { useWeeklyBacklog, useScheduleTask, useReorderTasks, useScheduledTasks } from '../hooks/useWeeklyPlanning';
-import { useCalendarEvents } from '../hooks/useCalendar';
+import { useWeeklyBacklog, useScheduleTask, useReorderTasks, useScheduledTasks, useUnscheduleTask } from '../hooks/useWeeklyPlanning';
+import { useCalendarEvents, useCreateEvent } from '../hooks/useCalendar';
 import { useCompleteTask } from '../hooks/useTasks';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import type { Task } from '../types/task';
@@ -103,6 +106,8 @@ function WeeklyPlanning() {
   const scheduleMutation = useScheduleTask();
   const reorderMutation = useReorderTasks();
   const completeMutation = useCompleteTask();
+  const unscheduleMutation = useUnscheduleTask();
+  const createEventMutation = useCreateEvent();
 
   // Week navigation handler
   const handleWeekChange = useCallback((direction: 'prev' | 'next') => {
@@ -117,12 +122,40 @@ function WeeklyPlanning() {
     completeMutation.mutate(taskId);
   }, [completeMutation]);
 
+  // Unschedule task handler - moves task back to backlog
+  const handleUnscheduleTask = useCallback((taskId: string) => {
+    unscheduleMutation.mutate(taskId);
+  }, [unscheduleMutation]);
+
+  // Create calendar event handler - syncs to Google Calendar
+  const handleCreateEvent = useCallback((title: string, startTime: string, endTime: string) => {
+    createEventMutation.mutate({
+      title,
+      startTime,
+      endTime,
+      eventType: 'personal',
+      syncToGoogle: true,
+    });
+  }, [createEventMutation]);
+
   // Drag handlers
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const task = backlogTasks.find((t) => t.id === active.id);
-    if (task) {
-      setActiveTask(task);
+    const activeId = active.id.toString();
+
+    // Check if it's a scheduled task being dragged (prefixed with "scheduled-")
+    if (activeId.startsWith('scheduled-')) {
+      const taskId = activeId.replace('scheduled-', '');
+      const task = scheduledTasks.find((t) => t.id === taskId);
+      if (task) {
+        setActiveTask(task);
+      }
+    } else {
+      // Backlog task
+      const task = backlogTasks.find((t) => t.id === activeId);
+      if (task) {
+        setActiveTask(task);
+      }
     }
   };
 
@@ -132,22 +165,74 @@ function WeeklyPlanning() {
 
     if (!over) return;
 
+    const activeId = active.id.toString();
     const overId = over.id.toString();
+    const isScheduledTask = activeId.startsWith('scheduled-');
 
-    // Case 1: Dropped on a calendar time slot
-    if (overId.startsWith('slot-')) {
+    // Case 1: Dropped on a day column (new behavior)
+    if (overId.startsWith('day-')) {
+      const dateKey = overId.replace('day-', '');
+      const overRect = over.rect;
+
+      // Get final pointer position (start position + delta)
+      const activatorY = (event.activatorEvent as PointerEvent)?.clientY || 0;
+      const deltaY = event.delta?.y || 0;
+      const finalY = activatorY + deltaY;
+
+      // Calculate time slot from pointer position
+      const HOUR_HEIGHT = 48;
+      const SLOT_HEIGHT = HOUR_HEIGHT / 4;
+      const START_HOUR = 6;
+      const END_HOUR = 22;
+
+      if (overRect && finalY) {
+        const relativeY = finalY - overRect.top;
+        const totalMinutes = Math.floor(relativeY / SLOT_HEIGHT) * 15;
+        const hour = Math.max(START_HOUR, Math.min(END_HOUR - 1, START_HOUR + Math.floor(totalMinutes / 60)));
+        const minute = Math.max(0, Math.min(45, totalMinutes % 60));
+
+        // Get the task
+        let task: Task | undefined;
+        if (isScheduledTask) {
+          const taskId = activeId.replace('scheduled-', '');
+          task = scheduledTasks.find((t) => t.id === taskId);
+        } else {
+          task = backlogTasks.find((t) => t.id === activeId);
+        }
+
+        if (task) {
+          const [year, month, day] = dateKey.split('-').map(Number);
+          const slotDate = new Date(year, month - 1, day, hour, minute, 0, 0);
+          const duration = task.timeEstimateMinutes || 15;
+          const endTime = new Date(slotDate.getTime() + duration * 60 * 1000);
+
+          scheduleMutation.mutate({
+            taskId: task.id,
+            startTime: slotDate.toISOString(),
+            endTime: endTime.toISOString(),
+          });
+        }
+      }
+    }
+    // Case 2: Dropped on a calendar time slot (legacy)
+    else if (overId.startsWith('slot-')) {
       const parts = overId.split('-');
-      // Format: slot-YYYY-MM-DD-HH
       const dateStr = `${parts[1]}-${parts[2]}-${parts[3]}`;
       const hour = parseInt(parts[4], 10);
-      const task = backlogTasks.find((t) => t.id === active.id);
+      const minute = parseInt(parts[5] || '0', 10);
+
+      let task: Task | undefined;
+      if (isScheduledTask) {
+        const taskId = activeId.replace('scheduled-', '');
+        task = scheduledTasks.find((t) => t.id === taskId);
+      } else {
+        task = backlogTasks.find((t) => t.id === activeId);
+      }
 
       if (task) {
-        // Parse date parts to avoid timezone issues with Date parsing
         const [year, month, day] = dateStr.split('-').map(Number);
-        const slotDate = new Date(year, month - 1, day, hour, 0, 0, 0);
-
-        const duration = task.timeEstimateMinutes || 60;
+        const slotDate = new Date(year, month - 1, day, hour, minute, 0, 0);
+        const duration = task.timeEstimateMinutes || 15;
         const endTime = new Date(slotDate.getTime() + duration * 60 * 1000);
 
         scheduleMutation.mutate({
@@ -157,10 +242,10 @@ function WeeklyPlanning() {
         });
       }
     }
-    // Case 2: Reorder within backlog
-    else if (overId !== active.id.toString()) {
-      const oldIndex = backlogTasks.findIndex((t) => t.id === active.id);
-      const newIndex = backlogTasks.findIndex((t) => t.id === over.id);
+    // Case 3: Reorder within backlog (only for backlog tasks)
+    else if (!isScheduledTask && overId !== activeId) {
+      const oldIndex = backlogTasks.findIndex((t) => t.id === activeId);
+      const newIndex = backlogTasks.findIndex((t) => t.id === overId);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const newTasks = [...backlogTasks];
@@ -192,7 +277,7 @@ function WeeklyPlanning() {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={rectIntersection}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -217,9 +302,15 @@ function WeeklyPlanning() {
                 endDate={planningRange.end}
                 events={calendarEvents}
                 scheduledTasks={scheduledTasks}
+                backlogTasks={backlogTasks}
                 onWeekChange={handleWeekChange}
                 weekOffset={weekOffset}
                 onCompleteTask={handleCompleteTask}
+                onUnscheduleTask={handleUnscheduleTask}
+                onScheduleTask={(taskId, startTime, endTime) => {
+                  scheduleMutation.mutate({ taskId, startTime, endTime });
+                }}
+                onCreateEvent={handleCreateEvent}
               />
             </div>
           </div>
