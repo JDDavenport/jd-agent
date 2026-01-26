@@ -201,6 +201,90 @@ final class JDVaultUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Vault"].exists)
         }
     }
+
+    // MARK: - T-015: View Page Detail
+    func testT015_ViewPageDetail() throws {
+        // Wait for pages to load
+        sleep(3)
+
+        // Tap on the first page in the Recent section
+        let cells = app.cells
+        if cells.count > 0 {
+            cells.firstMatch.tap()
+            sleep(2)
+
+            // Should see page detail view elements
+            // The page should have a title (text field) and optionally blocks
+            let backButton = app.buttons["Vault"]
+            XCTAssertTrue(backButton.waitForExistence(timeout: 5), "Should show back button in detail view")
+
+            // Should see the menu button (ellipsis)
+            let menuButton = app.buttons["ellipsis.circle"]
+            XCTAssertTrue(menuButton.exists, "Should show menu button in detail view")
+        }
+    }
+
+    // MARK: - T-016: Page Detail Has Blocks Or Empty State
+    func testT016_PageDetailContent() throws {
+        // Create a new note first to ensure we have a page
+        app.buttons["New Note"].tap()
+        sleep(2)
+
+        // Should be on detail view
+        let backButton = app.buttons["Vault"]
+        XCTAssertTrue(backButton.waitForExistence(timeout: 5))
+
+        // Should see either blocks, "Add block" button, or empty state text
+        let addBlockButton = app.buttons["Add block"]
+        let emptyHint = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'tap here'"))
+
+        XCTAssertTrue(addBlockButton.exists || emptyHint.count > 0, "Should show add block option or empty hint")
+    }
+
+    // MARK: - T-017: Swipe Actions Work
+    func testT017_SwipeActions() throws {
+        // Wait for pages to load
+        sleep(3)
+
+        // Find a page row and try to swipe
+        let cells = app.cells
+        if cells.count > 0 {
+            let firstCell = cells.firstMatch
+            firstCell.swipeLeft()
+            sleep(1)
+
+            // Should reveal swipe actions (Delete, Archive, Favorite)
+            let deleteButton = app.buttons["Delete"]
+            let archiveButton = app.buttons["Archive"]
+            let favoriteButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'avorite'")).firstMatch
+
+            // At least one of the swipe actions should be visible
+            XCTAssertTrue(deleteButton.exists || archiveButton.exists || favoriteButton.exists,
+                          "Should show swipe action buttons")
+        }
+    }
+
+    // MARK: - T-018: Block Menu Shows Options
+    func testT018_BlockTypeMenu() throws {
+        // Create new note
+        app.buttons["New Note"].tap()
+        sleep(2)
+
+        // Tap Add block button
+        let addBlockButton = app.buttons["Add block"]
+        if addBlockButton.waitForExistence(timeout: 3) {
+            addBlockButton.tap()
+            sleep(1)
+
+            // Should show block type menu with options
+            let textOption = app.buttons["Text"]
+            let heading1Option = app.buttons["Heading 1"]
+            let todoOption = app.buttons["To-do"]
+
+            XCTAssertTrue(textOption.exists || heading1Option.exists || todoOption.exists,
+                          "Should show block type options in menu")
+        }
+    }
 }
 
 // MARK: - Helpers
