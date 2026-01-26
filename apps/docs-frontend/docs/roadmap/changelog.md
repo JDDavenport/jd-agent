@@ -7,11 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] - 2026-01-13
+## [Unreleased] - 2026-01-24
 
 ### Added
+- **Budget Monitoring**: New Budget page in Command Center for real-time spending visibility
+  - Plaid Link connection (Chase supported) + manual CSV import
+  - Category budgets with progress bars and remaining spend
+  - Budget alerts via Email/SMS/Telegram with threshold controls
+- **Envelope Budgeting**: YNAB-style “To Be Budgeted” summary and Budgeted/Activity/Available rows
+- **Budget Groups + Move Money**: Category grouping and move-money actions between budgets
+- **Budget Targets**: Weekly/monthly/yearly targets with funded progress and overspending carry
+- **Budget Month View**: Month selector with per‑month budgeted allocations
+- **Budget Dashboard**: Whole‑budget at‑a‑glance summary with category list
+- **Finance Sync Jobs**: Background finance sync and budget alert checks
+- **Vault iOS Home**: Recents list, quick actions, and pull-to-refresh for mobile Vault
+- **Vault iOS Swipe Actions**: Favorite, archive, and delete on mobile page lists
+- **Vault iOS Floating New Note**: Always-visible create button on mobile
+- **Vault PWA Updates**: In-app refresh banner when new build is available
+- **Vault Ask AI Quick Action**: One-tap chat entry from mobile home
+- **Command Center App Bundle**: macOS bundle now ships with icons for easier discovery
+- **Command Center Desktop Discovery**: Auto-launch installed app + install script
+- **Vault Mobile Build Stamp**: Display build timestamp for verification
+- **Weekly Planning Page**: New `/weekly-planning` page in Command Center for Friday planning sessions
+  - Weekly backlog panel showing tasks with `#weekly-backlog` label
+  - 17-day calendar view (Friday + 2 weeks) with droppable time slots
+  - Drag-and-drop to schedule tasks and reorder backlog priority
+  - @dnd-kit integration for smooth drag interactions
+- **Task Label Filtering**: `GET /api/tasks?label=weekly-backlog` filters tasks by label
+- **Task Reordering API**: `POST /api/tasks/reorder` to persist backlog ordering
 - **Task Detail Panel**: Click any task to open slide-out panel with full task information (due date, scheduled date, priority, description, comments)
 - **Nested Project Display**: Parent project view now shows child projects as clickable cards
+- **Native macOS Apps**: Tasks, Vault, and Command Center now ship as Tauri desktop apps
+- **Installable Web Apps (PWA)**: Basic iOS Home Screen install remains available
 
 ### Changed
 - **Sidebar Navigation**: Clicking project name navigates to project, clicking chevron expands/collapses children
@@ -19,7 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Recurring Task Parsing**: Natural language "every monday" now sets both recurrence AND first due date
 
 ### Fixed
+- Command Center System Health now displays uptime strings and integrity timestamps correctly
+- Testing agent now uses cloud providers before falling back to local Ollama/llama
+- Testing agent pulls missing Ollama models before running locally
 - Removed non-functional "Add Section" button from project view
+- Vault mobile editor now persists Notion-style page edits and avoids UI overlap with the iOS keyboard
 
 ### Production
 - Tasks app deployed: https://tasks-ten-ecru.vercel.app

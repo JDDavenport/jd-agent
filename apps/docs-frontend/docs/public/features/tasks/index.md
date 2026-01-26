@@ -44,6 +44,40 @@ Read chapter 5 someday
 
 ---
 
+## Install as a Native App (macOS)
+
+Tasks now ships as a native macOS app using Tauri.
+
+### Prerequisites
+- Rust toolchain (`rustup` on macOS)
+- Xcode Command Line Tools (`xcode-select --install`)
+
+### Run Native (Dev)
+```
+cd apps/tasks
+bun run tauri:dev
+```
+
+### Build Native App
+```
+cd apps/tasks
+bun run tauri:build
+```
+
+**Note:** The app still needs the Hub running at `http://localhost:3000` (or set `VITE_API_URL` to your server).
+
+---
+
+## Install as an App (iOS - Basic)
+
+Basic mobile access is available via PWA while the native iOS build is in progress.
+
+1. Open http://localhost:5174 in Safari
+2. Tap **Share** → **Add to Home Screen**
+3. Launch it from your home screen
+
+---
+
 ## Views
 
 ### Inbox
@@ -353,4 +387,4 @@ Or in the task list:
 
 ---
 
-*Last updated: January 13, 2026*
+*Last updated: January 23, 2026*
