@@ -541,24 +541,33 @@ ALTER TABLE canvas_items ADD COLUMN estimated_minutes INTEGER;
 - [x] Add reading progress tracking
 - [x] Create API endpoints for materials
 
-### Phase 3: Connected Workflow (Week 3-4)
-- [ ] Auto-create assignment Vault pages
-- [ ] Build assignment page template
-- [ ] Implement linking between tasks/vault/materials
-- [ ] Add quick actions to task cards
+### Phase 3: Connected Workflow (Week 3-4) - COMPLETED
+- [x] Auto-create assignment Vault pages
+- [x] Build assignment page template with blocks (callouts, headings, text, rubric toggles, todo checklist)
+- [x] Implement linking between tasks/vault/materials
+- [x] Add quick actions to task cards and assignment modal
+- [x] Create assignment page API endpoints
+- [x] Build CanvasQuickActions component
 
-### Phase 4: Dashboard & Polish (Week 4-5)
-- [ ] Build Homework Hub widget
-- [ ] Implement AI time estimation
-- [ ] Add subtask generation
-- [ ] Reading tracking UI
-- [ ] Mobile optimization
+### Phase 4: Dashboard & Polish (Week 4-5) - COMPLETED
+- [x] Build Homework Hub widget
+- [x] Implement urgency indicators and critical assignment alerts
+- [x] Add progress tracking for subtasks
+- [x] Readings due section with status tracking
+- [x] Time estimation display (estimated minutes today/this week)
+- [x] Compact mode for smaller widgets
+- [x] Create Homework Hub API endpoints
 
-### Phase 5: Advanced Features (Future)
-- [ ] Direct submission from app
-- [ ] Grade notifications
-- [ ] Peer review tracking
-- [ ] Group project coordination
+### Phase 5: Advanced Features (Week 5-6) - COMPLETED
+- [x] Direct submission from app (text, URL, file)
+- [x] Submission status tracking
+- [x] Submission history view
+- [x] Grade notifications and tracking
+- [x] Grade summary dashboard widget
+- [x] Course grade averages
+- [x] New grade alerts
+- [ ] Peer review tracking (Future)
+- [ ] Group project coordination (Future)
 
 ---
 

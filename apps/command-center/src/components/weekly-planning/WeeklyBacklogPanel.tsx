@@ -50,7 +50,10 @@ function DraggableTask({ task }: DraggableTaskProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({
+    id: task.id,
+    data: { type: 'backlogTask', task },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
