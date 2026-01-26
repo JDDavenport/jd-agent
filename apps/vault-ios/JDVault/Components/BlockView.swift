@@ -175,7 +175,31 @@ struct BlockView: View {
                 }
                 .onSubmit { saveChanges() }
 
-        default:
+        case .file:
+            // Display file info
+            HStack {
+                Image(systemName: "doc.fill")
+                    .foregroundColor(.blue)
+                Text(block.content.text ?? "File")
+                    .foregroundColor(.primary)
+            }
+            .padding(8)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+
+        case .image:
+            // Display image placeholder
+            HStack {
+                Image(systemName: "photo.fill")
+                    .foregroundColor(.blue)
+                Text(block.content.text ?? "Image")
+                    .foregroundColor(.primary)
+            }
+            .padding(8)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+
+        case .paragraph, .text, .unknown, .bulletList, .numberedList:
             TextField("Type something...", text: $editedText, axis: .vertical)
                 .font(.body)
                 .focused($isFocused)

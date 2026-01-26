@@ -3,6 +3,7 @@ import Foundation
 // MARK: - Block Types
 enum BlockType: String, Codable, CaseIterable {
     case paragraph = "paragraph"
+    case text = "text"
     case heading1 = "heading1"
     case heading2 = "heading2"
     case heading3 = "heading3"
@@ -25,7 +26,7 @@ enum BlockType: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .paragraph: return "Text"
+        case .paragraph, .text: return "Text"
         case .heading1: return "Heading 1"
         case .heading2: return "Heading 2"
         case .heading3: return "Heading 3"
@@ -44,7 +45,7 @@ enum BlockType: String, Codable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .paragraph: return "text.alignleft"
+        case .paragraph, .text: return "text.alignleft"
         case .heading1: return "textformat.size.larger"
         case .heading2: return "textformat.size"
         case .heading3: return "textformat.size.smaller"
