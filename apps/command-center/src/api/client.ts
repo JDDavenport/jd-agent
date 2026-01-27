@@ -7,12 +7,16 @@ const getApiBaseUrl = (): string => {
     const baseUrl = import.meta.env.VITE_API_URL;
     // Ensure the URL ends with /api for correct routing
     if (baseUrl.endsWith('/api')) {
+      console.log('[API Client] Using API URL:', baseUrl);
       return baseUrl;
     }
     // Remove trailing slash if present and append /api
-    return baseUrl.replace(/\/$/, '') + '/api';
+    const fullUrl = baseUrl.replace(/\/$/, '') + '/api';
+    console.log('[API Client] Using API URL:', fullUrl);
+    return fullUrl;
   }
   // Default to relative path (works when API and UI are on same origin)
+  console.log('[API Client] Using relative path: /api');
   return '/api';
 };
 
