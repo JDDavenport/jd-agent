@@ -182,7 +182,10 @@ export function useFitness(enabled: boolean = true) {
     queryFn: getFitness,
     enabled,
     refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // Consider stale after 5 minutes
+    refetchOnWindowFocus: true, // Refresh when user switches back to app
+    refetchOnReconnect: true, // Refresh when network reconnects
+    refetchOnMount: true, // Refresh when component mounts
     retry: 5,
     retryDelay: 3000,
   });

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
@@ -22,19 +23,40 @@ import Acquisition from './pages/Acquisition';
 import Roadmap from './pages/Roadmap';
 import WeeklyPlanning from './pages/WeeklyPlanning';
 import Finance from './pages/Finance';
+import FinanceReports from './pages/FinanceReports';
+import FinanceSettings from './pages/FinanceSettings';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: false,
-      retry: 1,
+      refetchOnWindowFocus: true, // Enable for desktop app - refresh when user switches back
+      refetchOnReconnect: true, // Refresh when network reconnects
+      retry: 2, // Increased retry attempts
+      gcTime: 1000 * 60 * 15, // Keep unused data in cache for 15 minutes (was cacheTime)
     },
   },
 });
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function App() {
+  // Trigger Plaud sync when app opens
+  useEffect(() => {
+    fetch(`${API_URL}/api/recordings/sync`, { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log('[App] Plaud sync triggered on app load');
+        }
+      })
+      .catch(err => {
+        // Silently fail - sync is best-effort
+        console.debug('[App] Plaud sync trigger failed:', err);
+      });
+  }, []);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -49,6 +71,8 @@ function App() {
               <Route path="/goals" element={<Goals />} />
               <Route path="/acquisition" element={<Acquisition />} />
               <Route path="/finance" element={<Finance />} />
+              <Route path="/finance/reports" element={<FinanceReports />} />
+              <Route path="/finance/settings" element={<FinanceSettings />} />
               <Route path="/roadmap" element={<Roadmap />} />
               <Route path="/habits" element={<Habits />} />
               <Route path="/journal" element={<Journal />} />

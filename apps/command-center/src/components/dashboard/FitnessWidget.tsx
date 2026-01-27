@@ -17,7 +17,7 @@ import { ProgressBar } from './shared';
 import { format, parseISO } from 'date-fns';
 
 function FitnessWidget() {
-  const { data, isLoading, error } = useFitness();
+  const { data, isLoading, error, refetch, isFetching } = useFitness();
 
   const { data: garminStatus } = useQuery<GarminStatus>({
     queryKey: ['garmin-status-widget'],
@@ -34,6 +34,9 @@ function FitnessWidget() {
 
   const latestGarminActivity = garminActivities?.[0];
 
+  // Debug logging
+  console.log('[FitnessWidget] State:', { data, isLoading, error, hasData: !!data });
+
   if (isLoading) {
     return (
       <div className="card">
@@ -46,21 +49,67 @@ function FitnessWidget() {
   if (error) {
     return (
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Fitness</h2>
-        <p className="text-error text-sm">Failed to load fitness data</p>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Fitness</h2>
+          <button
+            onClick={() => refetch()}
+            className="text-xs text-accent hover:text-accent-hover"
+          >
+            Retry
+          </button>
+        </div>
+        <div className="text-center py-4">
+          <p className="text-error text-sm mb-2">Failed to load fitness data</p>
+          <p className="text-text-muted text-xs">{String(error)}</p>
+        </div>
       </div>
     );
   }
 
-  // Check if Whoop is configured
-  const isConfigured = data?.todayRecovery !== null || data?.workoutStreak > 0;
-
-  if (!isConfigured) {
+  // Check if we have any data at all
+  if (!data) {
+    console.log('[FitnessWidget] No data received');
     return (
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xl">💪</span>
           <h2 className="text-lg font-semibold">Fitness</h2>
+        </div>
+        <div className="text-center py-6">
+          <p className="text-3xl mb-2">⌚</p>
+          <p className="text-text-muted text-sm">Connect Whoop to see fitness metrics</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if Whoop is configured - fixed logic to check for undefined vs null
+  const hasRecoveryData = data.todayRecovery !== null && data.todayRecovery !== undefined;
+  const hasWorkoutData = data.workoutStreak > 0;
+  const isConfigured = hasRecoveryData || hasWorkoutData;
+
+  console.log('[FitnessWidget] Configuration check:', {
+    todayRecovery: data.todayRecovery,
+    workoutStreak: data.workoutStreak,
+    hasRecoveryData,
+    hasWorkoutData,
+    isConfigured,
+  });
+
+  if (!isConfigured) {
+    return (
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">💪</span>
+            <h2 className="text-lg font-semibold">Fitness</h2>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="text-xs text-accent hover:text-accent-hover"
+          >
+            Refresh
+          </button>
         </div>
         <div className="text-center py-6">
           <p className="text-3xl mb-2">⌚</p>
@@ -87,6 +136,9 @@ function FitnessWidget() {
         <div className="flex items-center gap-2">
           <span className="text-xl">💪</span>
           <h2 className="text-lg font-semibold">Fitness</h2>
+          {isFetching && !isLoading && (
+            <span className="text-xs text-accent animate-pulse">↻</span>
+          )}
         </div>
         {data?.workoutStreak && data.workoutStreak > 0 && (
           <span className="badge badge-accent text-xs">
