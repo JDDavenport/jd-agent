@@ -252,43 +252,6 @@ const jobs: ScheduledJob[] = [
       console.log(`[Scheduler] Canvas sync: ${result.assignments} assignments, ${result.announcements} announcements`);
     },
   },
-  // Canvas Integrity Agent - Full audit with reading detection (once daily)
-  {
-    name: 'canvas-integrity-audit',
-    hour: 7,
-    minute: 0,
-    run: async () => {
-      if (!canvasIntegration.isConfigured()) return;
-      console.log('[Scheduler] Running Canvas integrity audit (full - includes readings)...');
-      try {
-        const agent = new CanvasIntegrityAgent();
-        const result = await agent.runAudit('full'); // Visits MODULES, FILES, PAGES for reading detection
-        console.log(
-          `[Scheduler] Canvas audit complete: ${result.itemsDiscovered} items discovered, ` +
-          `${result.tasksCreated} tasks created, ${result.tasksVerified} tasks verified`
-        );
-
-        // Notify if new readings found
-        if (result.findings.newItems.length > 0) {
-          const readingItems = result.findings.newItems.filter(item =>
-            item.includes('Reading') || item.includes('Chapter') || item.includes('Case')
-          );
-
-          if (readingItems.length > 0) {
-            const { notificationService } = await import('./services/notification-service');
-            await notificationService.send(
-              `📚 *New Canvas Readings Detected*\n\n` +
-              `Found ${readingItems.length} new reading(s):\n` +
-              readingItems.slice(0, 5).map(item => `• ${item}`).join('\n') +
-              (readingItems.length > 5 ? `\n\n_...and ${readingItems.length - 5} more_` : '')
-            );
-          }
-        }
-      } catch (error) {
-        console.error('[Scheduler] Canvas integrity audit failed:', error);
-      }
-    },
-  },
   // Integrity checks at 8 AM and 8 PM
   {
     name: 'integrity-check-morning',
@@ -730,6 +693,45 @@ const intervalJobs: IntervalJob[] = [
       console.log('[Scheduler] Checking phone calls...');
       const result = await communicationMonitorService.checkPhoneCalls();
       console.log(`[Scheduler] Phone: ${result.new} missed, ${result.urgent} urgent, ${result.notified} notified`);
+    },
+  },
+  // ============================================
+  // Canvas Integrity Agent - Full audit with reading detection
+  // Runs on startup + every 24 hours (instead of fixed 7 AM time)
+  // ============================================
+  {
+    name: 'canvas-integrity-audit',
+    intervalMinutes: 1440, // 24 hours
+    run: async () => {
+      if (!canvasIntegration.isConfigured()) return;
+      console.log('[Scheduler] Running Canvas integrity audit (full - includes readings)...');
+      try {
+        const agent = new CanvasIntegrityAgent();
+        const result = await agent.runAudit('full'); // Visits MODULES, FILES, PAGES for reading detection
+        console.log(
+          `[Scheduler] Canvas audit complete: ${result.itemsDiscovered} items discovered, ` +
+          `${result.tasksCreated} tasks created, ${result.tasksVerified} tasks verified`
+        );
+
+        // Notify if new readings found
+        if (result.findings.newItems.length > 0) {
+          const readingItems = result.findings.newItems.filter(item =>
+            item.includes('Reading') || item.includes('Chapter') || item.includes('Case')
+          );
+
+          if (readingItems.length > 0) {
+            const { notificationService } = await import('./services/notification-service');
+            await notificationService.send(
+              `📚 *New Canvas Readings Detected*\n\n` +
+              `Found ${readingItems.length} new reading(s):\n` +
+              readingItems.slice(0, 5).map(item => `• ${item}`).join('\n') +
+              (readingItems.length > 5 ? `\n\n_...and ${readingItems.length - 5} more_` : '')
+            );
+          }
+        }
+      } catch (error) {
+        console.error('[Scheduler] Canvas integrity audit failed:', error);
+      }
     },
   },
 ];

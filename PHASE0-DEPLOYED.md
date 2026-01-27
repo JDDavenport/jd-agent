@@ -41,13 +41,13 @@
 
 ---
 
-## 🚀 What Happens Tomorrow at 7:00 AM
+## 🚀 What Happens When You Start the Hub
 
-### First Scheduled Run
+### First Run (When You Start Hub)
 
 **The scheduler will:**
 
-1. ✅ Start Canvas integrity agent (7:00 AM)
+1. ✅ Detect hub startup and run Canvas integrity agent immediately
 2. ⚠️ **Detect no browser session saved**
 3. 🌐 **Open a visible browser window**
 4. ⏸️ **Pause and wait for you to log in**
@@ -59,17 +59,17 @@
 
 ### What You Need to Do
 
-**At 7:00 AM tomorrow:**
-- Be near your computer
-- Wait for browser window to open
+**When you first start the hub:**
+- The browser window will open automatically
 - Log in to Canvas (BYU SSO)
 - Wait for session to save
 - That's it! ✅
 
 **After first login:**
-- Reading detection runs automatically every day
+- Reading detection runs automatically every 24 hours (when hub is running)
 - No more manual intervention needed
 - Session lasts 7 days before re-login required
+- **No fixed schedule** - runs when you're actually active
 
 ---
 
@@ -199,10 +199,11 @@ CANVAS_TERM_FILTER=BYU MBA
 
 ### Schedule Configuration ✅
 
-| Time | Job | Description |
-|------|-----|-------------|
+| Trigger | Job | Description |
+|---------|-----|-------------|
+| **Hub Startup** | **Browser Audit** | **Full reading detection** ⭐ |
+| Every 24 hours | Browser Audit | Full reading detection (repeats) |
 | 6:30 AM | API Sync | Fast assignment/quiz sync |
-| **7:00 AM** | **Browser Audit** | **Full reading detection** ⭐ |
 | 12:00 PM | API Sync | Midday check |
 | 6:00 PM | API Sync | Evening check |
 
