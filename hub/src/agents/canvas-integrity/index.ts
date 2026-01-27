@@ -401,6 +401,20 @@ export class CanvasIntegrityAgent {
       due_at?: string;
       points_possible?: number;
       is_quiz_assignment?: boolean;
+      // Canvas Complete Phase 1: Enhanced fields
+      submission_types?: string[];
+      allowed_extensions?: string[];
+      grading_type?: string;
+      rubric?: Array<{
+        id: string;
+        description: string;
+        long_description?: string;
+        points: number;
+        ratings: Array<{ id: string; description: string; points: number }>;
+      }>;
+      group_category_id?: number | null;
+      peer_reviews?: boolean;
+      lock_info?: Record<string, unknown>;
     },
     course: { id: number; name: string; course_code?: string },
     projectId?: string
@@ -423,11 +437,14 @@ export class CanvasIntegrityAgent {
     const dueAt = assignment.due_at ? new Date(assignment.due_at) : undefined;
     const canvasType: CanvasItemType = assignment.is_quiz_assignment ? 'quiz' : 'assignment';
 
+    // Extract enhanced details for Canvas Complete
+    const enhancedDetails = this.extractEnhancedDetails(assignment);
+
     // Check if canvas item exists
     let canvasItem = await canvasIntegrityService.getItemByCanvasId(canvasId);
 
     if (!canvasItem) {
-      // Create new canvas item
+      // Create new canvas item with enhanced details
       canvasItem = await canvasIntegrityService.createItem({
         canvasId,
         canvasType,
@@ -437,7 +454,20 @@ export class CanvasIntegrityAgent {
         url: assignment.html_url,
         dueAt,
         pointsPossible: assignment.points_possible,
+        submissionTypes: assignment.submission_types,
         discoveredVia: 'api',
+        // Canvas Complete Phase 1: Enhanced fields
+        instructions: enhancedDetails.instructions ?? undefined,
+        instructionsHtml: assignment.description ?? undefined,
+        rubric: enhancedDetails.rubric ?? undefined,
+        allowedExtensions: assignment.allowed_extensions ?? undefined,
+        wordCountMin: enhancedDetails.wordCountMin ?? undefined,
+        wordCountMax: enhancedDetails.wordCountMax ?? undefined,
+        isGroupAssignment: !!assignment.group_category_id,
+        hasPeerReview: assignment.peer_reviews ?? false,
+        estimatedMinutes: enhancedDetails.estimatedMinutes,
+        lockInfo: assignment.lock_info,
+        gradingType: assignment.grading_type,
       });
 
       // Create task for this item
@@ -470,6 +500,22 @@ export class CanvasIntegrityAgent {
           descriptionParts.push(`\n**Points:** ${assignment.points_possible}`);
         }
 
+        // Include rubric summary in description if available
+        if (enhancedDetails.rubric && enhancedDetails.rubric.length > 0) {
+          descriptionParts.push('\n**Rubric Criteria:**');
+          for (const criterion of enhancedDetails.rubric) {
+            const criterionData = criterion as { criterion: string; points: number };
+            descriptionParts.push(`- ${criterionData.criterion} (${criterionData.points} pts)`);
+          }
+        }
+
+        if (enhancedDetails.estimatedMinutes) {
+          const hours = Math.floor(enhancedDetails.estimatedMinutes / 60);
+          const mins = enhancedDetails.estimatedMinutes % 60;
+          const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+          descriptionParts.push(`\n**Estimated Time:** ${timeStr}`);
+        }
+
         const task = await taskService.create({
           title: assignment.name,
           description: descriptionParts.length > 0 ? descriptionParts.join('\n') : undefined,
@@ -483,6 +529,7 @@ export class CanvasIntegrityAgent {
           projectId,
           status: 'inbox',
           priority: this.calculateApiPriority(assignment),
+          timeEstimateMinutes: enhancedDetails.estimatedMinutes,
         });
 
         // Link task to canvas item
@@ -545,6 +592,163 @@ export class CanvasIntegrityAgent {
       if (assignment.points_possible >= 50) return 2;
     }
     return 2;
+  }
+
+  /**
+   * Extract enhanced assignment details for Canvas Complete Phase 1
+   */
+  private extractEnhancedDetails(assignment: {
+    description?: string;
+    points_possible?: number;
+    submission_types?: string[];
+    group_category_id?: number | null;
+    peer_reviews?: boolean;
+    rubric?: Array<{
+      id: string;
+      description: string;
+      long_description?: string;
+      points: number;
+      ratings: Array<{ id: string; description: string; points: number }>;
+    }>;
+  }): {
+    instructions: string | null;
+    rubric: Record<string, unknown>[] | null;
+    wordCountMin: number | null;
+    wordCountMax: number | null;
+    estimatedMinutes: number;
+  } {
+    // Strip HTML from description for instructions
+    const instructions = assignment.description
+      ? assignment.description
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/\s+/g, ' ')
+          .trim()
+      : null;
+
+    // Format rubric for storage
+    const rubric = assignment.rubric
+      ? assignment.rubric.map((criterion) => ({
+          id: criterion.id,
+          criterion: criterion.description,
+          description: criterion.long_description || null,
+          points: criterion.points,
+          ratings: criterion.ratings.map((r) => ({
+            description: r.description,
+            points: r.points,
+          })),
+        }))
+      : null;
+
+    // Parse word count from instructions
+    const wordCount = this.parseWordCount(instructions || '');
+
+    // Estimate time to complete
+    const estimatedMinutes = this.estimateAssignmentTime(
+      assignment.points_possible,
+      wordCount.max,
+      assignment.submission_types,
+      !!assignment.group_category_id,
+      assignment.peer_reviews ?? false
+    );
+
+    return {
+      instructions,
+      rubric,
+      wordCountMin: wordCount.min,
+      wordCountMax: wordCount.max,
+      estimatedMinutes,
+    };
+  }
+
+  /**
+   * Parse word count requirements from instructions
+   */
+  private parseWordCount(text: string): { min: number | null; max: number | null } {
+    const result = { min: null as number | null, max: null as number | null };
+
+    // Match patterns like "1500-2000 words" or "1500 to 2000 words"
+    const rangeMatch = text.match(/(\d{3,5})\s*[-–to]+\s*(\d{3,5})\s*words?/i);
+    if (rangeMatch) {
+      result.min = parseInt(rangeMatch[1]);
+      result.max = parseInt(rangeMatch[2]);
+      return result;
+    }
+
+    // Match "minimum X words" or "at least X words"
+    const minMatch = text.match(/(?:minimum|at least|min\.?)\s*(\d{3,5})\s*words?/i);
+    if (minMatch) {
+      result.min = parseInt(minMatch[1]);
+      return result;
+    }
+
+    // Match simple "X words"
+    const simpleMatch = text.match(/(\d{3,5})\s*words?/i);
+    if (simpleMatch) {
+      result.min = parseInt(simpleMatch[1]);
+      result.max = parseInt(simpleMatch[1]);
+      return result;
+    }
+
+    // Match page count and convert to word count (250 words per page)
+    const pageMatch = text.match(/(\d{1,2})\s*[-–to]+\s*(\d{1,2})\s*pages?/i);
+    if (pageMatch) {
+      result.min = parseInt(pageMatch[1]) * 250;
+      result.max = parseInt(pageMatch[2]) * 250;
+      return result;
+    }
+
+    return result;
+  }
+
+  /**
+   * Estimate time to complete assignment in minutes
+   */
+  private estimateAssignmentTime(
+    pointsPossible: number | undefined,
+    wordCountMax: number | null,
+    submissionTypes: string[] | undefined,
+    isGroupAssignment: boolean,
+    hasPeerReview: boolean
+  ): number {
+    let minutes = 30; // Base minimum
+
+    // Factor in points (higher points = more complex)
+    if (pointsPossible) {
+      if (pointsPossible >= 100) minutes += 120; // Major assignment
+      else if (pointsPossible >= 50) minutes += 60;
+      else if (pointsPossible >= 25) minutes += 30;
+    }
+
+    // Factor in word count
+    if (wordCountMax) {
+      minutes += Math.floor(wordCountMax / 500) * 30;
+    }
+
+    // Factor in submission type
+    if (submissionTypes?.includes('online_upload')) {
+      minutes += 15;
+    }
+    if (submissionTypes?.includes('discussion_topic')) {
+      minutes = Math.min(minutes, 45);
+    }
+
+    // Factor in group work
+    if (isGroupAssignment) {
+      minutes += 30;
+    }
+
+    // Factor in peer review
+    if (hasPeerReview) {
+      minutes += 30;
+    }
+
+    return Math.min(minutes, 480); // Max 8 hours
   }
 
   private async runAudit(auditType: AuditType): Promise<IntegrityReport> {
@@ -629,12 +833,15 @@ export class CanvasIntegrityAgent {
             for (const item of items) {
               const result = await this.verifyAndSyncItem(item, course, mapping?.projectId);
 
+              // Get title - CanvasFile uses displayName instead of title
+              const itemTitle = 'title' in item ? item.title : 'displayName' in item ? item.displayName : 'Unknown';
+
               if (result.created) {
                 tasksCreated++;
-                findings.newItems.push(`${course.name}: ${item.title}`);
+                findings.newItems.push(`${course.name}: ${itemTitle}`);
               } else if (result.updated) {
                 tasksUpdated++;
-                findings.updatedItems.push(`${course.name}: ${item.title}`);
+                findings.updatedItems.push(`${course.name}: ${itemTitle}`);
               }
 
               if (result.verified) {
@@ -643,7 +850,7 @@ export class CanvasIntegrityAgent {
 
               if (result.mismatch) {
                 discrepanciesFound++;
-                findings.mismatches.push(`${course.name}: ${item.title} - ${result.mismatchReason}`);
+                findings.mismatches.push(`${course.name}: ${itemTitle} - ${result.mismatchReason}`);
               }
             }
 
@@ -863,9 +1070,10 @@ export class CanvasIntegrityAgent {
         discoveredVia,
       });
 
-      // Only create tasks for actionable items (assignments, quizzes, discussions, required readings)
+      // Only create tasks for actionable items (assignments, quizzes, discussions, ALL readings)
+      // Phase 0: Changed to include ALL readings (file, page, external_url), not just required ones
       const isActionable = ['assignment', 'quiz', 'discussion'].includes(canvasType) ||
-        ('isRequired' in item && item.isRequired);
+        ['file', 'page', 'external_url'].includes(canvasType);
 
       if (isActionable) {
         // Create task for this item
@@ -891,8 +1099,13 @@ export class CanvasIntegrityAgent {
             descriptionParts.push(`\n**Points:** ${itemPoints}`);
           }
 
+          // Add reading prefix for reading items (Phase 0)
+          const taskTitle = ['file', 'page', 'external_url'].includes(canvasType)
+            ? `📖 Read: ${itemTitle}`
+            : itemTitle;
+
           const task = await taskService.create({
-            title: itemTitle,
+            title: taskTitle,
             description: descriptionParts.length > 0 ? descriptionParts.join('\n') : undefined,
             dueDate: itemDueAt,
             dueDateIsHard: !!itemDueAt,
@@ -996,7 +1209,6 @@ export class CanvasIntegrityAgent {
       name: course.name,
       context: course.name,
       area: 'School',
-      status: 'active',
     });
   }
 
@@ -1020,7 +1232,6 @@ export class CanvasIntegrityAgent {
       name: semesterName,
       context: 'School',
       area: 'School',
-      status: 'active',
     });
   }
 
@@ -1047,7 +1258,6 @@ export class CanvasIntegrityAgent {
       name: course.name,
       context: course.name,
       area: 'School',
-      status: 'active',
       parentProjectId,
     });
   }

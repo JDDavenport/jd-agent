@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 24, 2026
-> **Version:** 0.3.12
+> **Last Updated:** January 27, 2026
+> **Version:** 0.3.14
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -18,6 +18,7 @@ This document is the single source of truth for all current features and capabil
 | Command Center | `/apps/command-center` | Main dashboard (includes Journal, Settings) | Tauri Desktop App |
 | Tasks App | `/apps/tasks` | Focused task management interface | Tauri Desktop App |
 | Vault App | `/apps/vault` | Knowledge base (Notion-like) | Tauri Desktop App |
+| Read Help | `/apps/read-help` | Personal book learning assistant | Web App |
 | Jobs App | `/apps/jobs` | Job hunting agent interface | Web App |
 | Tasks iOS | `/apps/jd-tasks-ios` | Native iOS task management | iOS App (SwiftUI) |
 | Command Center iOS | `/apps/jd-command-center-ios` | Native iOS briefing & productivity | iOS App (SwiftUI) |
@@ -236,6 +237,62 @@ The vault functionality is split across two apps for optimal user experience:
 **Vault Sources:**
 - remarkable, plaud, email, manual, web, canvas
 - notion, google_drive, google_docs, apple_notes, tasks
+
+### 3.1 Read Help (Personal Book Learning Assistant)
+
+**Purpose:** Transform how you consume and retain knowledge from books. Upload PDFs, get AI-powered summaries, chat with content, generate quizzes and flashcards.
+
+**Access:** Standalone web app at `http://localhost:5183` (run with `bun run read-help`). Linked from Command Center sidebar ("Books") and Vault sidebar.
+
+**Core Features:**
+
+**Book Management:**
+- PDF upload (up to 100MB per book)
+- Text extraction from text-based PDFs
+- OCR support for scanned/image-based PDFs (Tesseract.js)
+- Automatic chapter detection
+- Full-text search across all books
+- Book metadata (title, author, tags, notes, rating)
+- Reading progress tracking
+- Duplicate detection via file hash
+
+**AI-Powered Learning:**
+- **Summaries**: Generate short (150 words), medium (300 words), or long (500 words) chapter summaries
+- **Chat**: Ask questions about book content with page citations
+- **Quiz Generation**: Create multiple-choice, true/false, and short-answer questions from chapters
+- **Key Concepts**: Extract and define important terms with page references
+- **Flashcards**: Generate flashcards with spaced repetition (SM-2 algorithm)
+
+**Study Tools:**
+- Flashcard review with quality ratings (0-5)
+- Spaced repetition scheduling
+- Progress tracking (pages read, time spent, completion %)
+- Highlights and notes with color coding
+- Review statistics
+
+**Technical:**
+- Service: `/hub/src/services/read-help-service.ts`
+- Routes: `/hub/src/api/routes/read-help.ts` (`/api/read-help/*`)
+- Frontend: `/apps/read-help` (React + Vite on port 5183)
+- Storage: `/hub/storage/read-help/books/{book_id}/`
+- AI: Uses Ollama (llama3.1:8b) for local LLM inference
+- Database: PostgreSQL tables (`read_help_*`)
+
+**API Endpoints:**
+- Books: `POST/GET/PATCH/DELETE /api/read-help/books`
+- Chapters: `GET /api/read-help/books/:id/chapters`
+- Summaries: `GET /api/read-help/chapters/:id/summary/:length`
+- Search: `GET /api/read-help/search?q=...`
+- Chat: `POST /api/read-help/chat`
+- Quizzes: `POST /api/read-help/chapters/:id/quiz`
+- Flashcards: `GET /api/read-help/flashcards/due`, `POST /api/read-help/flashcards/:id/review`
+- Highlights: `POST/GET/DELETE /api/read-help/highlights`
+- Progress: `GET/PUT /api/read-help/books/:id/progress`
+
+**Deep Linking:**
+- Command Center sidebar: "Books" link
+- Vault sidebar: "Books" link in Apps section
+- Opens in new browser tab
 
 ### 4. Calendar Integration
 
@@ -460,11 +517,17 @@ POST   /api/jobs/screening    # Add screening answer
 
 **Features:**
 - Browser automation via Playwright for Canvas scraping
-- API-based assignment sync with term filtering
+- API-based assignment sync with term filtering (3x daily: 6:30 AM, 12 PM, 6 PM)
+- **Full browser audit with reading detection (1x daily: 7:00 AM) - Phase 0 ✅**
 - Nested project hierarchy (Semester → Class → Assignments)
 - Automatic task creation with both due date and scheduled date
 - Integrity audits (full, incremental, quick check)
 - Telegram nudges for unscheduled Canvas tasks
+- **Reading detection and task creation:**
+  - **Detects ALL readings (PDFs, articles, wiki pages, external URLs) - Phase 0 ✅**
+  - **Creates tasks with "📖 Read:" prefix for easy identification - Phase 0 ✅**
+  - **Keywords: reading, chapter, case, article, paper, HBS, preparation - Phase 0 ✅**
+  - **Notifications when new readings detected - Phase 0 ✅**
 - Full web scraping of course content:
   - Wiki pages extraction with content and HTML
   - Course files listing with download URLs
@@ -1910,6 +1973,20 @@ See `CLAUDE.md` for full documentation requirements.
 
 ## Changelog
 
+### January 26, 2026 - Read Help Integration
+- **NEW**: Integrated Read Help app into JD Agent ecosystem
+  - Deep linking from Command Center sidebar ("Books" link)
+  - Deep linking from Vault sidebar (Apps section)
+  - Added `bun run read-help` script to package.json
+  - Configured port 5183 for Read Help web app
+- **FIXED**: TypeScript errors in Read Help components
+  - Fixed unused `refetchSummary` in ChapterView
+  - Fixed optional `currentCard` in FlashcardsView
+- **UPDATED**: Documentation
+  - Added Read Help to Architecture Overview in FEATURES.md
+  - Added comprehensive Read Help feature section (3.1)
+  - Updated version to 0.3.13
+
 ### January 26, 2026 - Canvas Complete Phase 5: Grade Tracking
 - **NEW**: Grade tracking and notifications
   - Grade summary across all courses with overall average
@@ -2626,6 +2703,21 @@ See `CLAUDE.md` for full documentation requirements.
   - Fallback to "Speaker N" when no mapping exists
 - **Example Output**: `**[0:23] JD:**` instead of `**[0:23] Speaker 1:**`
 - **Status**: VIP Pipeline now at 60% complete (Phase 0 + Phase 1 + Phase 2)
+
+### January 27, 2026 - Canvas Reading Integration Phase 0 (Quick Win)
+- **Canvas Integrity Agent - Reading Detection**: Enabled automatic detection and task creation for ALL Canvas readings
+  - Browser-based full audit scheduled daily at 7:00 AM (visits MODULES, FILES, PAGES)
+  - Detects PDFs, articles, wiki pages, external URLs in Canvas modules
+  - Creates tasks with "📖 Read:" prefix for visual identification
+  - Keyword-based detection: "reading", "chapter", "case", "article", "paper", "HBS", "preparation"
+  - Telegram notifications when new readings detected
+- **Task Creation Enhancement**: Changed from "required readings only" to "ALL readings"
+  - Modified `verifyAndSyncItem()` to include file, page, external_url types
+  - All detected readings now get automatic task creation
+  - Reading tasks clearly marked with 📖 emoji
+- **Test Script**: Added `/hub/scripts/test-canvas-integrity-agent.ts` for manual testing
+- **Documentation**: Created Phase 0 implementation summary and test report
+- **Status**: Phase 0 complete, ready for Phase 1-6 (full Read Help integration)
 
 ### January 9, 2026 - VIP Pipeline Phase 1 (Voice Profiles)
 - **Voice Profile System**: Speaker identification infrastructure

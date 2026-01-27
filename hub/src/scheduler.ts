@@ -19,6 +19,7 @@ import { verificationService } from './services/verification-service';
 import { coachingService } from './services/coaching-service';
 import { timeTrackingService } from './services/time-tracking-service';
 import { canvasIntegration } from './integrations/canvas';
+import { CanvasIntegrityAgent } from './agents/canvas-integrity';
 import { gmailIntegration } from './integrations/gmail';
 import { remarkableIntegration } from './integrations/remarkable';
 import { remarkableGDriveSync } from './services/remarkable-gdrive-sync';
@@ -26,9 +27,23 @@ import { remarkableCloudSync } from './services/remarkable-cloud-sync';
 import { plaudIntegration } from './integrations/plaud';
 import { plaudApiClient } from './integrations/plaud-api';
 import { plaudGDriveSync } from './services/plaud-gdrive-sync';
+import { plaudBrowserSync } from './services/plaud-browser-sync';
 import { addPlaudSyncJob } from './jobs/queue';
 import { calendarService } from './services/calendar-service';
 import { getGoogleCalendar } from './integrations/google-calendar';
+import { acquisitionService } from './services/acquisition-service';
+import { adExchangeEnforcementService } from './services/ad-exchange-enforcement-service';
+import { cryptoService } from './services/crypto-service';
+import { adExchangeMarketIntelligenceService } from './services/ad-exchange-market-intelligence-service';
+import { adExchangeAnalyticsService } from './services/ad-exchange-analytics-service';
+import { plaidService } from './services/plaid-service';
+import { financeService } from './services/finance-service';
+import { budgetReportService } from './services/budget-report-service';
+import { budgetAlertService } from './services/budget-alert-service';
+import { communicationMonitorService } from './services/communication-monitor-service';
+import { outlookScraper } from './integrations/outlook-scraper';
+import { imessageIntegration } from './integrations/imessage';
+import { phoneCallsIntegration } from './integrations/phone-calls';
 
 // ============================================
 // Schedule Configuration
@@ -73,6 +88,37 @@ const jobs: ScheduledJob[] = [
       console.log(`[Scheduler] Morning ceremony ${result.notificationSent ? 'sent' : 'failed'}`);
     },
   },
+  // Daily budget pulse at 7:00 AM
+  {
+    name: 'daily-budget-pulse',
+    hour: 7,
+    minute: 0,
+    run: async () => {
+      console.log('[Scheduler] Sending daily budget pulse...');
+      try {
+        const result = await budgetReportService.sendDailyPulse();
+        console.log(`[Scheduler] Budget pulse: email=${result.emailSent}, sms=${result.smsSent}`);
+      } catch (error) {
+        console.error('[Scheduler] Budget pulse failed:', error);
+      }
+    },
+  },
+  // Weekly budget report at 9:00 AM on Sunday
+  {
+    name: 'weekly-budget-report',
+    hour: 9,
+    minute: 0,
+    dayOfWeek: 0, // Sunday
+    run: async () => {
+      console.log('[Scheduler] Sending weekly budget report...');
+      try {
+        const result = await budgetReportService.sendWeeklyReport();
+        console.log(`[Scheduler] Weekly budget report: email=${result.emailSent}, sms=${result.smsSent}`);
+      } catch (error) {
+        console.error('[Scheduler] Weekly budget report failed:', error);
+      }
+    },
+  },
   // Evening digest at 8:55 PM (before ceremony)
   {
     name: 'evening-digest',
@@ -103,6 +149,50 @@ const jobs: ScheduledJob[] = [
       console.log('[Scheduler] Running weekly review...');
       const result = await ceremonyService.runWeeklyCeremony();
       console.log(`[Scheduler] Weekly review ${result.notificationSent ? 'sent' : 'failed'}`);
+    },
+  },
+  {
+    name: 'ad-exchange-weekly-enforcement',
+    hour: 0,
+    minute: 0,
+    dayOfWeek: 1, // Monday
+    run: async () => {
+      console.log('[Scheduler] Running ad exchange weekly enforcement...');
+      const summary = await adExchangeEnforcementService.runWeeklyEnforcement();
+      console.log(
+        `[Scheduler] Ad exchange enforcement: ${summary.overdue} overdue, ${summary.reverted} reverted`
+      );
+    },
+  },
+  {
+    name: 'ad-exchange-market-snapshot',
+    hour: 1,
+    minute: 30,
+    run: async () => {
+      console.log('[Scheduler] Generating ad exchange market snapshot...');
+      const snapshot = await adExchangeMarketIntelligenceService.getSnapshot();
+      const anomalies = await adExchangeMarketIntelligenceService.detectAnomalies();
+      console.log(
+        `[Scheduler] Ad exchange snapshot: ${snapshot.totalAdSpaces} spaces, ${snapshot.activeAllocations} allocations`
+      );
+      if (anomalies.length > 0) {
+        console.log(`[Scheduler] Ad exchange anomalies: ${anomalies.length} detected`);
+      }
+    },
+  },
+  {
+    name: 'ad-exchange-weekly-report',
+    hour: 2,
+    minute: 0,
+    dayOfWeek: 1, // Monday
+    run: async () => {
+      console.log('[Scheduler] Generating ad exchange weekly report...');
+      const summary = await adExchangeAnalyticsService.getSummary();
+      console.log(
+        `[Scheduler] Ad exchange report: ${summary.activeAdSpaces} active spaces, ${summary.weeklyRevenue} revenue, ${(
+          summary.paymentComplianceRate * 100
+        ).toFixed(1)}% compliance`
+      );
     },
   },
   // Canvas sync at 6 AM (full sync with published course check)
@@ -160,6 +250,43 @@ const jobs: ScheduledJob[] = [
       console.log('[Scheduler] Running Canvas sync...');
       const result = await canvasIntegration.fullSync();
       console.log(`[Scheduler] Canvas sync: ${result.assignments} assignments, ${result.announcements} announcements`);
+    },
+  },
+  // Canvas Integrity Agent - Full audit with reading detection (once daily)
+  {
+    name: 'canvas-integrity-audit',
+    hour: 7,
+    minute: 0,
+    run: async () => {
+      if (!canvasIntegration.isConfigured()) return;
+      console.log('[Scheduler] Running Canvas integrity audit (full - includes readings)...');
+      try {
+        const agent = new CanvasIntegrityAgent();
+        const result = await agent.runAudit('full'); // Visits MODULES, FILES, PAGES for reading detection
+        console.log(
+          `[Scheduler] Canvas audit complete: ${result.itemsDiscovered} items discovered, ` +
+          `${result.tasksCreated} tasks created, ${result.tasksVerified} tasks verified`
+        );
+
+        // Notify if new readings found
+        if (result.findings.newItems.length > 0) {
+          const readingItems = result.findings.newItems.filter(item =>
+            item.includes('Reading') || item.includes('Chapter') || item.includes('Case')
+          );
+
+          if (readingItems.length > 0) {
+            const { notificationService } = await import('./services/notification-service');
+            await notificationService.send(
+              `📚 *New Canvas Readings Detected*\n\n` +
+              `Found ${readingItems.length} new reading(s):\n` +
+              readingItems.slice(0, 5).map(item => `• ${item}`).join('\n') +
+              (readingItems.length > 5 ? `\n\n_...and ${readingItems.length - 5} more_` : '')
+            );
+          }
+        }
+      } catch (error) {
+        console.error('[Scheduler] Canvas integrity audit failed:', error);
+      }
     },
   },
   // Integrity checks at 8 AM and 8 PM
@@ -253,10 +380,84 @@ const jobs: ScheduledJob[] = [
       console.log('[Scheduler] Plaud web sync job queued');
     },
   },
+  // Task archival at 2 AM - archive completed tasks older than 1 day
+  {
+    name: 'task-archival',
+    hour: 2,
+    minute: 0,
+    run: async () => {
+      console.log('[Scheduler] Running task archival...');
+      try {
+        const { TaskArchiveService } = await import('./services/task-archive-service');
+        const taskArchiveService = new TaskArchiveService();
+        const result = await taskArchiveService.archiveCompletedTasks(1); // 1 day old
+        console.log(`[Scheduler] Archived ${result.tasksArchived} tasks to vault`);
+        if (result.errors.length > 0) {
+          console.warn(`[Scheduler] Task archival errors: ${result.errors.length}`);
+        }
+      } catch (error) {
+        console.error('[Scheduler] Task archival failed:', error);
+      }
+    },
+  },
+  // Acquisition follow-up reminders at 8 AM
+  {
+    name: 'acquisition-follow-up-reminder',
+    hour: 8,
+    minute: 0,
+    run: async () => {
+      console.log('[Scheduler] Checking acquisition follow-ups...');
+      const followUps = await acquisitionService.getFollowUps();
+
+      if (followUps.length === 0) {
+        console.log('[Scheduler] No acquisition follow-ups due today');
+        return;
+      }
+
+      console.log(`[Scheduler] Found ${followUps.length} acquisition follow-ups due`);
+
+      // Send notification about due follow-ups
+      let message = '📋 *Acquisition Follow-ups Due*\n\n';
+      message += `You have ${followUps.length} lead${followUps.length > 1 ? 's' : ''} requiring follow-up:\n\n`;
+
+      for (const lead of followUps.slice(0, 5)) {
+        const stage = lead.pipelineStage?.replace(/_/g, ' ') || 'unknown';
+        const score = lead.acquisitionScore !== null ? ` (Score: ${lead.acquisitionScore})` : '';
+        message += `• *${lead.businessName}*${score}\n  Stage: ${stage}\n`;
+      }
+
+      if (followUps.length > 5) {
+        message += `\n_...and ${followUps.length - 5} more_`;
+      }
+
+      message += '\n\n_Check Command Center → Acquisition for details._';
+
+      await notificationService.send(message);
+      console.log('[Scheduler] Acquisition follow-up reminder sent');
+    },
+  },
 ];
 
 // Interval jobs for more frequent tasks
 const intervalJobs: IntervalJob[] = [
+  {
+    name: 'crypto-market-refresh',
+    intervalMinutes: 1,
+    run: async () => {
+      console.log('[Scheduler] Refreshing crypto market data...');
+      await cryptoService.refreshMarketData(false);
+      console.log('[Scheduler] Crypto market refresh complete');
+    },
+  },
+  {
+    name: 'crypto-network-refresh',
+    intervalMinutes: 10,
+    run: async () => {
+      console.log('[Scheduler] Refreshing crypto network data...');
+      await cryptoService.refreshNetworkDataNow(true);
+      console.log('[Scheduler] Crypto network refresh complete');
+    },
+  },
   {
     name: 'google-calendar-sync',
     intervalMinutes: 10, // Every 10 minutes - keep calendar up to date
@@ -266,6 +467,46 @@ const intervalJobs: IntervalJob[] = [
       console.log('[Scheduler] Syncing Google Calendar...');
       const result = await calendarService.syncFromGoogle(30); // Sync 30 days ahead
       console.log(`[Scheduler] Calendar: ${result.created} created, ${result.updated} updated`);
+    },
+  },
+  {
+    name: 'finance-sync',
+    intervalMinutes: 15, // Near real-time transaction updates
+    run: async () => {
+      if (!plaidService.isConfigured()) return;
+      const hasAccounts = await financeService.isConfigured();
+      if (!hasAccounts) return;
+      console.log('[Scheduler] Syncing finance accounts...');
+      const result = await plaidService.syncAllAccounts();
+      console.log(
+        `[Scheduler] Finance sync: ${result.added} added, ${result.modified} modified, ${result.removed} removed`
+      );
+    },
+  },
+  {
+    name: 'finance-budget-alerts',
+    intervalMinutes: 30,
+    run: async () => {
+      console.log('[Scheduler] Checking budget alerts...');
+      const result = await financeService.checkBudgetAlerts();
+      if (result.alertsSent > 0) {
+        console.log(`[Scheduler] Budget alerts sent: ${result.alertsSent}`);
+      }
+    },
+  },
+  {
+    name: 'smart-budget-alerts',
+    intervalMinutes: 60, // Every hour
+    run: async () => {
+      console.log('[Scheduler] Running smart budget alerts...');
+      try {
+        const result = await budgetAlertService.runAllChecks();
+        if (result.totalAlertsSent > 0) {
+          console.log(`[Scheduler] Smart alerts sent: ${result.totalAlertsSent}`);
+        }
+      } catch (error) {
+        console.error('[Scheduler] Smart budget alerts failed:', error);
+      }
     },
   },
   {
@@ -418,7 +659,19 @@ const intervalJobs: IntervalJob[] = [
     name: 'plaud-sync',
     intervalMinutes: 15, // Every 15 minutes
     run: async () => {
-      // Try API sync first (fully automatic, no manual export needed)
+      // Try browser sync first (most reliable - uses persistent session)
+      if (plaudBrowserSync.isConfigured()) {
+        console.log('[Scheduler] Syncing Plaud recordings via browser...');
+        const browserResult = await plaudBrowserSync.sync();
+        console.log(`[Scheduler] Plaud Browser: ${browserResult.synced} synced, ${browserResult.skipped} skipped`);
+        if (browserResult.newRecordings.length > 0) {
+          console.log(`[Scheduler] New recordings: ${browserResult.newRecordings.join(', ')}`);
+        }
+        // If browser sync works, skip other methods
+        if (browserResult.success) return;
+      }
+
+      // Try API sync (if browser sync fails or not configured)
       if (plaudApiClient.isConfigured()) {
         console.log('[Scheduler] Syncing Plaud recordings via API...');
         const apiResult = await plaudApiClient.syncNewRecordings();
@@ -444,6 +697,39 @@ const intervalJobs: IntervalJob[] = [
         const result = await plaudIntegration.syncAll();
         console.log(`[Scheduler] Plaud Local: ${result.uploaded} uploaded, ${result.queued} queued`);
       }
+    },
+  },
+  // ============================================
+  // Communication Monitoring Jobs
+  // ============================================
+  {
+    name: 'outlook-monitor',
+    intervalMinutes: 10, // Check Outlook every 10 minutes
+    run: async () => {
+      if (!outlookScraper.isConfigured()) return;
+      console.log('[Scheduler] Checking Outlook...');
+      const result = await communicationMonitorService.checkOutlook();
+      console.log(`[Scheduler] Outlook: ${result.new} new, ${result.urgent} urgent, ${result.notified} notified`);
+    },
+  },
+  {
+    name: 'imessage-monitor',
+    intervalMinutes: 2, // Check iMessage every 2 minutes
+    run: async () => {
+      if (!imessageIntegration.isConfigured()) return;
+      console.log('[Scheduler] Checking iMessage...');
+      const result = await communicationMonitorService.checkIMessage();
+      console.log(`[Scheduler] iMessage: ${result.new} new, ${result.urgent} urgent, ${result.notified} notified`);
+    },
+  },
+  {
+    name: 'phone-calls-monitor',
+    intervalMinutes: 5, // Check for missed calls every 5 minutes
+    run: async () => {
+      if (!phoneCallsIntegration.isConfigured()) return;
+      console.log('[Scheduler] Checking phone calls...');
+      const result = await communicationMonitorService.checkPhoneCalls();
+      console.log(`[Scheduler] Phone: ${result.new} missed, ${result.urgent} urgent, ${result.notified} notified`);
     },
   },
 ];
@@ -550,6 +836,7 @@ console.log(`  - Gmail: ${gmailIntegration.isReady() ? '✓ Ready' : '✗ Not co
 console.log(`  - Remarkable: ${remarkableIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
 console.log(`  - Remarkable GDrive: ${remarkableGDriveSync.isConfigured() ? '✓ Configured (auto-sync from Google Drive)' : '✗ Not configured'}`);
 console.log(`  - Remarkable Cloud: ${remarkableCloudSync.isConfigured() ? '✓ Configured (change detection)' : '✗ Not configured'}`);
+console.log(`  - Plaud Browser: ${plaudBrowserSync.isConfigured() ? '✓ Configured (auto-login sync)' : '✗ Not configured'}`);
 console.log(`  - Plaud Local: ${plaudIntegration.isConfigured() ? '✓ Configured' : '✗ Not configured'}`);
 console.log(`  - Plaud GDrive: ${plaudGDriveSync.isConfigured() ? '✓ Configured (auto-sync from Google Drive)' : '✗ Not configured'}`);
 console.log(`  - Plaud API: ${plaudApiClient.isConfigured() ? '✓ Configured (auto-sync)' : '✗ Not configured'}`);
