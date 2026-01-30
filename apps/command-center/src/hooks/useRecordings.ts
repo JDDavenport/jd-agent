@@ -33,6 +33,10 @@ interface Transcript {
   speakerCount: number | null;
   confidenceScore: number | null;
   speakerLabels: Record<number, string>;
+  // AI-generated analysis
+  summary?: RecordingSummary | null;
+  extractedTasks?: ExtractedTask[] | null;
+  analyzedAt?: string | null;
 }
 
 interface RecordingWithTranscript extends Recording {
@@ -125,7 +129,12 @@ export function useAudioUrl(id: string | null) {
       const response = await fetch(`${API_URL}/api/recordings/${id}/audio-url`);
       if (!response.ok) throw new Error('Failed to get audio URL');
       const data: AudioUrlResponse = await response.json();
-      return data.data;
+      // Handle relative URLs by prepending API base
+      let url = data.data.url;
+      if (url.startsWith('/api/')) {
+        url = `${API_URL}${url}`;
+      }
+      return { ...data.data, url };
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 30, // 30 minutes (URL valid for 1 hour)
@@ -225,4 +234,85 @@ export function formatFileSize(bytes: number | null): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ============================================
+// Analysis Types
+// ============================================
+
+export interface ExtractedTask {
+  title: string;
+  description?: string;
+  assignee?: string;
+  priority?: 'low' | 'medium' | 'high';
+  dueDate?: string;
+  context: string;
+}
+
+export interface RecordingSummary {
+  overview: string;
+  keyPoints: string[];
+  participants?: string[];
+  topics?: string[];
+}
+
+export interface RecordingAnalysis {
+  summary: RecordingSummary;
+  extractedTasks: ExtractedTask[];
+  analyzedAt: string;
+}
+
+// ============================================
+// Analysis Hooks
+// ============================================
+
+// Analyze recording (generate summary + extract tasks)
+export function useAnalyzeRecording() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (recordingId: string) => {
+      const response = await fetch(`${API_URL}/api/recordings/${recordingId}/analyze`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Failed to analyze recording');
+      }
+      const data = await response.json();
+      return data.data as RecordingAnalysis;
+    },
+    onSuccess: (_, recordingId) => {
+      queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
+    },
+  });
+}
+
+// Export tasks to task system
+export function useExportTasks() {
+  return useMutation({
+    mutationFn: async ({
+      recordingId,
+      tasks,
+    }: {
+      recordingId: string;
+      tasks: Array<{
+        title: string;
+        description?: string;
+        priority?: 'low' | 'medium' | 'high';
+        dueDate?: string;
+      }>;
+    }) => {
+      const response = await fetch(`${API_URL}/api/recordings/${recordingId}/export-tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Failed to export tasks');
+      }
+      return response.json();
+    },
+  });
 }

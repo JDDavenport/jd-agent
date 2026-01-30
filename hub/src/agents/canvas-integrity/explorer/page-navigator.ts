@@ -106,7 +106,7 @@ export class PageNavigator {
       // Try dashboard cards first
       const dashboardCards = document.querySelectorAll('.ic-DashboardCard');
       if (dashboardCards.length > 0) {
-        dashboardCards.forEach((card) => {
+        dashboardCards.forEach((card: Element) => {
           const link = card.querySelector('a.ic-DashboardCard__link');
           const title = card.querySelector('.ic-DashboardCard__header-title');
           const code = card.querySelector('.ic-DashboardCard__header-subtitle');
@@ -130,7 +130,7 @@ export class PageNavigator {
       // Try course table if no dashboard cards
       if (courseList.length === 0) {
         const courseRows = document.querySelectorAll('#my_courses_table tr, .course-list-table tr');
-        courseRows.forEach((row) => {
+        courseRows.forEach((row: Element) => {
           const link = row.querySelector('a[href*="/courses/"]');
           const termCell = row.querySelector('.course-list-term-column');
 

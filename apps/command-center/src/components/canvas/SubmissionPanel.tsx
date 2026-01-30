@@ -8,13 +8,13 @@
  * - Submission status display
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   useSubmissionStatus,
   useCanSubmit,
   useSubmitText,
   useSubmitUrl,
-  SubmissionStatus,
+  type SubmissionStatus,
 } from '../../hooks/useCanvasComplete';
 
 interface SubmissionPanelProps {

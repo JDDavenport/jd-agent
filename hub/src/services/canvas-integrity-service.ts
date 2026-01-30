@@ -4,18 +4,19 @@ import {
   canvasAudits,
   classProjectMapping,
   canvasScheduleTracking,
+  canvasAssignmentSubtasks,
   tasks,
   projects,
   classes,
 } from '../db/schema';
-import { eq, desc, and, isNull, lte, sql } from 'drizzle-orm';
+import { eq, desc, and, isNull, lte, gte, sql } from 'drizzle-orm';
 
 // ============================================
 // Types
 // ============================================
 
-export type CanvasItemType = 'assignment' | 'quiz' | 'discussion' | 'announcement' | 'module_item';
-export type DiscoveryMethod = 'api' | 'browser_assignments' | 'browser_modules' | 'browser_home' | 'browser_syllabus';
+export type CanvasItemType = 'assignment' | 'quiz' | 'discussion' | 'announcement' | 'module_item' | 'page' | 'file' | 'external_url' | 'subheader';
+export type DiscoveryMethod = 'api' | 'browser_assignments' | 'browser_modules' | 'browser_home' | 'browser_syllabus' | 'browser_pages' | 'browser_files';
 export type SyncStatus = 'pending' | 'synced' | 'mismatch' | 'orphaned';
 export type AuditType = 'full' | 'incremental' | 'quick_check';
 export type AuditStatus = 'running' | 'completed' | 'failed';
@@ -38,6 +39,19 @@ export interface CreateCanvasItemInput {
   isGraded?: boolean;
   discoveredVia: DiscoveryMethod;
   canvasData?: Record<string, unknown>;
+  // Canvas Complete Phase 1 fields
+  instructions?: string;
+  instructionsHtml?: string;
+  rubric?: Record<string, unknown>[];
+  allowedExtensions?: string[];
+  wordCountMin?: number;
+  wordCountMax?: number;
+  isGroupAssignment?: boolean;
+  hasPeerReview?: boolean;
+  attachedFileIds?: string[];
+  estimatedMinutes?: number;
+  lockInfo?: Record<string, unknown>;
+  gradingType?: string;
 }
 
 export interface UpdateCanvasItemInput {
@@ -51,6 +65,7 @@ export interface UpdateCanvasItemInput {
   submissionTypes?: string[];
   taskId?: string;
   projectId?: string;
+  vaultPageId?: string;
   syncStatus?: SyncStatus;
   browserVerified?: boolean;
   apiVerified?: boolean;
@@ -58,6 +73,19 @@ export interface UpdateCanvasItemInput {
   lastApiCheck?: Date;
   verificationScreenshot?: string;
   canvasData?: Record<string, unknown>;
+  // Canvas Complete Phase 1 fields
+  instructions?: string;
+  instructionsHtml?: string;
+  rubric?: Record<string, unknown>[];
+  allowedExtensions?: string[];
+  wordCountMin?: number;
+  wordCountMax?: number;
+  isGroupAssignment?: boolean;
+  hasPeerReview?: boolean;
+  attachedFileIds?: string[];
+  estimatedMinutes?: number;
+  lockInfo?: Record<string, unknown>;
+  gradingType?: string;
 }
 
 export interface CreateAuditInput {
@@ -144,6 +172,19 @@ class CanvasIntegrityService {
         isGraded: input.isGraded ?? true,
         discoveredVia: input.discoveredVia,
         canvasData: input.canvasData,
+        // Canvas Complete Phase 1 fields
+        instructions: input.instructions,
+        instructionsHtml: input.instructionsHtml,
+        rubric: input.rubric,
+        allowedExtensions: input.allowedExtensions,
+        wordCountMin: input.wordCountMin,
+        wordCountMax: input.wordCountMax,
+        isGroupAssignment: input.isGroupAssignment ?? false,
+        hasPeerReview: input.hasPeerReview ?? false,
+        attachedFileIds: input.attachedFileIds,
+        estimatedMinutes: input.estimatedMinutes,
+        lockInfo: input.lockInfo,
+        gradingType: input.gradingType,
       })
       .returning();
     return item;
@@ -178,19 +219,31 @@ class CanvasIntegrityService {
   }
 
   async listItems(filters?: ItemFilters) {
-    let query = db.select().from(canvasItems).$dynamic();
+    const conditions = [];
 
     if (filters?.courseId) {
-      query = query.where(eq(canvasItems.courseId, filters.courseId));
+      conditions.push(eq(canvasItems.courseId, filters.courseId));
     }
     if (filters?.canvasType) {
-      query = query.where(eq(canvasItems.canvasType, filters.canvasType));
+      conditions.push(eq(canvasItems.canvasType, filters.canvasType));
     }
     if (filters?.syncStatus) {
-      query = query.where(eq(canvasItems.syncStatus, filters.syncStatus));
+      conditions.push(eq(canvasItems.syncStatus, filters.syncStatus));
+    }
+    if (filters?.dueAfter) {
+      conditions.push(gte(canvasItems.dueAt, filters.dueAfter));
+    }
+    if (filters?.dueBefore) {
+      conditions.push(lte(canvasItems.dueAt, filters.dueBefore));
     }
 
-    return query.orderBy(desc(canvasItems.dueAt));
+    let query = db.select().from(canvasItems).$dynamic();
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.orderBy(canvasItems.dueAt);
   }
 
   async deleteItem(id: string) {
@@ -370,6 +423,80 @@ class CanvasIntegrityService {
     return mapping || null;
   }
 
+  /**
+   * Find project by course code (e.g., "MBA508", "MBA580")
+   * Searches canvasCourseCode and canvasCourseName for matches
+   */
+  async getProjectByCourseCode(courseCode: string): Promise<{ id: string; name: string } | null> {
+    // Normalize course code (e.g., "MBA 508" -> "MBA508")
+    const normalizedCode = courseCode.replace(/\s+/g, '').toUpperCase();
+
+    // Try exact match on course code first
+    const mappings = await db
+      .select({
+        mapping: classProjectMapping,
+        project: projects,
+      })
+      .from(classProjectMapping)
+      .leftJoin(projects, eq(classProjectMapping.projectId, projects.id))
+      .where(eq(classProjectMapping.isActive, true));
+
+    // Find matching mapping
+    for (const { mapping, project } of mappings) {
+      if (!project) continue;
+
+      // Check course code (e.g., "MBA 508-001")
+      const mappingCode = mapping.canvasCourseCode?.replace(/\s+/g, '').toUpperCase() || '';
+      if (mappingCode.includes(normalizedCode) || normalizedCode.includes(mappingCode.replace(/-.*$/, ''))) {
+        return { id: project.id, name: project.name };
+      }
+
+      // Check course name contains the code
+      const mappingName = mapping.canvasCourseName.replace(/\s+/g, '').toUpperCase();
+      if (mappingName.includes(normalizedCode)) {
+        return { id: project.id, name: project.name };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get all course-to-project mappings for vault linking
+   * Returns a map of course codes to project IDs
+   */
+  async getCourseProjectMap(): Promise<Map<string, string>> {
+    const mappings = await db
+      .select({
+        canvasCourseCode: classProjectMapping.canvasCourseCode,
+        canvasCourseName: classProjectMapping.canvasCourseName,
+        projectId: classProjectMapping.projectId,
+      })
+      .from(classProjectMapping)
+      .where(eq(classProjectMapping.isActive, true));
+
+    const courseProjectMap = new Map<string, string>();
+
+    for (const mapping of mappings) {
+      // Extract course code from canvasCourseCode (e.g., "MBA 508-001" -> "MBA508")
+      if (mapping.canvasCourseCode) {
+        const code = mapping.canvasCourseCode.replace(/\s+/g, '').replace(/-.*$/, '').toUpperCase();
+        courseProjectMap.set(code, mapping.projectId);
+      }
+
+      // Also extract from course name (e.g., "MBA 508-001: Business Analytics" -> "MBA508")
+      const nameMatch = mapping.canvasCourseName.match(/MBA\s*(\d{3})/i);
+      if (nameMatch) {
+        const code = `MBA${nameMatch[1]}`;
+        if (!courseProjectMap.has(code)) {
+          courseProjectMap.set(code, mapping.projectId);
+        }
+      }
+    }
+
+    return courseProjectMap;
+  }
+
   // ----------------------------------------
   // Schedule Tracking
   // ----------------------------------------
@@ -514,6 +641,82 @@ class CanvasIntegrityService {
       unscheduledCount,
       activeCourses: activeMappings.length,
     };
+  }
+
+  // ----------------------------------------
+  // Canvas Complete - Subtasks
+  // ----------------------------------------
+
+  async getAssignmentSubtasks(canvasItemId: string) {
+    return db
+      .select()
+      .from(canvasAssignmentSubtasks)
+      .where(eq(canvasAssignmentSubtasks.canvasItemId, canvasItemId))
+      .orderBy(canvasAssignmentSubtasks.sortOrder);
+  }
+
+  async createAssignmentSubtask(input: {
+    canvasItemId: string;
+    title: string;
+    subtaskType?: string;
+    sortOrder?: number;
+    generatedBy?: string;
+    generationPrompt?: string;
+    taskId?: string;
+  }) {
+    const [subtask] = await db
+      .insert(canvasAssignmentSubtasks)
+      .values({
+        canvasItemId: input.canvasItemId,
+        title: input.title,
+        subtaskType: input.subtaskType,
+        sortOrder: input.sortOrder ?? 0,
+        generatedBy: input.generatedBy ?? 'manual',
+        generationPrompt: input.generationPrompt,
+        taskId: input.taskId,
+      })
+      .returning();
+    return subtask;
+  }
+
+  async updateAssignmentSubtask(
+    id: string,
+    input: {
+      title?: string;
+      subtaskType?: string;
+      sortOrder?: number;
+      isCompleted?: boolean;
+      completedAt?: Date | null;
+    }
+  ) {
+    const [subtask] = await db
+      .update(canvasAssignmentSubtasks)
+      .set({
+        ...input,
+        updatedAt: new Date(),
+      })
+      .where(eq(canvasAssignmentSubtasks.id, id))
+      .returning();
+    return subtask || null;
+  }
+
+  async deleteAssignmentSubtask(id: string) {
+    const result = await db
+      .delete(canvasAssignmentSubtasks)
+      .where(eq(canvasAssignmentSubtasks.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // ----------------------------------------
+  // Canvas Complete - Enhanced Queries
+  // ----------------------------------------
+
+  async getItemByTaskId(taskId: string) {
+    const [item] = await db
+      .select()
+      .from(canvasItems)
+      .where(eq(canvasItems.taskId, taskId));
+    return item || null;
   }
 }
 

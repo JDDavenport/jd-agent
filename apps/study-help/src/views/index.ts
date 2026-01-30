@@ -1,0 +1,8 @@
+export { DashboardView } from './DashboardView';
+export { CourseView } from './CourseView';
+export { TasksView } from './TasksView';
+export { ReadingsView } from './ReadingsView';
+export { ReadingDetailView } from './ReadingDetailView';
+export { CalendarView } from './CalendarView';
+export { PomodoroView } from './PomodoroView';
+export { FlashcardsView } from './FlashcardsView';

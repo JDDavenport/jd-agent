@@ -3,7 +3,7 @@
 // ============================================
 
 export type TaskStatus = 'inbox' | 'today' | 'upcoming' | 'waiting' | 'someday' | 'done' | 'archived';
-export type TaskSource = 'email' | 'canvas' | 'meeting' | 'recording' | 'manual' | 'calendar' | 'remarkable' | 'chat' | 'agent';
+export type TaskSource = 'email' | 'canvas' | 'meeting' | 'recording' | 'manual' | 'calendar' | 'remarkable' | 'chat' | 'agent' | 'acquisition';
 export type EnergyLevel = 'high' | 'low' | 'admin';
 
 export interface Task {
@@ -400,4 +400,117 @@ export interface SystemLog {
   message: string;
   details?: Record<string, unknown>;
   createdAt: Date;
+}
+
+// ============================================
+// AD EXCHANGE (Gadz.io)
+// ============================================
+
+export interface AdSpace {
+  id: string;
+  creatorAddress: string;
+  currentOwnerAddress: string;
+  previousOwnerAddress?: string;
+  weeklyImpressions: number;
+  currentReservePrice: number;
+  ownershipTransferPrice?: number;
+  weeklyHoldingFee: number;
+  creatorSaleSharePercent: number;
+  creatorFeeSharePercent: number;
+  customContractTerms?: Record<string, unknown>;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  isActive: boolean;
+  createdAt: Date;
+  ownershipAcquiredAt?: Date;
+  lastPaymentAt?: Date;
+  nextPaymentDue?: Date;
+}
+
+export interface AdvertiserAllocation {
+  id: string;
+  adSpaceId: string;
+  currentOwnerAddress: string;
+  previousOwnerAddress?: string;
+  allocationUnits: number;
+  impressionsPerWeek: number;
+  acquisitionPrice?: number;
+  weeklyFee: number;
+  creativeAssetUrls?: string[];
+  clickThroughUrl?: string;
+  isActive: boolean;
+  createdAt: Date;
+  allocationAcquiredAt?: Date;
+  lastPaymentAt?: Date;
+  nextPaymentDue?: Date;
+}
+
+export type AdPaymentStatus = 'pending' | 'completed' | 'failed' | 'reverted';
+export type AdPaymentType =
+  | 'ad_space_ownership'
+  | 'ad_space_weekly_fee'
+  | 'allocation_acquisition'
+  | 'allocation_weekly_fee';
+
+export interface AdPayment {
+  id: string;
+  paymentType: AdPaymentType;
+  adSpaceId?: string;
+  allocationId?: string;
+  payerAddress: string;
+  amount: number;
+  transactionHash?: string;
+  revenueDistribution?: Record<string, number>;
+  status: AdPaymentStatus;
+  dueDate: Date;
+  paidAt?: Date;
+  createdAt: Date;
+}
+
+export type OwnershipTransferReason = 'sale' | 'non_payment_reversion' | 'initial_creation';
+export type OwnershipTransferType = 'ad_space' | 'allocation';
+
+export interface OwnershipTransfer {
+  id: string;
+  transferType: OwnershipTransferType;
+  adSpaceId?: string;
+  allocationId?: string;
+  fromAddress: string;
+  toAddress: string;
+  transferPrice?: number;
+  reason: OwnershipTransferReason;
+  transactionHash?: string;
+  createdAt: Date;
+}
+
+export interface PerformanceMetric {
+  id: string;
+  adSpaceId?: string;
+  allocationId?: string;
+  periodStart: Date;
+  periodEnd: Date;
+  impressionsDelivered: number;
+  clicks: number;
+  ctr?: number;
+  revenueGenerated?: number;
+  createdAt: Date;
+}
+
+export type MarketListingStatus = 'active' | 'sold' | 'cancelled' | 'expired';
+export type MarketListingType = 'ad_space' | 'allocation';
+
+export interface MarketListing {
+  id: string;
+  listingType: MarketListingType;
+  adSpaceId?: string;
+  allocationId?: string;
+  sellerAddress: string;
+  askPrice: number;
+  minPrice?: number;
+  status: MarketListingStatus;
+  listedAt: Date;
+  expiresAt?: Date;
+  soldAt?: Date;
 }

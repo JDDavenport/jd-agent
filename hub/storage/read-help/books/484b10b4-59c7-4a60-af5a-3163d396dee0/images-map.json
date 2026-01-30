@@ -1,0 +1,50 @@
+{
+  "1": [
+    {
+      "path": "images/page1_img1.png",
+      "type": "chart"
+    }
+  ],
+  "5": [
+    {
+      "path": "images/page5_img1.png",
+      "type": "chart"
+    }
+  ],
+  "7": [
+    {
+      "path": "images/page7_img1.png",
+      "type": "chart"
+    }
+  ],
+  "9": [
+    {
+      "path": "images/page9_img1.png",
+      "type": "chart"
+    }
+  ],
+  "10": [
+    {
+      "path": "images/page10_img1.png",
+      "type": "chart"
+    }
+  ],
+  "11": [
+    {
+      "path": "images/page11_img1.png",
+      "type": "chart"
+    }
+  ],
+  "12": [
+    {
+      "path": "images/page12_img1.png",
+      "type": "chart"
+    }
+  ],
+  "13": [
+    {
+      "path": "images/page13_img1.png",
+      "type": "chart"
+    }
+  ]
+}

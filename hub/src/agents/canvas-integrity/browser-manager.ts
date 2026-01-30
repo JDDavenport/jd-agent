@@ -399,7 +399,7 @@ export class BrowserManager {
         '[aria-expanded="false"], .collapsed, .module-item-toggle[aria-expanded="false"]'
       );
       let count = 0;
-      collapsedButtons.forEach((button) => {
+      collapsedButtons.forEach((button: Element) => {
         if (button instanceof HTMLElement) {
           button.click();
           count++;

@@ -26,9 +26,10 @@ interface VaultChatProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateToPage?: (pageId: string) => void;
+  embedded?: boolean; // When true, renders without the slide-in panel wrapper
 }
 
-export function VaultChat({ isOpen, onClose, onNavigateToPage }: VaultChatProps) {
+export function VaultChat({ isOpen, onClose, onNavigateToPage, embedded = false }: VaultChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -144,30 +145,9 @@ export function VaultChat({ isOpen, onClose, onNavigateToPage }: VaultChatProps)
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center gap-2">
-          <SparklesIcon className="w-5 h-5 text-purple-600" />
-          <h2 className="font-semibold text-gray-900">Ask about your vault</h2>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleClearHistory}
-            className="p-1.5 rounded hover:bg-gray-200 text-gray-500 transition-colors"
-            title="Clear chat history"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-gray-200 text-gray-500 transition-colors"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+  // Embedded mode: just render the chat content without wrapper
+  const chatContent = (
+    <>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -281,6 +261,41 @@ export function VaultChat({ isOpen, onClose, onNavigateToPage }: VaultChatProps)
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
+    </>
+  );
+
+  // Embedded mode: return just the content for use in bottom sheet
+  if (embedded) {
+    return <div className="flex flex-col h-full">{chatContent}</div>;
+  }
+
+  // Desktop mode: return the slide-in panel
+  return (
+    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center gap-2">
+          <SparklesIcon className="w-5 h-5 text-purple-600" />
+          <h2 className="font-semibold text-gray-900">Ask about your vault</h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleClearHistory}
+            className="p-1.5 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+            title="Clear chat history"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {chatContent}
     </div>
   );
 }

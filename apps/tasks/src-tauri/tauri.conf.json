@@ -1,0 +1,22 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "JD Tasks",
+  "version": "0.1.0",
+  "identifier": "com.jdagent.tasks",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:5180",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "JD Tasks",
+        "width": 1200,
+        "height": 820,
+        "resizable": true
+      }
+    ]
+  }
+}

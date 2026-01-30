@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  --sos-orange: #ff4500;
+  --sos-blue: #0079d3;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a {
+  color: var(--sos-blue);
+}
+
+.sos-card {
+  @apply bg-white border border-gray-200 rounded-md shadow-sm;
+}
+
+.sos-pill {
+  @apply text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full;
+}
+
+.sos-modal-backdrop {
+  @apply fixed inset-0 bg-black/40 flex items-center justify-center z-50;
+}
+
+.sos-modal {
+  @apply bg-white rounded-md shadow-lg p-6 w-full max-w-lg;
+}

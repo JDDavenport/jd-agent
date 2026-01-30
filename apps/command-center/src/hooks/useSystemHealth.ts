@@ -74,3 +74,23 @@ export function useRunIntegrityCheck() {
     },
   });
 }
+
+export function useCommunicationStatus() {
+  return useQuery({
+    queryKey: ['communications', 'status'],
+    queryFn: () => healthApi.getCommunicationStatus(),
+    refetchInterval: 30000, // Poll every 30 seconds
+  });
+}
+
+export function useRunCommunicationCheck() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => healthApi.runCommunicationCheck(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] });
+      queryClient.invalidateQueries({ queryKey: ['logs'] });
+    },
+  });
+}

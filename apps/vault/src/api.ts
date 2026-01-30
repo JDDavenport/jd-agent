@@ -54,6 +54,10 @@ export type {
   ImageBlockContent,
   FileBlockContent,
   BookmarkBlockContent,
+  // PARA types
+  PARAType,
+  PARAFolder,
+  InitializePARAResult,
   // Journal types
   ReviewMood,
   DailyReviewData,

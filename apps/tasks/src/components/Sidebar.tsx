@@ -134,27 +134,26 @@ export function Sidebar({
 
         {/* Projects Section */}
         <div data-testid="tasks-projects-section" className="mt-6">
-          <button
-            data-testid="tasks-projects-toggle"
-            onClick={() => setProjectsExpanded(!projectsExpanded)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700"
-          >
-            {projectsExpanded ? (
-              <ChevronDownIcon className="w-4 h-4" />
-            ) : (
-              <ChevronRightIcon className="w-4 h-4" />
-            )}
-            Projects
+          <div className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddProject?.();
-              }}
+              data-testid="tasks-projects-toggle"
+              onClick={() => setProjectsExpanded(!projectsExpanded)}
+              className="flex items-center gap-2 hover:text-gray-700"
+            >
+              {projectsExpanded ? (
+                <ChevronDownIcon className="w-4 h-4" />
+              ) : (
+                <ChevronRightIcon className="w-4 h-4" />
+              )}
+              Projects
+            </button>
+            <button
+              onClick={() => onAddProject?.()}
               className="ml-auto p-1 hover:bg-gray-200 rounded"
             >
               <PlusIcon className="w-4 h-4" />
             </button>
-          </button>
+          </div>
 
           {projectsExpanded && (
             <div className="mt-1 space-y-0.5">

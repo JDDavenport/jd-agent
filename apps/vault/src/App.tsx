@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { NotionSidebar } from './components/NotionSidebar';
 import { MobileLayout, MobileHomeView, TabId } from './components/mobile';
 import { SyncProvider } from './contexts/SyncContext';
@@ -10,26 +10,33 @@ import { JournalViewConnected } from './views/JournalViewConnected';
 import { ArchiveViewConnected } from './views/ArchiveViewConnected';
 import { TagsView } from './views/TagsView';
 import { GoalsView } from './views/GoalsView';
+import { ClassView } from './views/ClassView';
 import { PageView } from './components/PageView';
 import { VaultList } from './components/VaultList';
 import { NewEntryModal } from './components/NewEntryModal';
 import { Breadcrumb } from './components/Breadcrumb';
 import { CommandPalette } from './components/CommandPalette';
 import { VaultChat } from './components/VaultChat';
+import { PwaUpdateToast } from './components/PwaUpdateToast';
 import {
   useVaultEntries,
   useVaultSearch,
-  useVaultTree,
   useVaultEntry,
   useVaultBreadcrumb,
   useVaultChildren,
-  useMoveVaultEntry,
   useUpdateVaultEntry,
 } from './hooks/useVault';
 import {
   useVaultPageTree,
   useVaultPageFavorites,
   useCreateVaultPage,
+  useVaultPages,
+  vaultPageKeys,
+  useToggleVaultPageFavorite,
+  useUpdateVaultPage,
+  useDeleteVaultPage,
+  usePARAFolders,
+  useInitializePARA,
 } from './hooks/useVaultPages';
 import type { VaultEntry } from './api';
 import './editor/editor.css';
@@ -58,7 +65,9 @@ type ViewType =
   | 'recordings'
   | 'tags'
   | 'page'
-  | 'legacy-page';
+  | 'legacy-page'
+  | 'classes'
+  | 'class-detail';
 
 function VaultApp() {
   // Platform detection
@@ -74,6 +83,9 @@ function VaultApp() {
   // Mobile-specific state
   const [mobileTab, setMobileTab] = useState<TabId>('home');
 
+  // Class view state
+  const [selectedClassCode, setSelectedClassCode] = useState<string | null>(null);
+
   // Legacy mode state
   const [_selectedView, setSelectedView] = useState('search');
   const [viewType, setViewType] = useState<ViewType>('search');
@@ -81,22 +93,35 @@ function VaultApp() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [newEntryParentId, setNewEntryParentId] = useState<string | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<string>('inbox'); // Track active sidebar view
 
   // New Notion-style hooks
   const { data: pageTree = [], isLoading: isLoadingPageTree } = useVaultPageTree();
   const { data: favorites = [] } = useVaultPageFavorites();
+  const { data: allPages = [] } = useVaultPages();
+  const { data: paraFolders = [] } = usePARAFolders();
+  const initializePARA = useInitializePARA();
   const createPage = useCreateVaultPage();
+  const togglePageFavorite = useToggleVaultPageFavorite();
+  const updatePage = useUpdateVaultPage();
+  const deletePage = useDeleteVaultPage();
+  const queryClient = useQueryClient();
+
+  // Auto-initialize PARA folders if they don't exist
+  useEffect(() => {
+    if (paraFolders.length === 0 && !initializePARA.isPending) {
+      initializePARA.mutate();
+    }
+  }, [paraFolders, initializePARA]);
 
   // Legacy hooks
   const { data: allEntries, isLoading: isLoadingAll } = useVaultEntries();
   const { data: searchResults, isLoading: isSearching } = useVaultSearch({
     query: searchQuery,
   });
-  const { data: legacyTree = [], isLoading: isLoadingLegacyTree } = useVaultTree();
   const { data: selectedEntry } = useVaultEntry(selectedEntryId);
   const { data: breadcrumb } = useVaultBreadcrumb(selectedEntryId);
   const { data: entryChildren = [] } = useVaultChildren(selectedEntryId);
-  const moveEntry = useMoveVaultEntry();
   const updateEntry = useUpdateVaultEntry();
 
   // Notion mode handlers
@@ -153,17 +178,6 @@ function VaultApp() {
     setAppMode('legacy');
   };
 
-  const handleMoveEntry = useCallback(
-    async (id: string, newParentId: string | null) => {
-      try {
-        await moveEntry.mutateAsync({ id, parentId: newParentId });
-      } catch (error) {
-        console.error('Failed to move entry:', error);
-      }
-    },
-    [moveEntry]
-  );
-
   const handleUpdateEntry = useCallback(
     async (id: string, data: Partial<{ title: string; content: string }>) => {
       try {
@@ -211,6 +225,22 @@ function VaultApp() {
       setAppMode('legacy');
     }
   };
+
+  // Navigation handler for sidebar
+  const handleNavigateTo = useCallback((view: 'journal' | 'favorites' | 'recordings' | 'classes') => {
+    setActiveView(view);
+    const viewTypeMap: Record<string, ViewType> = {
+      journal: 'journal',
+      favorites: 'favorites',
+      recordings: 'recordings',
+      classes: 'classes',
+    };
+    setViewType(viewTypeMap[view] || 'search');
+    setAppMode('legacy');
+    setSelectedEntryId(null);
+    setSelectedPageId(null);
+    setSelectedClassCode(null);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -314,6 +344,10 @@ function VaultApp() {
         return 'Recordings';
       case 'tags':
         return 'Tags';
+      case 'classes':
+        return 'MBA Classes';
+      case 'class-detail':
+        return selectedClassCode || 'Class';
       case 'legacy-page':
         return selectedEntry?.title || 'Page';
       default:
@@ -429,6 +463,33 @@ function VaultApp() {
           />
         );
 
+      case 'class-detail':
+        return selectedClassCode ? (
+          <ClassView
+            classCode={selectedClassCode}
+            onNavigateToPage={handleSelectPage}
+            onBack={() => {
+              setSelectedClassCode(null);
+              setViewType('classes');
+            }}
+          />
+        ) : null;
+
+      case 'classes':
+        // Show class list view (using ClassView for all semesters)
+        return (
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-[#191919]">
+            <div className="max-w-3xl mx-auto px-6 py-4">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                MBA Classes
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">
+                Select a class from the sidebar to view and combine notes.
+              </p>
+            </div>
+          </div>
+        );
+
       default:
         // List view for inbox, favorites, projects, etc.
         return (
@@ -472,6 +533,26 @@ function VaultApp() {
   );
 
   // Mobile-specific content rendering
+  const handleRefreshMobile = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: vaultPageKeys.tree() }),
+      queryClient.invalidateQueries({ queryKey: vaultPageKeys.favorites() }),
+      queryClient.invalidateQueries({ queryKey: vaultPageKeys.list() }),
+    ]);
+  }, [queryClient]);
+
+  const handleFavoritePage = useCallback((pageId: string) => {
+    togglePageFavorite.mutate(pageId);
+  }, [togglePageFavorite]);
+
+  const handleArchivePage = useCallback((pageId: string) => {
+    updatePage.mutate({ id: pageId, input: { isArchived: true } });
+  }, [updatePage]);
+
+  const handleDeletePage = useCallback((pageId: string) => {
+    deletePage.mutate(pageId);
+  }, [deletePage]);
+
   const renderMobileContent = () => {
     // Home tab shows hierarchical page list
     if (mobileTab === 'home') {
@@ -479,6 +560,20 @@ function VaultApp() {
         <MobileHomeView
           pageTree={pageTree}
           favorites={favorites}
+          recentPages={allPages}
+          onQuickAction={(action) => {
+            if (action === 'classes') {
+              handleNavigateTo('classes');
+            } else {
+              handleQuickAction(action);
+            }
+          }}
+          onOpenSearch={handleOpenSearch}
+          onOpenChat={() => setShowChat(true)}
+          onRefresh={handleRefreshMobile}
+          onFavoritePage={handleFavoritePage}
+          onArchivePage={handleArchivePage}
+          onDeletePage={handleDeletePage}
           onSelectPage={handleSelectPage}
           onCreatePage={handleCreatePage}
         />
@@ -491,6 +586,20 @@ function VaultApp() {
         <MobileHomeView
           pageTree={[]}
           favorites={favorites}
+          recentPages={[]}
+          onQuickAction={(action) => {
+            if (action === 'classes') {
+              handleNavigateTo('classes');
+            } else {
+              handleQuickAction(action);
+            }
+          }}
+          onOpenSearch={handleOpenSearch}
+          onOpenChat={() => setShowChat(true)}
+          onRefresh={handleRefreshMobile}
+          onFavoritePage={handleFavoritePage}
+          onArchivePage={handleArchivePage}
+          onDeletePage={handleDeletePage}
           onSelectPage={handleSelectPage}
           onCreatePage={handleCreatePage}
         />
@@ -503,6 +612,7 @@ function VaultApp() {
 
   // Mobile layout
   if (isMobile) {
+    const showMobileHeader = !(appMode === 'notion' && selectedPageId);
     return (
       <MobileLayout
         pageTree={pageTree}
@@ -524,6 +634,7 @@ function VaultApp() {
         }
         activeTab={mobileTab}
         onTabChange={handleMobileTabChange}
+        showHeader={showMobileHeader}
       >
         {renderMobileContent()}
 
@@ -554,21 +665,15 @@ function VaultApp() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
         selectedPageId={selectedPageId}
-        selectedEntryId={selectedEntryId}
         onSelectPage={handleSelectPage}
-        onSelectLegacyEntry={(entryId: string) => {
-          setSelectedEntryId(entryId);
-          setViewType('legacy-page');
-          setAppMode('legacy');
-        }}
         onCreatePage={handleCreatePage}
-        onMoveEntry={handleMoveEntry}
         onOpenSearch={handleOpenSearch}
         onOpenChat={() => setShowChat(true)}
+        onNavigateTo={handleNavigateTo}
         pageTree={pageTree}
-        legacyTree={legacyTree}
         favorites={favorites}
-        isLoading={isLoadingPageTree || isLoadingLegacyTree}
+        isLoading={isLoadingPageTree}
+        activeView={activeView}
       />
 
       {/* Main Content */}
@@ -605,7 +710,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SyncProvider>
-        <VaultApp />
+        <div className="relative">
+          <VaultApp />
+          <PwaUpdateToast />
+        </div>
       </SyncProvider>
     </QueryClientProvider>
   );

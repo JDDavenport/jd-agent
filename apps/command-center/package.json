@@ -9,12 +9,19 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "playwright test",
+    "test:e2e": "playwright test",
     "test:headed": "playwright test --headed",
+    "test:dev": "TEST_USE_DEV_SERVER=1 playwright test",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
     "@tanstack/react-query": "^5.90.16",
@@ -35,6 +42,8 @@
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/cli": "^2.9.6",
     "@types/markdown-it": "^14.1.2",
     "@types/marked": "^6.0.0",
     "@types/node": "^24.10.1",
@@ -51,6 +60,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.2.0"
   }
 }

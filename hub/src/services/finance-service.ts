@@ -10,8 +10,10 @@ import {
   plaidAccounts,
   financeBudgets,
   financeInsights,
+  financeBudgetAllocations,
 } from '../db/schema';
 import { eq, and, gte, lte, desc, sql, asc, isNull, or } from 'drizzle-orm';
+import { notificationService } from './notification-service';
 
 // ============================================
 // Types
@@ -72,6 +74,46 @@ export interface RecentTransaction {
   date: string;
   category: string;
   pending: boolean | null;
+}
+
+export interface BudgetRecord {
+  id: string;
+  name: string;
+  groupName: string | null;
+  category: string;
+  groupOrder: number | null;
+  budgetOrder: number | null;
+  amountCents: number;
+  targetType: string | null;
+  targetAmountCents: number | null;
+  targetDate: string | null;
+  periodType: 'weekly' | 'monthly' | 'yearly' | string | null;
+  startDate: string | null;
+  endDate: string | null;
+  rolloverEnabled: boolean | null;
+  rolloverAmountCents: number | null;
+  carryoverOverspent: boolean | null;
+  alertThreshold: number | null;
+  alertsEnabled: boolean | null;
+  isActive: boolean | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BudgetStatus {
+  budget: BudgetRecord;
+  periodStart: string;
+  periodEnd: string;
+  spentCents: number;
+  remainingCents: number;
+  percentUsed: number;
+  limitCents: number;
+  isOverBudget: boolean;
+  budgetedCents: number;
+  targetAmountCents: number;
+  targetProgressCents: number;
+  targetRemainingCents: number;
+  targetProgressPercent: number;
 }
 
 // ============================================
@@ -475,6 +517,392 @@ class FinanceService {
 
     return results;
   }
+
+  // ============================================
+  // Budgets
+  // ============================================
+
+  async getBudgets(includeInactive = false): Promise<BudgetRecord[]> {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    const conditions = includeInactive
+      ? undefined
+      : and(
+          eq(financeBudgets.isActive, true),
+          or(isNull(financeBudgets.startDate), lte(financeBudgets.startDate, today)),
+          or(isNull(financeBudgets.endDate), gte(financeBudgets.endDate, today))
+        );
+
+    const budgets = await db
+      .select()
+      .from(financeBudgets)
+      .where(conditions)
+      .orderBy(
+        asc(financeBudgets.groupOrder),
+        asc(financeBudgets.groupName),
+        asc(financeBudgets.budgetOrder),
+        asc(financeBudgets.name)
+      );
+
+    return budgets;
+  }
+
+  async getBudget(id: string): Promise<BudgetRecord | null> {
+    const [budget] = await db.select().from(financeBudgets).where(eq(financeBudgets.id, id));
+    return budget || null;
+  }
+
+  async createBudget(data: {
+    name: string;
+    groupName?: string | null;
+    groupOrder?: number;
+    budgetOrder?: number;
+    category: string;
+    amountCents: number;
+    targetType?: string;
+    targetAmountCents?: number | null;
+    targetDate?: string | null;
+    month?: string | null;
+    periodType?: 'weekly' | 'monthly' | 'yearly';
+    startDate?: string | null;
+    endDate?: string | null;
+    rolloverEnabled?: boolean;
+    rolloverAmountCents?: number;
+    carryoverOverspent?: boolean;
+    alertThreshold?: number;
+    alertsEnabled?: boolean;
+  }): Promise<BudgetRecord> {
+    const [budget] = await db
+      .insert(financeBudgets)
+      .values({
+        name: data.name,
+        groupName: data.groupName || null,
+        groupOrder: data.groupOrder ?? 0,
+        budgetOrder: data.budgetOrder ?? 0,
+        category: data.category,
+        amountCents: data.amountCents,
+        targetType: data.targetType || 'monthly',
+        targetAmountCents: data.targetAmountCents ?? null,
+        targetDate: data.targetDate ?? null,
+        periodType: data.periodType || 'monthly',
+        startDate: data.startDate || null,
+        endDate: data.endDate || null,
+        rolloverEnabled: data.rolloverEnabled ?? false,
+        rolloverAmountCents: data.rolloverAmountCents ?? 0,
+        carryoverOverspent: data.carryoverOverspent ?? true,
+        alertThreshold: data.alertThreshold ?? 80,
+        alertsEnabled: data.alertsEnabled ?? true,
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    if (data.month) {
+      await this.setBudgetAllocation(budget.id, data.month, data.amountCents);
+    }
+
+    return budget;
+  }
+
+  async updateBudget(
+    id: string,
+    data: Partial<{
+      name: string;
+      groupName: string | null;
+      groupOrder: number;
+      budgetOrder: number;
+      category: string;
+      amountCents: number;
+      targetType: string;
+      targetAmountCents: number | null;
+      targetDate: string | null;
+      periodType: 'weekly' | 'monthly' | 'yearly';
+      startDate: string | null;
+      endDate: string | null;
+      rolloverEnabled: boolean;
+      rolloverAmountCents: number;
+      carryoverOverspent: boolean;
+      alertThreshold: number;
+      alertsEnabled: boolean;
+      isActive: boolean;
+    }>
+  ): Promise<BudgetRecord | null> {
+    const [budget] = await db
+      .update(financeBudgets)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(financeBudgets.id, id))
+      .returning();
+
+    return budget || null;
+  }
+
+  async deactivateBudget(id: string): Promise<void> {
+    await db
+      .update(financeBudgets)
+      .set({
+        isActive: false,
+        endDate: new Date().toISOString().split('T')[0],
+        updatedAt: new Date(),
+      })
+      .where(eq(financeBudgets.id, id));
+  }
+
+  async getBudgetStatuses(includeInactive = false, month?: string): Promise<BudgetStatus[]> {
+    const budgets = await this.getBudgets(includeInactive);
+    const now = new Date();
+    const viewMonth = month || this.getMonthKey(now);
+
+    const statuses: BudgetStatus[] = [];
+    for (const budget of budgets) {
+      const { periodStart, periodEnd } = this.getBudgetPeriodRange(budget, now, viewMonth);
+      const spentCents = await this.getBudgetSpending(budget, periodStart, periodEnd);
+      const budgetedCents = await this.getBudgetedAmount(budget.id, viewMonth, budget.amountCents);
+      const limitCents = this.getBudgetLimit(budget, budgetedCents);
+      const rawRemaining = limitCents - spentCents;
+      const remainingCents =
+        budget.carryoverOverspent === false ? Math.max(0, rawRemaining) : rawRemaining;
+      const percentUsed = limitCents > 0 ? Math.round((spentCents / limitCents) * 100) : 0;
+      const targetAmountCents = this.getTargetAmount(budget);
+      const targetProgressCents = budgetedCents;
+      const targetRemainingCents = Math.max(0, targetAmountCents - targetProgressCents);
+      const targetProgressPercent =
+        targetAmountCents > 0 ? Math.round((targetProgressCents / targetAmountCents) * 100) : 0;
+
+      statuses.push({
+        budget,
+        periodStart,
+        periodEnd,
+        spentCents,
+        remainingCents,
+        percentUsed,
+        limitCents,
+        isOverBudget: spentCents > limitCents,
+        budgetedCents,
+        targetAmountCents,
+        targetProgressCents,
+        targetRemainingCents,
+        targetProgressPercent,
+      });
+    }
+
+    return statuses;
+  }
+
+  async setBudgetAllocation(budgetId: string, month: string, amountCents: number): Promise<void> {
+    const normalized = this.normalizeMonth(month);
+
+    const existing = await db
+      .select()
+      .from(financeBudgetAllocations)
+      .where(and(eq(financeBudgetAllocations.budgetId, budgetId), eq(financeBudgetAllocations.month, normalized)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db
+        .update(financeBudgetAllocations)
+        .set({
+          amountCents,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(financeBudgetAllocations.budgetId, budgetId), eq(financeBudgetAllocations.month, normalized)));
+    } else {
+      await db.insert(financeBudgetAllocations).values({
+        budgetId,
+        month: normalized,
+        amountCents,
+      });
+    }
+  }
+
+  async checkBudgetAlerts(): Promise<{ alertsSent: number }> {
+    const statuses = await this.getBudgetStatuses(false);
+    let alertsSent = 0;
+
+    for (const status of statuses) {
+      const { budget, percentUsed, periodStart, periodEnd } = status;
+
+      if (budget.alertsEnabled === false) continue;
+      const threshold = budget.alertThreshold ?? 80;
+      if (percentUsed < threshold) continue;
+
+      const existing = await db
+        .select()
+        .from(financeInsights)
+        .where(
+          and(
+            eq(financeInsights.insightType, 'budget_warning'),
+            sql`${financeInsights.data}->>'budgetId' = ${budget.id}`,
+            sql`${financeInsights.data}->>'periodStart' = ${periodStart}`
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) continue;
+
+      const message = `💸 *Budget Alert*\n\n` +
+        `*${budget.name}* (${budget.category})\n` +
+        `Used: ${percentUsed}%\n` +
+        `Period: ${periodStart} → ${periodEnd}\n` +
+        `Remaining: ${formatCurrency(Math.max(status.remainingCents, 0))}\n\n` +
+        `_Check Command Center → Budget for details._`;
+
+      await notificationService.send(message, { priority: percentUsed >= 100 ? 'urgent' : 'high' });
+
+      await db.insert(financeInsights).values({
+        insightType: 'budget_warning',
+        category: budget.category,
+        title: `Budget warning: ${budget.name}`,
+        description: `Budget ${budget.name} crossed ${threshold}% (${percentUsed}%) for ${periodStart} - ${periodEnd}.`,
+        severity: percentUsed >= 100 ? 'alert' : 'warning',
+        actionable: true,
+        actionType: 'review',
+        data: {
+          budgetId: budget.id,
+          periodStart,
+          periodEnd,
+          percentUsed,
+          spentCents: status.spentCents,
+          limitCents: status.limitCents,
+        },
+      });
+
+      alertsSent += 1;
+    }
+
+    return { alertsSent };
+  }
+
+  private getBudgetLimit(budget: BudgetRecord, budgetedCents: number): number {
+    if (budget.rolloverEnabled) {
+      return budgetedCents + (budget.rolloverAmountCents || 0);
+    }
+    return budgetedCents;
+  }
+
+  private getTargetAmount(budget: BudgetRecord): number {
+    const target = budget.targetAmountCents ?? budget.amountCents;
+    switch (budget.targetType) {
+      case 'weekly':
+        return target * 4;
+      case 'yearly':
+        return Math.round(target / 12);
+      case 'monthly':
+      default:
+        return target;
+    }
+  }
+
+  private getBudgetPeriodRange(
+    budget: BudgetRecord,
+    referenceDate: Date,
+    monthOverride?: string
+  ): { periodStart: string; periodEnd: string } {
+    const ref = new Date(referenceDate);
+    ref.setHours(0, 0, 0, 0);
+
+    let start = new Date(ref);
+    let end = new Date(ref);
+
+    if (monthOverride) {
+      const [y, m] = this.normalizeMonth(monthOverride).split('-').map((v) => Number.parseInt(v, 10));
+      start = new Date(y, m - 1, 1);
+      end = new Date(y, m, 0);
+    } else {
+    switch (budget.periodType || 'monthly') {
+      case 'weekly': {
+        const day = ref.getDay(); // 0 = Sun
+        const diff = (day + 6) % 7; // Monday start
+        start.setDate(ref.getDate() - diff);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        break;
+      }
+      case 'yearly':
+        start = new Date(ref.getFullYear(), 0, 1);
+        end = new Date(ref.getFullYear(), 11, 31);
+        break;
+      case 'monthly':
+      default:
+        start = new Date(ref.getFullYear(), ref.getMonth(), 1);
+        end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+        break;
+    }
+    }
+
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+
+    const finalStart = budget.startDate && budget.startDate > startStr ? budget.startDate : startStr;
+    const finalEnd = budget.endDate && budget.endDate < endStr ? budget.endDate : endStr;
+
+    return { periodStart: finalStart, periodEnd: finalEnd };
+  }
+
+  private async getBudgetSpending(
+    budget: BudgetRecord,
+    periodStart: string,
+    periodEnd: string
+  ): Promise<number> {
+    const [result] = await db
+      .select({
+        total: sql<number>`coalesce(sum(${financeTransactions.amountCents}), 0)::int`,
+      })
+      .from(financeTransactions)
+      .where(
+        and(
+          gte(financeTransactions.date, periodStart),
+          lte(financeTransactions.date, periodEnd),
+          eq(financeTransactions.isExcluded, false),
+          sql`${financeTransactions.amountCents} > 0`,
+          sql`coalesce(${financeTransactions.userCategory}, ${financeTransactions.category}, 'Uncategorized') = ${budget.category}`
+        )
+      );
+
+    return result?.total || 0;
+  }
+
+  private async getBudgetedAmount(
+    budgetId: string,
+    month: string,
+    fallbackAmountCents: number
+  ): Promise<number> {
+    const normalized = this.normalizeMonth(month);
+    const [allocation] = await db
+      .select()
+      .from(financeBudgetAllocations)
+      .where(and(eq(financeBudgetAllocations.budgetId, budgetId), eq(financeBudgetAllocations.month, normalized)));
+
+    return allocation?.amountCents ?? fallbackAmountCents;
+  }
+
+  private normalizeMonth(month: string): string {
+    const [yearStr, monthStr] = month.split('-');
+    const year = Number.parseInt(yearStr, 10);
+    const monthNum = Number.parseInt(monthStr, 10);
+    if (!year || !monthNum) {
+      return this.getMonthKey(new Date());
+    }
+    return `${year.toString().padStart(4, '0')}-${monthNum.toString().padStart(2, '0')}`;
+  }
+
+  private getMonthKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${year}-${month}`;
+  }
+}
+
+function formatCurrency(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 }
 
 export const financeService = new FinanceService();

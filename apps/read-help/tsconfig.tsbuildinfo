@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/components/formattedcasecontent.tsx","./src/components/inlinechatpanel.tsx","./src/types/index.ts","./src/views/bookview.tsx","./src/views/chapterview.tsx","./src/views/flashcardsview.tsx","./src/views/libraryview.tsx","./src/views/searchview.tsx","./src/views/index.ts"],"version":"5.9.3"}

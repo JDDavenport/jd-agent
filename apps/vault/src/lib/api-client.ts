@@ -33,6 +33,14 @@ import type {
   CompleteReviewInput,
   ReviewHistoryItem,
   ArchivedTask,
+  PARAType,
+  PARAFolder,
+  InitializePARAResult,
+  ClassSummary,
+  ClassDetails,
+  ClassDayContent,
+  MbaClassesResponse,
+  MbaClassSessionResponse,
 } from './types';
 
 export class ApiClient {
@@ -233,6 +241,32 @@ export class ApiClient {
     return this.request('DELETE', `/api/vault/pages/${id}`);
   }
 
+  // PARA Organization
+  async getPARAFolders(): Promise<PARAFolder[]> {
+    return this.request('GET', '/api/vault/pages/para/folders');
+  }
+
+  async getPARAPages(paraType: PARAType): Promise<VaultPage[]> {
+    return this.request('GET', `/api/vault/pages/para/${paraType}`);
+  }
+
+  async initializePARA(): Promise<InitializePARAResult> {
+    return this.request('POST', '/api/vault/pages/para/initialize');
+  }
+
+  async moveToPARA(pageId: string, paraType: PARAType): Promise<VaultPage> {
+    return this.request('POST', `/api/vault/pages/${pageId}/move-to-para?paraType=${paraType}`);
+  }
+
+  // MBA Classes
+  async getMbaClasses(): Promise<MbaClassesResponse> {
+    return this.request('GET', '/api/vault/pages/mba-classes');
+  }
+
+  async getMbaClassSession(sessionId: string): Promise<MbaClassSessionResponse> {
+    return this.request('GET', `/api/vault/pages/mba-classes/${sessionId}`);
+  }
+
   // Vault Blocks
   async getVaultBlocks(pageId: string): Promise<VaultBlock[]> {
     return this.request('GET', `/api/vault/pages/${pageId}/blocks`);
@@ -374,6 +408,30 @@ export class ApiClient {
       .filter(task => task.title.toLowerCase().includes(queryLower))
       .slice(0, limit);
   }
+
+  // ============================================
+  // MBA Classes
+  // ============================================
+
+  async listClasses(): Promise<ClassSummary[]> {
+    return this.request('GET', '/api/classes');
+  }
+
+  async getClass(code: string): Promise<ClassDetails> {
+    return this.request('GET', `/api/classes/${code}`);
+  }
+
+  async getClassDayContent(code: string, date: string): Promise<ClassDayContent> {
+    return this.request('GET', `/api/classes/${code}/${date}`);
+  }
+
+  async combineClassNotes(code: string, date: string): Promise<{ vaultPageId: string }> {
+    return this.request('POST', `/api/classes/${code}/${date}/combine`);
+  }
+
+  async combineAllPendingClassNotes(): Promise<{ merged: number; errors: string[] }> {
+    return this.request('POST', '/api/classes/combine-all');
+  }
 }
 
 export function createClient(baseUrl: string = 'http://localhost:3000'): ApiClient {
@@ -408,4 +466,10 @@ export type {
   CompleteReviewInput,
   ReviewHistoryItem,
   ArchivedTask,
+  PARAType,
+  PARAFolder,
+  InitializePARAResult,
+  ClassSummary,
+  ClassDetails,
+  ClassDayContent,
 };

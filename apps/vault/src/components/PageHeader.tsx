@@ -97,6 +97,7 @@ export function PageHeader({
   };
 
   const hasCover = !!page.coverImage;
+  const showAddButtonsNow = isMobile || showAddButtons;
 
   // Get parent page for back navigation
   const parentPage = breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2] : null;
@@ -235,7 +236,7 @@ export function PageHeader({
             onMouseEnter={() => setShowAddButtons(true)}
             onMouseLeave={() => setShowAddButtons(false)}
           >
-            <div className={`flex gap-2 transition-opacity ${showAddButtons ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`flex gap-2 transition-opacity ${showAddButtonsNow ? 'opacity-100' : 'opacity-0'}`}>
               {!page.icon && (
                 <button
                   onClick={() => setShowIconPicker(true)}

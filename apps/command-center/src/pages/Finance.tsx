@@ -37,10 +37,29 @@ const getMonthlyEquivalent = (amountCents: number, periodType?: string | null): 
   }
 };
 
+const formatTargetLabel = (type?: string | null) => {
+  switch (type) {
+    case 'weekly':
+      return 'Weekly target';
+    case 'yearly':
+      return 'Yearly target';
+    case 'monthly':
+    default:
+      return 'Monthly target';
+  }
+};
+
+const getMonthKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${year}-${month}`;
+};
+
 function Finance() {
+  const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const { data: status, isLoading: statusLoading } = useFinanceStatus();
   const { data: overview } = useFinanceOverview();
-  const { data: budgets, isLoading: budgetsLoading } = useBudgets();
+  const { data: budgets, isLoading: budgetsLoading } = useBudgets(false, selectedMonth);
   const { data: recentTransactions } = useRecentTransactions(8);
   const { data: topCategories } = useSpendingByCategory();
   const syncAllMutation = useSyncAllAccounts();
@@ -59,11 +78,14 @@ function Finance() {
     groupName: '',
     category: '',
     amount: '',
+    targetType: 'monthly' as 'monthly' | 'weekly' | 'yearly',
+    targetAmount: '',
     periodType: 'monthly' as 'weekly' | 'monthly' | 'yearly',
     alertThreshold: DEFAULT_ALERT_THRESHOLD.toString(),
     alertsEnabled: true,
     rolloverEnabled: false,
     rolloverAmount: '',
+    carryoverOverspent: true,
   });
 
   const [editAmounts, setEditAmounts] = useState<Record<string, string>>({});
@@ -82,10 +104,10 @@ function Finance() {
     return budgets.reduce(
       (totals, item) => ({
         totalRemaining: totals.totalRemaining + item.remainingCents,
-        totalBudgeted: totals.totalBudgeted + item.budget.amountCents,
+        totalBudgeted: totals.totalBudgeted + item.budgetedCents,
         totalActivity: totals.totalActivity + item.spentCents,
         totalMonthlyBudgeted:
-          totals.totalMonthlyBudgeted + getMonthlyEquivalent(item.budget.amountCents, item.budget.periodType),
+          totals.totalMonthlyBudgeted + getMonthlyEquivalent(item.budgetedCents, item.budget.periodType),
       }),
       { totalRemaining: 0, totalBudgeted: 0, totalActivity: 0, totalMonthlyBudgeted: 0 }
     );
@@ -170,17 +192,22 @@ function Finance() {
 
     const alertThreshold = Number.parseInt(formState.alertThreshold, 10);
     const rolloverAmount = formState.rolloverAmount ? Number.parseFloat(formState.rolloverAmount) : undefined;
+    const targetAmount = formState.targetAmount ? Number.parseFloat(formState.targetAmount) : undefined;
 
     await createBudgetMutation.mutateAsync({
       name: formState.name.trim(),
       groupName: formState.groupName.trim() || undefined,
       category: formState.category.trim(),
       amount,
+      targetType: formState.targetType,
+      targetAmount,
+      month: selectedMonth,
       periodType: formState.periodType,
       alertThreshold: Number.isFinite(alertThreshold) ? alertThreshold : DEFAULT_ALERT_THRESHOLD,
       alertsEnabled: formState.alertsEnabled,
       rolloverEnabled: formState.rolloverEnabled,
       rolloverAmount,
+      carryoverOverspent: formState.carryoverOverspent,
     });
 
     setFormState({
@@ -188,11 +215,14 @@ function Finance() {
       groupName: '',
       category: '',
       amount: '',
+      targetType: 'monthly',
+      targetAmount: '',
       periodType: 'monthly',
       alertThreshold: DEFAULT_ALERT_THRESHOLD.toString(),
       alertsEnabled: true,
       rolloverEnabled: false,
       rolloverAmount: '',
+      carryoverOverspent: true,
     });
   };
 
@@ -208,16 +238,16 @@ function Finance() {
     const toBudget = budgets.find((item) => item.budget.id === moveMoney.toId);
     if (!fromBudget || !toBudget) return;
 
-    const fromAmount = fromBudget.budget.amountCents - Math.round(amount * 100);
+    const fromAmount = fromBudget.budgetedCents - Math.round(amount * 100);
     if (fromAmount < 0) return;
 
     await updateBudgetMutation.mutateAsync({
       id: fromBudget.budget.id,
-      data: { amount: fromAmount / 100 },
+      data: { amount: fromAmount / 100, month: selectedMonth },
     });
     await updateBudgetMutation.mutateAsync({
       id: toBudget.budget.id,
-      data: { amount: (toBudget.budget.amountCents + Math.round(amount * 100)) / 100 },
+      data: { amount: (toBudget.budgetedCents + Math.round(amount * 100)) / 100, month: selectedMonth },
     });
 
     setMoveMoney({ fromId: '', toId: '', amount: '' });
@@ -238,39 +268,107 @@ function Finance() {
           <h1 className="text-2xl font-semibold">Budget</h1>
           <p className="text-text-muted text-sm">Give every dollar a job. Zero-based, envelope-style budgeting.</p>
         </div>
-        <button
-          onClick={() => syncAllMutation.mutate()}
-          disabled={syncAllMutation.isPending}
-          className="btn btn-sm btn-accent"
-        >
-          {syncAllMutation.isPending ? 'Syncing...' : 'Sync now'}
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href="/finance/reports"
+            className="btn btn-sm"
+          >
+            Reports
+          </a>
+          <a
+            href="/finance/settings"
+            className="btn btn-sm"
+          >
+            Settings
+          </a>
+          <input
+            type="month"
+            className="input"
+            value={selectedMonth}
+            onChange={(event) => setSelectedMonth(event.target.value)}
+          />
+          <button
+            onClick={() => syncAllMutation.mutate()}
+            disabled={syncAllMutation.isPending}
+            className="btn btn-sm btn-accent"
+          >
+            {syncAllMutation.isPending ? 'Syncing...' : 'Sync now'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="card xl:col-span-2 space-y-6">
-          <div className="rounded-lg border border-dark-border p-4 bg-dark-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">To Be Budgeted</h2>
-                <p className="text-xs text-text-muted">Income minus assigned dollars this month.</p>
+          <div>
+            <h2 className="text-lg font-semibold mb-3">Budget Dashboard</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-dark-border p-4 bg-dark-card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">To Be Budgeted</h3>
+                    <p className="text-xs text-text-muted">Income minus assigned dollars.</p>
+                  </div>
+                  <div className={`text-lg font-semibold ${toBeBudgetedCents >= 0 ? 'text-success' : 'text-error'}`}>
+                    {formatCurrency(toBeBudgetedCents)}
+                  </div>
+                </div>
               </div>
-              <div className={`text-xl font-semibold ${toBeBudgetedCents >= 0 ? 'text-success' : 'text-error'}`}>
-                {formatCurrency(toBeBudgetedCents)}
+              <div className="rounded-lg border border-dark-border p-4 bg-dark-card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Budgeted</h3>
+                    <p className="text-xs text-text-muted">Total assigned this month.</p>
+                  </div>
+                  <div className="text-lg font-semibold text-text">
+                    {formatCurrency(budgetTotals.totalMonthlyBudgeted)}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-dark-border p-4 bg-dark-card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Activity</h3>
+                    <p className="text-xs text-text-muted">Spending this month.</p>
+                  </div>
+                  <div className="text-lg font-semibold text-text">
+                    {formatCurrency(budgetTotals.totalActivity)}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-dark-border p-4 bg-dark-card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Available</h3>
+                    <p className="text-xs text-text-muted">Remaining across categories.</p>
+                  </div>
+                  <div className={`text-lg font-semibold ${budgetTotals.totalRemaining >= 0 ? 'text-success' : 'text-error'}`}>
+                    {formatCurrency(budgetTotals.totalRemaining)}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-text-muted">
-              <div>
-                <p className="uppercase tracking-wide">Income</p>
-                <p className="text-sm text-text">{formatCurrency(overview?.monthlyIncomeCents || 0)}</p>
+            <div className="mt-4 rounded-lg border border-dark-border bg-dark-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">Categories at a glance</h3>
+                <span className="text-xs text-text-muted">{budgets?.length || 0} total</span>
               </div>
-              <div>
-                <p className="uppercase tracking-wide">Budgeted</p>
-                <p className="text-sm text-text">{formatCurrency(budgetTotals.totalMonthlyBudgeted)}</p>
-              </div>
-              <div>
-                <p className="uppercase tracking-wide">Activity</p>
-                <p className="text-sm text-text">{formatCurrency(budgetTotals.totalActivity)}</p>
+              <div className="space-y-2">
+                {budgets?.map((item) => (
+                  <div key={item.budget.id} className="flex items-center justify-between text-sm">
+                    <div className="min-w-0">
+                      <p className="text-text truncate">{item.budget.name}</p>
+                      <p className="text-xs text-text-muted">
+                        {item.budget.groupName || 'Uncategorized'} · {formatCurrency(item.budgetedCents)} budgeted
+                      </p>
+                    </div>
+                    <div className={`text-sm ${item.remainingCents >= 0 ? 'text-success' : 'text-error'}`}>
+                      {formatCurrency(item.remainingCents)}
+                    </div>
+                  </div>
+                ))}
+                {!budgets?.length && (
+                  <p className="text-xs text-text-muted">No categories yet. Add one below.</p>
+                )}
               </div>
             </div>
           </div>
@@ -290,7 +388,7 @@ function Finance() {
                       percent < 70 ? 'bg-success' : percent < 90 ? 'bg-warning' : 'bg-error';
 
                     const editValue =
-                      editAmounts[item.budget.id] ?? (item.budget.amountCents / 100).toFixed(2);
+                      editAmounts[item.budget.id] ?? (item.budgetedCents / 100).toFixed(2);
 
                     return (
                       <div key={item.budget.id} className="p-4 rounded-lg bg-dark-bg space-y-3">
@@ -333,6 +431,7 @@ function Finance() {
                                       amount: Number.isFinite(Number.parseFloat(editValue))
                                         ? Number.parseFloat(editValue)
                                         : 0,
+                                      month: selectedMonth,
                                     },
                                   })
                                 }
@@ -350,7 +449,16 @@ function Finance() {
                             <p className={`text-sm ${item.remainingCents >= 0 ? 'text-success' : 'text-error'}`}>
                               {formatCurrency(item.remainingCents)}
                             </p>
+                            <p className="text-[11px] text-text-muted">
+                              {item.budget.carryoverOverspent === false ? 'No overspend carry' : 'Carry overspend'}
+                            </p>
                           </div>
+                        </div>
+
+                        <div className="text-xs text-text-muted">
+                          {formatTargetLabel(item.budget.targetType)}:{' '}
+                          <span className="text-text">{formatCurrency(item.targetAmountCents)}</span> ·{' '}
+                          {item.targetProgressPercent}% funded · {formatCurrency(item.targetRemainingCents)} to go
                         </div>
 
                         <div>
@@ -525,7 +633,36 @@ function Finance() {
               />
             </div>
             <div>
-              <label className="text-xs text-text-muted">Monthly target (USD)</label>
+              <label className="text-xs text-text-muted">Target type</label>
+              <select
+                className="input mt-1 w-full"
+                value={formState.targetType}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    targetType: event.target.value as 'monthly' | 'weekly' | 'yearly',
+                  }))
+                }
+              >
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-text-muted">Target amount (USD)</label>
+              <input
+                className="input mt-1 w-full"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formState.targetAmount}
+                onChange={(event) => setFormState((prev) => ({ ...prev, targetAmount: event.target.value }))}
+                placeholder="500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted">Assigned this month (USD)</label>
               <input
                 className="input mt-1 w-full"
                 type="number"
@@ -573,6 +710,18 @@ function Finance() {
                   onChange={(event) => setFormState((prev) => ({ ...prev, alertsEnabled: event.target.checked }))}
                 />
                 Alerts enabled
+              </label>
+            </div>
+            <div className="flex items-center gap-3 pt-6">
+              <label className="flex items-center gap-2 text-sm text-text-muted">
+                <input
+                  type="checkbox"
+                  checked={formState.carryoverOverspent}
+                  onChange={(event) =>
+                    setFormState((prev) => ({ ...prev, carryoverOverspent: event.target.checked }))
+                  }
+                />
+                Carry overspending
               </label>
             </div>
             <div className="flex items-center gap-3">

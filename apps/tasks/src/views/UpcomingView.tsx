@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
   format,
   addDays,
@@ -19,9 +19,11 @@ interface DayGroup {
 
 interface UpcomingViewProps {
   onSelectTask?: (task: Task) => void;
+  selectedTaskId?: string | null;
+  onTaskListUpdate?: (tasks: Task[]) => void;
 }
 
-export function UpcomingView({ onSelectTask }: UpcomingViewProps) {
+export function UpcomingView({ onSelectTask, selectedTaskId, onTaskListUpdate }: UpcomingViewProps) {
   const { data: tasks, isLoading } = useTasks();
   const completeTask = useCompleteTask();
 
@@ -86,6 +88,15 @@ export function UpcomingView({ onSelectTask }: UpcomingViewProps) {
     );
   }, [tasks]);
 
+  const visibleTasks = useMemo(
+    () => dayGroups.flatMap((group) => group.tasks),
+    [dayGroups]
+  );
+
+  useEffect(() => {
+    onTaskListUpdate?.(visibleTasks);
+  }, [onTaskListUpdate, visibleTasks]);
+
   const handleComplete = (id: string) => {
     completeTask.mutate(id);
   };
@@ -133,7 +144,13 @@ export function UpcomingView({ onSelectTask }: UpcomingViewProps) {
           {group.tasks.length > 0 ? (
             <div>
               {group.tasks.map((task) => (
-                <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onComplete={handleComplete}
+                  onSelect={onSelectTask}
+                  isSelected={selectedTaskId === task.id}
+                />
               ))}
             </div>
           ) : (

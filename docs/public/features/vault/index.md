@@ -38,6 +38,53 @@ You'll see:
 
 ---
 
+## Install as a Native App (macOS)
+
+Vault now ships as a native macOS app using Tauri.
+
+### Prerequisites
+- Rust toolchain (`rustup` on macOS)
+- Xcode Command Line Tools (`xcode-select --install`)
+
+### Run Native (Dev)
+```
+cd apps/vault
+bun run tauri:dev
+```
+
+### Build Native App
+```
+cd apps/vault
+bun run tauri:build
+```
+
+**Note:** The app still needs the Hub running at `http://localhost:3000` (or set `VITE_API_URL` to your server).
+
+---
+
+## Install as an App (iOS - Basic)
+
+Basic mobile access is available via PWA while the native iOS build is in progress.
+
+1. Open http://localhost:5175 in Safari
+2. Tap **Share** → **Add to Home Screen**
+3. Launch it from your home screen
+
+### iOS Experience Highlights
+
+- **Home + Recents**: Quick access to recently edited pages
+- **Quick Actions**: New note, search, journal, archive
+- **Ask AI**: One-tap chat entry from home
+- **Pull-to-Refresh**: Refresh pages list on demand
+- **Swipe Actions**: Favorite, archive, or delete pages from lists
+- **Floating New Note**: Always-visible create button on mobile
+- **Mobile Editor**: Auto-save with visible status feedback
+- **Keyboard-Safe Layout**: Navigation stays clear when typing
+- **Update Prompt**: PWA shows a refresh banner when a new build is available
+- **Build Stamp**: Small build timestamp at bottom for troubleshooting
+
+---
+
 ## Content Types
 
 The Vault stores many types of content:
@@ -356,4 +403,4 @@ Supported: PDF, images, documents
 
 ---
 
-*Last updated: January 8, 2026*
+*Last updated: January 24, 2026*

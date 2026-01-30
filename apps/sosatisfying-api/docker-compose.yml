@@ -1,0 +1,16 @@
+services:
+  sosatisfying-db:
+    image: postgres:16
+    container_name: sosatisfying-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sosatisfying
+      POSTGRES_PASSWORD: sosatisfying
+      POSTGRES_DB: sosatisfying
+    ports:
+      - "5542:5432"
+    volumes:
+      - sosatisfying_db_data:/var/lib/postgresql/data
+
+volumes:
+  sosatisfying_db_data:

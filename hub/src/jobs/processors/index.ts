@@ -20,3 +20,8 @@ export {
   processRecurrenceGenerateJob,
   processRecurrenceBatchJob,
 } from './recurrence';
+export { processPlaudSyncJob } from './plaud-sync';
+export {
+  processNotebookProcessJob,
+  processNotebookSyncJob,
+} from './notebook';

@@ -226,7 +226,7 @@ export class LinkedInAdapter extends BaseJobAdapter {
 
         console.log('Found job cards:', jobCards.length);
 
-        jobCards.forEach((card) => {
+        jobCards.forEach((card: Element) => {
           // Try multiple selectors for each field
           const titleEl = card.querySelector('a[class*="job-card"] strong, .job-card-list__title, a.job-card-container__link, [class*="job-card"] a') as HTMLElement;
           const companyEl = card.querySelector('[class*="company-name"], .artdeco-entity-lockup__subtitle, [class*="primary-description"]') as HTMLElement;
@@ -306,7 +306,7 @@ export class LinkedInAdapter extends BaseJobAdapter {
         // Try to extract requirements from description
         const requirements: string[] = [];
         const listItems = descriptionEl?.querySelectorAll('li');
-        listItems?.forEach((li) => {
+        listItems?.forEach((li: Element) => {
           const text = li.textContent?.trim();
           if (text && text.length < 500) {
             requirements.push(text);

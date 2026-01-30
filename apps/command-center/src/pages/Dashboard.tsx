@@ -21,7 +21,6 @@ import KeyboardShortcutsModal from '../components/common/KeyboardShortcutsModal'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 // Lazy load heavy components for better initial load performance
-const CanvasHub = lazy(() => import('../components/dashboard/CanvasHub'));
 const FitnessWidget = lazy(() => import('../components/dashboard/FitnessWidget'));
 const SystemMonitor = lazy(() => import('../components/dashboard/SystemMonitor'));
 const FinanceWidget = lazy(() => import('../components/dashboard/FinanceWidget'));

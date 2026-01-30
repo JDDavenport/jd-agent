@@ -203,7 +203,11 @@ export class WhoopAutoAuth {
         return { success: false, error: `Token exchange failed: ${error}` };
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+      };
 
       return {
         success: true,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -14,6 +14,8 @@ interface ProjectViewProps {
   projectId: string;
   onSelectProject?: (projectId: string) => void;
   onSelectTask?: (task: Task) => void;
+  selectedTaskId?: string | null;
+  onTaskListUpdate?: (tasks: Task[]) => void;
 }
 
 interface SectionGroup {
@@ -23,7 +25,13 @@ interface SectionGroup {
   isCollapsed: boolean;
 }
 
-export function ProjectView({ projectId, onSelectProject, onSelectTask }: ProjectViewProps) {
+export function ProjectView({
+  projectId,
+  onSelectProject,
+  onSelectTask,
+  selectedTaskId,
+  onTaskListUpdate,
+}: ProjectViewProps) {
   const { data: allTasks, isLoading: tasksLoading } = useTasks();
   const { data: projects } = useProjects();
   const completeTask = useCompleteTask();
@@ -65,6 +73,16 @@ export function ProjectView({ projectId, onSelectProject, onSelectTask }: Projec
 
     return { sections: sectionGroups, completedTasks: completed };
   }, [allTasks, projectId, collapsedSections]);
+
+  const visibleTasks = useMemo(() => {
+    const sectionTasks = sections.flatMap((section) => section.tasks);
+    const completedSlice = completedTasks.slice(0, 5);
+    return [...sectionTasks, ...completedSlice];
+  }, [sections, completedTasks]);
+
+  useEffect(() => {
+    onTaskListUpdate?.(visibleTasks);
+  }, [onTaskListUpdate, visibleTasks]);
 
   const toggleSection = (sectionId: string) => {
     setCollapsedSections((prev) => {
@@ -176,7 +194,13 @@ export function ProjectView({ projectId, onSelectProject, onSelectTask }: Projec
               {section.tasks.length > 0 && (
                 <div>
                   {section.tasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onComplete={handleComplete}
+                      onSelect={onSelectTask}
+                      isSelected={selectedTaskId === task.id}
+                    />
                   ))}
                 </div>
               )}
@@ -205,7 +229,13 @@ export function ProjectView({ projectId, onSelectProject, onSelectTask }: Projec
           </div>
           <div>
             {completedTasks.slice(0, 5).map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={handleComplete} onSelect={onSelectTask} />
+              <TaskCard
+                key={task.id}
+                task={task}
+                onComplete={handleComplete}
+                onSelect={onSelectTask}
+                isSelected={selectedTaskId === task.id}
+              />
             ))}
             {completedTasks.length > 5 && (
               <div className="px-6 py-3 text-center text-sm text-gray-500">

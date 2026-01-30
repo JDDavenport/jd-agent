@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-01-26T17:41:24.658Z",
+  "duration": 11943,
+  "summary": {
+    "total": 13,
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 1
+  },
+  "results": [
+    {
+      "name": "Environment Configuration",
+      "category": "build",
+      "status": "pass",
+      "message": "API URL: http://10.34.144.203:3000",
+      "duration": 1
+    },
+    {
+      "name": "Tauri Configuration",
+      "category": "build",
+      "status": "pass",
+      "message": "frontendDist: ../dist, beforeBuildCommand: bun run build",
+      "duration": 0
+    },
+    {
+      "name": "Frontend Build Output",
+      "category": "build",
+      "status": "pass",
+      "message": "3 JS files, 1 CSS files",
+      "duration": 0
+    },
+    {
+      "name": "Built API URL Verification",
+      "category": "build",
+      "status": "pass",
+      "message": "API URL correctly embedded in build",
+      "duration": 1
+    },
+    {
+      "name": "iOS Build Artifacts",
+      "category": "build",
+      "status": "pass",
+      "message": "Found: IPA (device), App (simulator)",
+      "duration": 0
+    },
+    {
+      "name": "Hub Health (localhost)",
+      "category": "api",
+      "status": "pass",
+      "message": "Hub healthy - uptime: 1390s",
+      "duration": 10
+    },
+    {
+      "name": "Hub Health (network IP)",
+      "category": "api",
+      "status": "pass",
+      "message": "Hub reachable at 10.34.144.203:3000",
+      "duration": 10
+    },
+    {
+      "name": "Vault Pages API",
+      "category": "api",
+      "status": "pass",
+      "message": "undefined pages in database",
+      "duration": 2
+    },
+    {
+      "name": "Railway Production Status",
+      "category": "api",
+      "status": "warn",
+      "message": "Railway production is down - use local Hub",
+      "duration": 5002
+    },
+    {
+      "name": "Simulator Status",
+      "category": "ui",
+      "status": "pass",
+      "message": "    iPhone 17 Pro is booted",
+      "duration": 115
+    },
+    {
+      "name": "App Installation (Simulator)",
+      "category": "ui",
+      "status": "pass",
+      "message": "com.jdagent.vault is installed",
+      "duration": 136
+    },
+    {
+      "name": "Screenshot: Home Screen",
+      "category": "ui",
+      "status": "pass",
+      "message": "Saved: test-home-screen-1769449281220.png",
+      "duration": 1223
+    },
+    {
+      "name": "Screenshot: After 3 seconds",
+      "category": "ui",
+      "status": "pass",
+      "message": "Saved: test-after-3-seconds-1769449284444.png",
+      "duration": 3215
+    }
+  ],
+  "screenshots": [
+    "/Users/jddavenport/Projects/JD Agent/hub/storage/ios-test-screenshots/test-home-screen-1769449281220.png",
+    "/Users/jddavenport/Projects/JD Agent/hub/storage/ios-test-screenshots/test-after-3-seconds-1769449284444.png"
+  ]
+}

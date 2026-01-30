@@ -52,7 +52,7 @@ export class MBAExchangeAdapter extends BaseJobAdapter {
       await this.page.evaluate(({ email, password }) => {
         // Find all email inputs and get the visible one
         const emailInputs = document.querySelectorAll('input[placeholder*="Email"], input[type="email"]');
-        for (const input of emailInputs) {
+        for (const input of Array.from(emailInputs)) {
           const el = input as HTMLInputElement;
           if (el.offsetParent !== null) { // Check if visible
             el.value = email;
@@ -63,7 +63,7 @@ export class MBAExchangeAdapter extends BaseJobAdapter {
 
         // Find visible password input
         const passwordInputs = document.querySelectorAll('input[type="password"], input[placeholder*="Password"]');
-        for (const input of passwordInputs) {
+        for (const input of Array.from(passwordInputs)) {
           const el = input as HTMLInputElement;
           if (el.offsetParent !== null) { // Check if visible
             el.value = password;
@@ -78,7 +78,7 @@ export class MBAExchangeAdapter extends BaseJobAdapter {
       // Click the visible Log In button using JavaScript
       await this.page.evaluate(() => {
         const buttons = document.querySelectorAll('button[type="submit"]');
-        for (const button of buttons) {
+        for (const button of Array.from(buttons)) {
           const el = button as HTMLButtonElement;
           if (el.offsetParent !== null && el.textContent?.includes('Log In')) {
             el.click();

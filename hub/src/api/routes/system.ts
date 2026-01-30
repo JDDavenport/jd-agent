@@ -11,6 +11,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { timeTrackingService } from '../../services/time-tracking-service';
 import { integrityService } from '../../services/integrity-service';
+import { communicationMonitorService } from '../../services/communication-monitor-service';
 import { ValidationError } from '../middleware/error-handler';
 
 const systemRouter = new Hono();
@@ -271,6 +272,54 @@ systemRouter.get('/info', async (c) => {
       services,
       integrations,
     },
+  });
+});
+
+// ============================================
+// Communication Monitoring Routes
+// ============================================
+
+/**
+ * GET /api/system/communications/status
+ * Get status of all communication monitors
+ */
+systemRouter.get('/communications/status', async (c) => {
+  const status = await communicationMonitorService.getStatus();
+
+  return c.json({
+    success: true,
+    data: status,
+  });
+});
+
+/**
+ * POST /api/system/communications/check
+ * Manually trigger all communication checks
+ */
+systemRouter.post('/communications/check', async (c) => {
+  console.log('[API] Manual communication check triggered');
+
+  const results = await communicationMonitorService.runAllChecks();
+
+  return c.json({
+    success: true,
+    data: results,
+    message: `Checked all channels: ${results.totalNew} new, ${results.totalUrgent} urgent, ${results.totalNotified} notified`,
+  });
+});
+
+/**
+ * POST /api/system/communications/initialize
+ * Initialize communication monitoring (set checkpoints)
+ */
+systemRouter.post('/communications/initialize', async (c) => {
+  console.log('[API] Initializing communication monitoring...');
+
+  await communicationMonitorService.initialize();
+
+  return c.json({
+    success: true,
+    message: 'Communication monitoring initialized',
   });
 });
 

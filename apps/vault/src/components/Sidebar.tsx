@@ -14,6 +14,9 @@ import {
   TagIcon,
   Squares2X2Icon,
   FlagIcon,
+  BookOpenIcon,
+  HomeIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { PageTree } from './PageTreeItem';
@@ -92,6 +95,19 @@ export function Sidebar({
     { id: 'people', name: 'People', icon: UsersIcon, type: 'people' },
     { id: 'recordings', name: 'Recordings', icon: MicrophoneIcon, type: 'recordings' },
     { id: 'tags', name: 'Tags', icon: TagIcon, type: 'tags' },
+  ];
+
+  const externalApps = [
+    {
+      name: 'Books',
+      url: 'http://localhost:5183',
+      icon: BookOpenIcon,
+    },
+    {
+      name: 'Command Center',
+      url: 'http://localhost:5173',
+      icon: HomeIcon,
+    },
   ];
 
   const handlePageSelect = (id: string) => {
@@ -208,6 +224,28 @@ export function Sidebar({
                 <item.icon className="w-5 h-5" />
                 <span className="flex-1 text-left">{item.name}</span>
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Apps */}
+        <div className="mt-6">
+          <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            Apps
+          </div>
+          <div className="mt-1 space-y-1">
+            {externalApps.map((app) => (
+              <a
+                key={app.name}
+                href={app.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <app.icon className="w-5 h-5" />
+                <span className="flex-1 text-left">{app.name}</span>
+                <ArrowTopRightOnSquareIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+              </a>
             ))}
           </div>
         </div>

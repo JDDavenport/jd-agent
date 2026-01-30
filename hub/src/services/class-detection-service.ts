@@ -9,8 +9,10 @@
  */
 
 import { db } from '../db/client';
-import { vaultEntries } from '../db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { vaultEntries, remarkableVaultSync, vaultBlocks, vaultPages } from '../db/schema';
+import { eq, and, isNull, desc } from 'drizzle-orm';
+import { vaultBlockService } from './vault-block-service';
+import { canvasIntegrityService } from './canvas-integrity-service';
 
 // Known MBA courses - expand as needed
 const MBA_COURSES: Record<string, { name: string; keywords: string[]; professors?: string[] }> = {
@@ -256,11 +258,16 @@ function detectClassBoundaries(
  * Returns the parent ID for the specific class folder
  *
  * Hierarchy: MBA -> Winter2026 -> [CourseCode] -> [Date - Topic]
+ * Also links vault folders to Canvas projects when available
  */
 export async function getOrCreateClassFolder(
   courseCode: string,
   semester: string = 'Winter2026'
 ): Promise<string> {
+  // Get the Canvas project for this course code (if exists)
+  const canvasProject = await canvasIntegrityService.getProjectByCourseCode(courseCode);
+  const projectId = canvasProject?.id;
+
   // 1. Get or create "MBA" root folder
   let mbaFolder = await db.query.vaultEntries.findFirst({
     where: and(
@@ -323,10 +330,17 @@ export async function getOrCreateClassFolder(
       contentType: 'folder',
       context: courseCode,
       parentId: semesterFolder.id,
+      projectId, // Link to Canvas project
       source: 'system',
       tags: ['mba', courseCode.toLowerCase(), 'course'],
     }).returning();
     courseFolder = created;
+  } else if (projectId && !courseFolder.projectId) {
+    // Update existing folder with project link if not already set
+    await db.update(vaultEntries)
+      .set({ projectId, updatedAt: new Date() })
+      .where(eq(vaultEntries.id, courseFolder.id));
+    courseFolder = { ...courseFolder, projectId };
   }
 
   return courseFolder.id;
@@ -334,6 +348,7 @@ export async function getOrCreateClassFolder(
 
 /**
  * Create a Vault entry for a class recording
+ * Links to Canvas project when available
  */
 export async function createClassVaultEntry(opts: {
   recordingId: string;
@@ -347,8 +362,12 @@ export async function createClassVaultEntry(opts: {
 }): Promise<string> {
   const { recordingId, courseCode, lectureDate, title, summary, keyPoints, transcript, topics } = opts;
 
-  // Get the course folder
+  // Get the course folder (will also ensure project link)
   const parentId = await getOrCreateClassFolder(courseCode);
+
+  // Get the Canvas project for this course code
+  const canvasProject = await canvasIntegrityService.getProjectByCourseCode(courseCode);
+  const projectId = canvasProject?.id;
 
   // Format the lecture title with date
   const dateStr = lectureDate.toISOString().split('T')[0];
@@ -373,13 +392,14 @@ ${topics.map(t => `- ${t}`).join('\n')}
 ${transcript}
 `;
 
-  // Create the vault entry
+  // Create the vault entry with project link
   const [entry] = await db.insert(vaultEntries).values({
     title: fullTitle,
     content,
     contentType: 'lecture',
     context: courseCode,
     parentId,
+    projectId, // Link to Canvas project
     source: 'plaud',
     sourceRef: `recording:${recordingId}`,
     recordingId,
@@ -387,7 +407,219 @@ ${transcript}
     tags: ['mba', courseCode.toLowerCase(), 'lecture', 'recording', ...topics.slice(0, 3)],
   }).returning();
 
-  console.log(`[ClassDetection] Created vault entry ${entry.id} for ${fullTitle}`);
+  console.log(`[ClassDetection] Created vault entry ${entry.id} for ${fullTitle}${projectId ? ` (linked to project ${projectId})` : ''}`);
+
+  // Also try to link to Remarkable vault day page if it exists
+  await linkRecordingToVaultDayPage({
+    recordingId,
+    courseCode,
+    lectureDate,
+    summary,
+    keyPoints,
+    transcript,
+  });
 
   return entry.id;
+}
+
+/**
+ * Map Canvas/recording class codes to Remarkable folder names
+ * Remarkable uses short names like "Strategy", "Analytics" while Canvas uses "MBA 580-002: Business Strategy"
+ */
+const CLASS_CODE_MAPPING: Record<string, string[]> = {
+  // Map from keywords/course codes to possible Remarkable folder names
+  'MBA501': ['Strategic Management', 'MGMT501', 'Strategy'],
+  'MBA502': ['Financial Accounting', 'Accounting'],
+  'MBA503': ['Marketing', 'Marketing Management'],
+  'MBA504': ['Operations', 'Operations Management', '530 Operations'],
+  'MBA505': ['OB', 'Organizational Behavior', 'HR'],
+  'MBA506': ['Economics', 'Econ'],
+  'MBA507': ['Finance'],
+  'MBA508': ['Analytics', 'Business Analytics'],
+  'MBA509': ['Ethics', 'Leadership'],
+  'MBA510': ['Entrepreneurship', 'Entrepreneurial Innovation', 'Entrepenurial Innovation'],
+  'MBA560': ['Analytics', 'Business Analytics'],
+  'MBA580': ['Strategy', 'Business Strategy'],
+  'MBA654': ['Client Acquisition', 'Strategic Client'],
+  'MBA664': ['Venture Capital', 'Private Equity', 'VC'],
+  'MBA677': ['ETA', 'Entreprenrshp Thru Acquisition', 'Acquisition'],
+};
+
+/**
+ * Find the vault day page created by Remarkable sync for a specific class and date
+ */
+async function findVaultDayPage(courseCode: string, dateStr: string): Promise<string | null> {
+  // Try direct match first
+  const [directSync] = await db
+    .select()
+    .from(remarkableVaultSync)
+    .where(
+      and(
+        eq(remarkableVaultSync.classCode, courseCode),
+        eq(remarkableVaultSync.noteDate, dateStr)
+      )
+    )
+    .limit(1);
+
+  if (directSync?.vaultPageId) {
+    return directSync.vaultPageId;
+  }
+
+  // Try mapped class names
+  const possibleNames = CLASS_CODE_MAPPING[courseCode] || [];
+  for (const className of possibleNames) {
+    const [sync] = await db
+      .select()
+      .from(remarkableVaultSync)
+      .where(
+        and(
+          eq(remarkableVaultSync.classCode, className),
+          eq(remarkableVaultSync.noteDate, dateStr)
+        )
+      )
+      .limit(1);
+
+    if (sync?.vaultPageId) {
+      console.log(`[ClassDetection] Found vault page via mapped name: ${className}`);
+      return sync.vaultPageId;
+    }
+  }
+
+  // Try finding by searching vault pages directly (fallback)
+  // Look for a page with the date as title under a class folder
+  const [dayPage] = await db
+    .select()
+    .from(vaultPages)
+    .where(eq(vaultPages.title, dateStr))
+    .limit(1);
+
+  if (dayPage) {
+    // Verify it's under a class folder by checking parent chain
+    const [parent] = await db
+      .select()
+      .from(vaultPages)
+      .where(eq(vaultPages.id, dayPage.parentId || ''))
+      .limit(1);
+
+    if (parent) {
+      // Check if parent matches any known class name
+      const parentTitle = parent.title.toLowerCase();
+      for (const [code, names] of Object.entries(CLASS_CODE_MAPPING)) {
+        if (names.some(name => parentTitle.includes(name.toLowerCase()))) {
+          console.log(`[ClassDetection] Found vault page via parent match: ${parent.title}`);
+          return dayPage.id;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Link a recording to the existing vault day page (from Remarkable sync)
+ * Adds blocks with the recording summary and transcript
+ */
+async function linkRecordingToVaultDayPage(opts: {
+  recordingId: string;
+  courseCode: string;
+  lectureDate: Date;
+  summary: string;
+  keyPoints: string[];
+  transcript: string;
+}): Promise<boolean> {
+  const { recordingId, courseCode, lectureDate, summary, keyPoints, transcript } = opts;
+  const dateStr = lectureDate.toISOString().split('T')[0];
+
+  try {
+    // Find the vault day page
+    const dayPageId = await findVaultDayPage(courseCode, dateStr);
+
+    if (!dayPageId) {
+      console.log(`[ClassDetection] No vault day page found for ${courseCode} on ${dateStr}`);
+      return false;
+    }
+
+    console.log(`[ClassDetection] Linking recording ${recordingId} to vault page ${dayPageId}`);
+
+    // Check if recording is already linked (avoid duplicates)
+    const existingBlocks = await db
+      .select()
+      .from(vaultBlocks)
+      .where(eq(vaultBlocks.pageId, dayPageId));
+
+    const alreadyLinked = existingBlocks.some(block => {
+      const content = block.content as Record<string, unknown>;
+      return content?.recordingId === recordingId;
+    });
+
+    if (alreadyLinked) {
+      console.log(`[ClassDetection] Recording ${recordingId} already linked to page ${dayPageId}`);
+      return true;
+    }
+
+    // Get max sort order
+    const maxSortOrder = existingBlocks.length > 0
+      ? Math.max(...existingBlocks.map(b => b.sortOrder))
+      : 0;
+
+    // Add a divider block
+    await vaultBlockService.create(dayPageId, {
+      type: 'divider',
+      content: {},
+      sortOrder: maxSortOrder + 1,
+    });
+
+    // Add heading for recording
+    await vaultBlockService.create(dayPageId, {
+      type: 'heading_2',
+      content: {
+        text: '🎙️ Class Recording',
+        recordingId,
+      },
+      sortOrder: maxSortOrder + 2,
+    });
+
+    // Add summary block
+    await vaultBlockService.create(dayPageId, {
+      type: 'text',
+      content: {
+        text: `**Summary:**\n${summary}`,
+        recordingId,
+      },
+      sortOrder: maxSortOrder + 3,
+    });
+
+    // Add key points as bulleted list
+    if (keyPoints.length > 0) {
+      await vaultBlockService.create(dayPageId, {
+        type: 'bulleted_list',
+        content: {
+          items: keyPoints.map(point => ({ text: point })),
+          recordingId,
+        },
+        sortOrder: maxSortOrder + 4,
+      });
+    }
+
+    // Add collapsible transcript
+    await vaultBlockService.create(dayPageId, {
+      type: 'toggle',
+      content: {
+        text: '📝 Full Transcript',
+        children: [{
+          type: 'text',
+          content: { text: transcript.substring(0, 10000) }, // Limit to 10k chars
+        }],
+        recordingId,
+      },
+      sortOrder: maxSortOrder + 5,
+    });
+
+    console.log(`[ClassDetection] Successfully linked recording to vault page ${dayPageId}`);
+    return true;
+  } catch (error) {
+    console.error(`[ClassDetection] Error linking recording to vault page:`, error);
+    return false;
+  }
 }

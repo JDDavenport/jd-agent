@@ -414,6 +414,7 @@ class OllamaProvider extends BaseProvider {
   private host: string;
   private visionModel: string;  // For image analysis (llava)
   private chatModel: string;    // For tool calling (llama3.1)
+  private checkedModels = new Set<string>();
 
   constructor(host?: string, visionModel?: string, chatModel?: string) {
     super();
@@ -433,6 +434,7 @@ class OllamaProvider extends BaseProvider {
     messages: VisionMessage[],
     tools: TestingTool[]
   ): Promise<VisionResponse> {
+    await this.ensureModel(this.chatModel);
     // Ollama doesn't have native tool support, so we use a prompt-based approach
     const toolDescriptions = tools.map((t) =>
       `- ${t.name}: ${t.description}\n  Parameters: ${JSON.stringify(t.input_schema)}`
@@ -505,6 +507,7 @@ ${toolDescriptions}`;
   ): Promise<ImageAnalysisResult> {
     // Ollama supports vision with llava or similar models
     try {
+      await this.ensureModel(this.visionModel);
       // Only use first image for Ollama (simpler API)
       const image = images[0];
       if (!image) {
@@ -538,6 +541,41 @@ ${toolDescriptions}`;
       };
     }
   }
+
+  private async ensureModel(model: string): Promise<void> {
+    if (this.checkedModels.has(model)) {
+      return;
+    }
+
+    try {
+      const tagsResponse = await fetch(`${this.host}/api/tags`);
+      if (!tagsResponse.ok) {
+        throw new Error(`Ollama tags request failed: ${tagsResponse.status}`);
+      }
+
+      const tagsData = await tagsResponse.json();
+      const models: Array<{ name?: string }> = Array.isArray(tagsData?.models) ? tagsData.models : [];
+      const hasModel = models.some((entry) => entry?.name === model);
+
+      if (!hasModel) {
+        console.log(`[OllamaProvider] Pulling missing model: ${model}`);
+        const pullResponse = await fetch(`${this.host}/api/pull`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, stream: false }),
+        });
+
+        if (!pullResponse.ok) {
+          throw new Error(`Ollama pull failed: ${pullResponse.status}`);
+        }
+      }
+
+      this.checkedModels.add(model);
+    } catch (error) {
+      console.error(`[OllamaProvider] Failed to verify/pull model ${model}:`, error);
+      throw error;
+    }
+  }
 }
 
 // ============================================
@@ -552,7 +590,7 @@ export class VisionProvider {
   constructor(config: VisionProviderConfig = {}) {
     this.config = config;
 
-    // Default fallback order
+    // Default fallback order (use cloud providers first, then local Ollama)
     const fallbackOrder = config.fallbackOrder || ['openai', 'anthropic', 'google', 'ollama'];
 
     // Initialize providers based on fallback order
@@ -563,7 +601,7 @@ export class VisionProvider {
       }
     }
 
-    // Select active provider
+    // Select active provider (prefer configured provider, otherwise first available)
     this.selectProvider(config.preferredProvider);
   }
 

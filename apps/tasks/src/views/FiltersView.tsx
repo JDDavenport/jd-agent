@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { isPast, isToday, parseISO } from 'date-fns';
 import {
   TagIcon,
   AtSymbolIcon,
@@ -12,11 +13,25 @@ import type { Task } from '../api';
 
 type FilterType = 'labels' | 'contexts';
 
-export function FiltersView() {
+interface FiltersViewProps {
+  filterId?: string;
+  onSelectTask?: (task: Task) => void;
+  selectedTaskId?: string | null;
+  onTaskListUpdate?: (tasks: Task[]) => void;
+}
+
+export function FiltersView({
+  filterId,
+  onSelectTask,
+  selectedTaskId,
+  onTaskListUpdate,
+}: FiltersViewProps) {
   const { data: tasks, isLoading } = useTasks();
   const completeTask = useCompleteTask();
   const [activeFilter, setActiveFilter] = useState<FilterType>('labels');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const quickFilter = filterId?.startsWith('filter-') ? filterId : null;
 
   const { labels, contexts } = useMemo((): { labels: Map<string, Task[]>; contexts: Map<string, Task[]> } => {
     if (!tasks) return { labels: new Map<string, Task[]>(), contexts: new Map<string, Task[]>() };
@@ -45,6 +60,25 @@ export function FiltersView() {
     return { labels: labelMap, contexts: contextMap };
   }, [tasks]);
 
+  const quickFilteredTasks = useMemo(() => {
+    if (!tasks || !quickFilter) return [];
+    const activeTasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'archived');
+    switch (quickFilter) {
+      case 'filter-priority':
+        return activeTasks.filter((t) => (t.priority || 0) >= 3);
+      case 'filter-overdue':
+        return activeTasks.filter((t) => {
+          if (!t.dueDate) return false;
+          const dueDate = parseISO(t.dueDate);
+          return isPast(dueDate) && !isToday(dueDate);
+        });
+      case 'filter-no-date':
+        return activeTasks.filter((t) => !t.dueDate);
+      default:
+        return activeTasks;
+    }
+  }, [tasks, quickFilter]);
+
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -60,6 +94,24 @@ export function FiltersView() {
   const handleComplete = (id: string) => {
     completeTask.mutate(id);
   };
+
+  const visibleGroupedTasks = useMemo(() => {
+    const activeMap = activeFilter === 'labels' ? labels : contexts;
+    const sortedEntries = Array.from(activeMap.entries()).sort(
+      (a, b) => b[1].length - a[1].length
+    );
+    return sortedEntries.flatMap(([name, groupTasks]) =>
+      expandedGroups.has(name) ? groupTasks : []
+    );
+  }, [activeFilter, labels, contexts, expandedGroups]);
+
+  useEffect(() => {
+    if (quickFilter) {
+      onTaskListUpdate?.(quickFilteredTasks);
+    } else {
+      onTaskListUpdate?.(visibleGroupedTasks);
+    }
+  }, [quickFilter, quickFilteredTasks, visibleGroupedTasks, onTaskListUpdate]);
 
   if (isLoading) {
     return (
@@ -77,6 +129,46 @@ export function FiltersView() {
   const sortedEntries = Array.from(activeMap.entries()).sort(
     (a, b) => b[1].length - a[1].length
   );
+
+  if (quickFilter) {
+    const title =
+      quickFilter === 'filter-priority'
+        ? 'High Priority'
+        : quickFilter === 'filter-overdue'
+          ? 'Overdue'
+          : 'No Due Date';
+
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <p className="text-sm text-gray-500">{quickFilteredTasks.length} tasks</p>
+        </div>
+
+        {quickFilteredTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <TagIcon className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">Nothing here</h3>
+            <p className="text-gray-500 max-w-sm">No tasks match this filter right now.</p>
+          </div>
+        ) : (
+          <div>
+            {quickFilteredTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onComplete={handleComplete}
+                onSelect={onSelectTask}
+                isSelected={selectedTaskId === task.id}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -155,7 +247,13 @@ export function FiltersView() {
                 {isExpanded && (
                   <div>
                     {groupTasks.map((task) => (
-                      <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onComplete={handleComplete}
+                        onSelect={onSelectTask}
+                        isSelected={selectedTaskId === task.id}
+                      />
                     ))}
                   </div>
                 )}

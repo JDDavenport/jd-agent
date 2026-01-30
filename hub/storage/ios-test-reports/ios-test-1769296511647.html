@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>iOS Test Report - ios-test-1769296511647</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    .header { background: white; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { margin: 0 0 16px 0; font-size: 24px; }
+    .meta { color: #666; font-size: 14px; }
+    .summary { display: flex; gap: 16px; margin-top: 16px; }
+    .summary-item { padding: 12px 20px; border-radius: 8px; color: white; font-weight: 600; }
+    .results { display: flex; flex-direction: column; gap: 12px; }
+    .result { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .req-id { font-weight: 600; color: #374151; }
+    .status { padding: 2px 8px; border-radius: 4px; color: white; font-size: 12px; font-weight: 600; }
+    .confidence { color: #6b7280; font-size: 12px; }
+    .req-description { font-size: 16px; color: #111; margin-bottom: 8px; }
+    .evidence, .notes { font-size: 14px; color: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🍎 iOS App Test Report</h1>
+    <div class="meta">
+      <p><strong>Bundle ID:</strong> com.jdagent.vault</p>
+      <p><strong>Device:</strong> iPhone 17</p>
+      <p><strong>Started:</strong> 1/24/2026, 4:15:11 PM</p>
+      <p><strong>Duration:</strong> 103s</p>
+    </div>
+    <div class="summary">
+      <div class="summary-item" style="background: #22c55e;">✅ 5 Pass</div>
+      <div class="summary-item" style="background: #ef4444;">❌ 10 Fail</div>
+      <div class="summary-item" style="background: #f59e0b;">⚠️ 2 Partial</div>
+      <div class="summary-item" style="background: #6b7280;">❓ 0 Untestable</div>
+    </div>
+  </div>
+  <div class="results">
+    
+      <div class="result" style="border-left: 4px solid #f59e0b;">
+        <div class="result-header">
+          <span class="req-id">VIEW-001</span>
+          <span class="status" style="background: #f59e0b;">PARTIAL</span>
+          <span class="confidence">50% confidence</span>
+        </div>
+        <div class="req-description">User can view all notes in a hierarchical list</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot shows a list of notes, but it is not clear if the notes are in a hierarchical format or organized based on categories. The notes appear to be simple text entries without any visible sub-categories or indentation. Additional information or a different view within the app would be needed to fully determine if the requirement has been met.</div>
+        <div class="notes"><strong>Notes:</strong> The screenshot does not provide enough context to judge whether the notes are categorized or organized in a hierarchical manner. It is essential to verify that the notes can be expanded or collapsed to show sub-categories and indentation if such features exist.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">VIEW-002</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">50% confidence</span>
+        </div>
+        <div class="req-description">Notes are displayed with their titles visible</div>
+        <div class="evidence"><strong>Evidence:</strong> The image does not show any notes displayed with their titles visible.</div>
+        <div class="notes"><strong>Notes:</strong> There are some elements that appear to be notes within a list, but it is unclear whether these are individual notes or part of another structure. The lack of clear note titles makes it difficult to determine if the requirement is met.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">VIEW-003</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">50% confidence</span>
+        </div>
+        <div class="req-description">User can see a sidebar or navigation to browse notes</div>
+        <div class="evidence"><strong>Evidence:</strong> No sidebar or navigation visible in the screenshot.</div>
+        <div class="notes"><strong>Notes:</strong> The user appears to be viewing a single note without any indication of a navigation bar or sidebar. This does not meet the requirement of a 'sidebar or navigation' to browse notes.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #22c55e;">
+        <div class="result-header">
+          <span class="req-id">SEARCH-001</span>
+          <span class="status" style="background: #22c55e;">PASS</span>
+          <span class="confidence">90% confidence</span>
+        </div>
+        <div class="req-description">User can access a search function</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot shows a visible search function within the app, as indicated by the presence of a magnifying glass icon in the top right corner, which is commonly associated with search functions.</div>
+        <div class="notes"><strong>Notes:</strong> There is no indication in this screenshot that additional functionalities of the search function are present or accessible. The image only depicts a single aspect of the search functionality.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">SEARCH-002</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">10% confidence</span>
+        </div>
+        <div class="req-description">Search input field is visible or accessible</div>
+        <div class="evidence"><strong>Evidence:</strong> No search input field is visible in the screenshot.</div>
+        <div class="notes"><strong>Notes:</strong> Untested if the search functionality works when activated.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #22c55e;">
+        <div class="result-header">
+          <span class="req-id">AI-001</span>
+          <span class="status" style="background: #22c55e;">PASS</span>
+          <span class="confidence">100% confidence</span>
+        </div>
+        <div class="req-description">User can access an AI chat or assistant feature</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot shows a chatbot interface within an app, indicating that users can access an AI chat or assistant feature.</div>
+        <div class="notes"><strong>Notes:</strong> Note: The chatbot interface appears to be functional and accessible. It may have limited functionality based on the content displayed in this snapshot.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">AI-002</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">10% confidence</span>
+        </div>
+        <div class="req-description">Chat interface has an input field for questions</div>
+        <div class="evidence"><strong>Evidence:</strong> The image does not show any input field for questions within the chat interface.</div>
+        <div class="notes"><strong>Notes:</strong> The chat interface appears to lack an input field for asking questions.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">CREATE-001</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">10% confidence</span>
+        </div>
+        <div class="req-description">User can see a button or option to create a new note</div>
+        <div class="evidence"><strong>Evidence:</strong> In the provided screenshot, there is no visible button or option for creating a new note.</div>
+        <div class="notes"><strong>Notes:</strong> The user interface shows a search bar instead of a button for creating a new note.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">CREATE-002</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">50% confidence</span>
+        </div>
+        <div class="req-description">New note creation is accessible from the main screen</div>
+        <div class="evidence"><strong>Evidence:</strong> The image does not show a main screen or any way to create notes.</div>
+        <div class="notes"><strong>Notes:</strong> It is unclear if the app has a main screen from this screenshot. There are no visible buttons or options that relate to creating notes.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">NEST-001</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">50% confidence</span>
+        </div>
+        <div class="req-description">Notes appear to support nesting or hierarchy</div>
+        <div class="evidence"><strong>Evidence:</strong> There is a single note with text content and a sub-note directly below it, but there does not appear to be any further level of nesting or hierarchy within the visible area.</div>
+        <div class="notes"><strong>Notes:</strong> It's possible that there are additional notes not visible in this screenshot. The requirement seems to imply a multi-level nesting structure, which is not evident from the provided image.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">NEST-002</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">20% confidence</span>
+        </div>
+        <div class="req-description">Indentation or folder structure is visible for nested notes</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot does not provide information about indentation or folder structure for nested notes.</div>
+        <div class="notes"><strong>Notes:</strong> From this image, I cannot determine if the requirement 'Indentation or folder structure is visible for nested notes' is met. To make an accurate assessment of the requirement, I would need additional context and information beyond what the screenshot provides.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">BLOCK-001</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">90% confidence</span>
+        </div>
+        <div class="req-description">Editor area is visible when viewing/editing a note</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot shows a mobile phone screen with an Instagram app interface. The requirement 'Editor area is visible when viewing/editing a note' pertains to the block editor functionality in the app. In this image, there is no evidence of the block editor being present or accessible. The UI does not display any visible options to access the block editor. Hence, it can be concluded that the block editor is not available for use on this screen.</div>
+        <div class="notes"><strong>Notes:</strong> It's unclear whether this specific requirement refers to viewing a note or editing one since there are no visual clues for either action. The image does not provide enough information to determine if the app fulfills other aspects of the requirement in the context of a block editor.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #ef4444;">
+        <div class="result-header">
+          <span class="req-id">BLOCK-002</span>
+          <span class="status" style="background: #ef4444;">FAIL</span>
+          <span class="confidence">50% confidence</span>
+        </div>
+        <div class="req-description">Formatting toolbar or options are available</div>
+        <div class="evidence"><strong>Evidence:</strong> The image does not show a formatting toolbar or options available within the block editor on the mobile app.</div>
+        <div class="notes"><strong>Notes:</strong> Untested screenshot of an iOS app that does not meet requirement 'Formatting toolbar or options are available' in Block Editor category with high priority. No formatting options are visible, which is a failure for this requirement.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #22c55e;">
+        <div class="result-header">
+          <span class="req-id">BLOCK-003</span>
+          <span class="status" style="background: #22c55e;">PASS</span>
+          <span class="confidence">80% confidence</span>
+        </div>
+        <div class="req-description">User can see block-level content (paragraphs, headings, lists)</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot displays a paragraph of text within the block editor, which is part of the user interface that suggests this requirement is met.</div>
+        <div class="notes"><strong>Notes:</strong> However, there are no visible headings or lists in the provided screenshot. The 'block-level content' requirement is partially met as it only shows a single paragraph.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #22c55e;">
+        <div class="result-header">
+          <span class="req-id">MOBILE-001</span>
+          <span class="status" style="background: #22c55e;">PASS</span>
+          <span class="confidence">90% confidence</span>
+        </div>
+        <div class="req-description">App has mobile-appropriate navigation (bottom tabs or hamburger menu)</div>
+        <div class="evidence"><strong>Evidence:</strong> The screenshot shows a mobile device displaying a social media app with a bottom navigation bar that includes three visible tabs: Home, Page not found, and Camera. This indicates that the app has mobile-appropriate navigation.</div>
+        <div class="notes"><strong>Notes:</strong> It is important to note that it's possible that more navigation options are available when navigating through different states of the app (e.g., while browsing a profile or when searching for content). Therefore, this assessment is based only on the immediate visible state of the app in the screenshot and does not cover all possible navigation scenarios.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #f59e0b;">
+        <div class="result-header">
+          <span class="req-id">MOBILE-002</span>
+          <span class="status" style="background: #f59e0b;">PARTIAL</span>
+          <span class="confidence">70% confidence</span>
+        </div>
+        <div class="req-description">Touch targets appear appropriately sized for mobile</div>
+        <div class="evidence"><strong>Evidence:</strong> The app's touch targets appear appropriately sized for mobile in general, but there is a small touch target at the bottom of the screen with a circular icon that may not be easily tappable on all devices due to its size.</div>
+        <div class="notes"><strong>Notes:</strong> It would be beneficial to test this on different devices and under various conditions (e.g., zoomed-in viewports) to ensure accessibility.</div>
+      </div>
+    
+
+      <div class="result" style="border-left: 4px solid #22c55e;">
+        <div class="result-header">
+          <span class="req-id">MOBILE-003</span>
+          <span class="status" style="background: #22c55e;">PASS</span>
+          <span class="confidence">90% confidence</span>
+        </div>
+        <div class="req-description">Content is readable without horizontal scrolling</div>
+        <div class="evidence"><strong>Evidence:</strong> The content on the screen is clearly readable without horizontal scrolling.</div>
+        <div class="notes"><strong>Notes:</strong> The image shows a screenshot of an iPhone displaying a collection view with various app icons, and the content is easily legible without any need to scroll horizontally.</div>
+      </div>
+    
+  </div>
+</body>
+</html>

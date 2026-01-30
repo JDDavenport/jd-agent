@@ -29,6 +29,8 @@ function parseArgs(): {
   frontendUrl: string;
   apiUrl: string;
   outputDir: string;
+  preferredProvider?: 'openai' | 'anthropic' | 'google' | 'ollama';
+  fallbackOrder?: Array<'openai' | 'anthropic' | 'google' | 'ollama'>;
 } {
   const args = process.argv.slice(2);
   const options = {
@@ -39,6 +41,10 @@ function parseArgs(): {
     frontendUrl: 'http://localhost:5173',
     apiUrl: 'http://localhost:3000',
     outputDir: './test-screenshots',
+    preferredProvider: undefined as 'openai' | 'anthropic' | 'google' | 'ollama' | undefined,
+    fallbackOrder: ['openai', 'anthropic', 'google', 'ollama'] as Array<
+      'openai' | 'anthropic' | 'google' | 'ollama'
+    >,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -73,6 +79,21 @@ function parseArgs(): {
         break;
       case '--output-dir':
         options.outputDir = nextArg || options.outputDir;
+        i++;
+        break;
+      case '--vision-provider':
+        if (nextArg === 'openai' || nextArg === 'anthropic' || nextArg === 'google' || nextArg === 'ollama') {
+          options.preferredProvider = nextArg;
+        }
+        i++;
+        break;
+      case '--vision-fallback':
+        options.fallbackOrder = nextArg
+          ?.split(',')
+          .map((p) => p.trim())
+          .filter((p): p is 'openai' | 'anthropic' | 'google' | 'ollama' =>
+            p === 'openai' || p === 'anthropic' || p === 'google' || p === 'ollama'
+          );
         i++;
         break;
       case '--help':
@@ -117,6 +138,12 @@ Options:
   --output-dir <dir>             Directory for screenshots and reports
                                  (default: ./test-screenshots)
 
+  --vision-provider <provider>   Preferred vision provider
+                                 (openai|anthropic|google|ollama)
+
+  --vision-fallback <list>       Comma-separated fallback order
+                                 Example: openai
+
   --help, -h                     Show this help message
 
 Examples:
@@ -132,8 +159,16 @@ Examples:
   # Run with visible browser
   bun run scripts/run-ai-tests.ts --headed
 
+  # Force OpenAI only
+  bun run scripts/run-ai-tests.ts --vision-provider openai --vision-fallback openai
+
 Environment Variables:
-  OPENAI_API_KEY                 Required: Your OpenAI API key (uses GPT-4o)
+  OPENAI_API_KEY                 OpenAI API key (GPT-4o)
+  ANTHROPIC_API_KEY              Anthropic API key (Claude)
+  GOOGLE_AI_API_KEY              Google Gemini API key
+  OLLAMA_HOST                    Ollama host (default: http://localhost:11434)
+  OLLAMA_MODEL                   Ollama vision model (default: llava:7b)
+  OLLAMA_CHAT_MODEL              Ollama chat model (default: llama3.1:8b)
 
 Prerequisites:
   1. Start the backend: bun run dev
@@ -149,12 +184,17 @@ async function main(): Promise<void> {
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log('');
 
-  // Check for API key
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('Error: OPENAI_API_KEY environment variable is required');
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+  const hasGoogle = !!process.env.GOOGLE_AI_API_KEY;
+  const hasOllama = !!process.env.OLLAMA_HOST || !!process.env.OLLAMA_MODEL || !!process.env.OLLAMA_CHAT_MODEL;
+
+  if (!hasOpenAI && !hasAnthropic && !hasGoogle && !hasOllama) {
+    console.error('Error: No vision providers configured.');
     console.error('');
-    console.error('Set it with:');
-    console.error('  export OPENAI_API_KEY=your-key-here');
+    console.error('Set at least one of:');
+    console.error('  OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_AI_API_KEY');
+    console.error('  or configure Ollama with OLLAMA_HOST / OLLAMA_MODEL / OLLAMA_CHAT_MODEL');
     process.exit(1);
   }
 
@@ -218,7 +258,13 @@ async function main(): Promise<void> {
     headless: options.headless,
   };
 
-  const agent = createTestingAgent(config);
+  const agent = createTestingAgent({
+    ...config,
+    visionConfig: {
+      preferredProvider: options.preferredProvider,
+      fallbackOrder: options.fallbackOrder,
+    },
+  });
   const startTime = Date.now();
 
   try {

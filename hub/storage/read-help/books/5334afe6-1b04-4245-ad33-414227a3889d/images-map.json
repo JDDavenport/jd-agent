@@ -1,0 +1,74 @@
+{
+  "1": [
+    {
+      "path": "images/page1_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "2": [
+    {
+      "path": "images/page2_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "3": [
+    {
+      "path": "images/page3_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "4": [
+    {
+      "path": "images/page4_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "5": [
+    {
+      "path": "images/page5_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "6": [
+    {
+      "path": "images/page6_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "7": [
+    {
+      "path": "images/page7_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "8": [
+    {
+      "path": "images/page8_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "9": [
+    {
+      "path": "images/page9_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "10": [
+    {
+      "path": "images/page10_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "11": [
+    {
+      "path": "images/page11_img1.png",
+      "type": "diagram"
+    }
+  ],
+  "12": [
+    {
+      "path": "images/page12_img1.png",
+      "type": "diagram"
+    }
+  ]
+}

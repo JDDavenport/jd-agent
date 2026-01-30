@@ -2,14 +2,14 @@ import Foundation
 
 // MARK: - Block Types
 enum BlockType: String, Codable, CaseIterable {
-    case paragraph = "paragraph"
-    case text = "text"
-    case heading1 = "heading1"
-    case heading2 = "heading2"
-    case heading3 = "heading3"
-    case bulletList = "bulletedList"
-    case numberedList = "numberedList"
-    case todo = "toDo"
+    // Raw values must match API's expected block types
+    case paragraph = "text"           // API uses "text" for paragraph/text blocks
+    case heading1 = "heading_1"       // API uses snake_case
+    case heading2 = "heading_2"
+    case heading3 = "heading_3"
+    case bulletList = "bulleted_list"
+    case numberedList = "numbered_list"
+    case todo = "todo"                // API uses lowercase
     case quote = "quote"
     case code = "code"
     case divider = "divider"
@@ -21,12 +21,29 @@ enum BlockType: String, Codable, CaseIterable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = BlockType(rawValue: rawValue) ?? .unknown
+
+        // Handle both API format and legacy format for backward compatibility
+        switch rawValue {
+        case "text", "paragraph": self = .paragraph
+        case "heading_1", "heading1": self = .heading1
+        case "heading_2", "heading2": self = .heading2
+        case "heading_3", "heading3": self = .heading3
+        case "bulleted_list", "bulletedList": self = .bulletList
+        case "numbered_list", "numberedList": self = .numberedList
+        case "todo", "toDo": self = .todo
+        case "quote": self = .quote
+        case "code": self = .code
+        case "divider": self = .divider
+        case "callout": self = .callout
+        case "file": self = .file
+        case "image": self = .image
+        default: self = .unknown
+        }
     }
 
     var displayName: String {
         switch self {
-        case .paragraph, .text: return "Text"
+        case .paragraph: return "Text"
         case .heading1: return "Heading 1"
         case .heading2: return "Heading 2"
         case .heading3: return "Heading 3"
@@ -45,7 +62,7 @@ enum BlockType: String, Codable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .paragraph, .text: return "text.alignleft"
+        case .paragraph: return "text.alignleft"
         case .heading1: return "textformat.size.larger"
         case .heading2: return "textformat.size"
         case .heading3: return "textformat.size.smaller"

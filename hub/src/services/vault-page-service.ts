@@ -76,6 +76,150 @@ export class VaultPageService {
   }
 
   /**
+   * Find an existing page by title and parent, or create a new one
+   * Use this method to prevent duplicate pages
+   */
+  async findOrCreate(input: CreateVaultPageInput): Promise<{ page: VaultPage; created: boolean }> {
+    const title = input.title || 'Untitled';
+
+    // Look for existing page with same title under same parent
+    const existing = await this.findByTitleAndParent(title, input.parentId);
+
+    if (existing) {
+      return { page: existing, created: false };
+    }
+
+    // Create new page
+    const page = await this.create(input);
+    return { page, created: true };
+  }
+
+  /**
+   * Find a page by title and parent ID
+   * Returns null if not found
+   */
+  async findByTitleAndParent(title: string, parentId?: string | null): Promise<VaultPage | null> {
+    const conditions = [eq(vaultPages.title, title)];
+
+    if (parentId) {
+      conditions.push(eq(vaultPages.parentId, parentId));
+    } else {
+      conditions.push(isNull(vaultPages.parentId));
+    }
+
+    const [page] = await db
+      .select()
+      .from(vaultPages)
+      .where(and(...conditions))
+      .limit(1);
+
+    return page ? this.formatPage(page) : null;
+  }
+
+  /**
+   * Find duplicate pages (pages with same title)
+   * Returns groups of duplicates
+   */
+  async findDuplicates(): Promise<Map<string, VaultPage[]>> {
+    // Find titles that appear more than once
+    const duplicateTitles = await db
+      .select({
+        title: vaultPages.title,
+        parentId: vaultPages.parentId,
+        count: sql<number>`count(*)`,
+      })
+      .from(vaultPages)
+      .groupBy(vaultPages.title, vaultPages.parentId)
+      .having(sql`count(*) > 1`);
+
+    const duplicateGroups = new Map<string, VaultPage[]>();
+
+    for (const dup of duplicateTitles) {
+      const key = `${dup.title}|${dup.parentId || 'root'}`;
+      const conditions = [eq(vaultPages.title, dup.title)];
+
+      if (dup.parentId) {
+        conditions.push(eq(vaultPages.parentId, dup.parentId));
+      } else {
+        conditions.push(isNull(vaultPages.parentId));
+      }
+
+      const pages = await db
+        .select()
+        .from(vaultPages)
+        .where(and(...conditions))
+        .orderBy(asc(vaultPages.createdAt));
+
+      duplicateGroups.set(key, pages.map(p => this.formatPage(p)));
+    }
+
+    return duplicateGroups;
+  }
+
+  /**
+   * Merge duplicate pages by keeping the oldest and moving blocks from others
+   * Returns number of duplicates merged
+   */
+  async mergeDuplicates(): Promise<{ merged: number; deleted: number }> {
+    const duplicates = await this.findDuplicates();
+    let merged = 0;
+    let deleted = 0;
+
+    for (const [key, pages] of duplicates) {
+      if (pages.length < 2) continue;
+
+      // Keep the first (oldest) page
+      const [keeper, ...toMerge] = pages;
+      console.log(`[VaultPageService] Merging ${toMerge.length} duplicates of "${keeper.title}" into ${keeper.id}`);
+
+      for (const dup of toMerge) {
+        // Move blocks from duplicate to keeper
+        const blocks = await db
+          .select()
+          .from(vaultBlocks)
+          .where(eq(vaultBlocks.pageId, dup.id));
+
+        if (blocks.length > 0) {
+          // Get max sort order in keeper
+          const maxSort = await db
+            .select({ max: sql<number>`COALESCE(MAX(sort_order), -1)` })
+            .from(vaultBlocks)
+            .where(eq(vaultBlocks.pageId, keeper.id));
+
+          let nextSort = (maxSort[0]?.max ?? -1) + 1;
+
+          // Move blocks
+          for (const block of blocks) {
+            await db
+              .update(vaultBlocks)
+              .set({
+                pageId: keeper.id,
+                sortOrder: nextSort++,
+                updatedAt: new Date(),
+              })
+              .where(eq(vaultBlocks.id, block.id));
+          }
+          merged += blocks.length;
+        }
+
+        // Move children to keeper
+        await db
+          .update(vaultPages)
+          .set({ parentId: keeper.id, updatedAt: new Date() })
+          .where(eq(vaultPages.parentId, dup.id));
+
+        // Delete the duplicate page
+        await db
+          .delete(vaultPages)
+          .where(eq(vaultPages.id, dup.id));
+        deleted++;
+      }
+    }
+
+    return { merged, deleted };
+  }
+
+  /**
    * Get a vault page by ID
    */
   async getById(id: string): Promise<VaultPage | null> {
