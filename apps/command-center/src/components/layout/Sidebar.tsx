@@ -18,6 +18,7 @@ interface ExternalApp {
 const APP_URLS = {
   tasks: import.meta.env.VITE_TASKS_URL || 'http://localhost:5180',
   vault: import.meta.env.VITE_VAULT_URL || 'http://localhost:5181',
+  readHelp: import.meta.env.VITE_READ_HELP_URL || 'http://localhost:5183',
   jobs: import.meta.env.VITE_JOBS_URL || 'http://localhost:5176',
   docs: import.meta.env.VITE_DOCS_URL || 'http://localhost:5177',
   jupyter: import.meta.env.VITE_JUPYTER_URL || 'http://localhost:8888',
@@ -49,6 +50,20 @@ const externalApps: ExternalApp[] = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: 'Books',
+    url: APP_URLS.readHelp,
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
         />
       </svg>
     ),
@@ -192,6 +207,34 @@ const navItems: NavItem[] = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M12 8c-3.866 0-7 1.343-7 3s3.134 3 7 3 7-1.343 7-3-3.134-3-7-3zm0 7c-3.866 0-7 1.343-7 3s3.134 3 7 3 7-1.343 7-3-3.134-3-7-3zm0-11c-3.866 0-7 1.343-7 3s3.134 3 7 3 7-1.343 7-3-3.134-3-7-3z"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: 'Budget Reports',
+    path: '/finance/reports',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: 'Budget Settings',
+    path: '/finance/settings',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
         />
       </svg>
     ),

@@ -66,9 +66,21 @@ export async function scheduleTask(
   startTime: string,
   endTime: string
 ): Promise<void> {
-  await page.request.post(`${API_URL}/api/tasks/${taskId}/schedule`, {
+  const response = await page.request.post(`${API_URL}/api/tasks/${taskId}/schedule`, {
     data: { startTime, endTime },
   });
+
+  if (!response.ok()) {
+    const body = await response.text();
+    throw new Error(`Failed to schedule task ${taskId}: ${response.status()} - ${body}`);
+  }
+
+  // Verify the task was actually scheduled
+  const verifyResponse = await page.request.get(`${API_URL}/api/tasks/${taskId}`);
+  const verifyData = await verifyResponse.json();
+  if (!verifyData.data?.scheduledStart) {
+    throw new Error(`Task ${taskId} was not scheduled after API call`);
+  }
 }
 
 /**

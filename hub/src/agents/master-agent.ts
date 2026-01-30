@@ -547,8 +547,7 @@ Return ONLY valid JSON, no markdown.`,
             } catch {
               return {
                 success: false,
-                error: 'Could not parse event details from image',
-                rawExtraction: extractedText,
+                error: `Could not parse event details from image. Raw: ${extractedText.substring(0, 200)}`,
               };
             }
 

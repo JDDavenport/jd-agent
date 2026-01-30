@@ -1,0 +1,57 @@
+name: JDCommandCenter
+options:
+  bundleIdPrefix: com.jdagent
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: TP4ZZ5XA76
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  JDCommandCenter:
+    type: application
+    platform: iOS
+    sources:
+      - path: JDCommandCenter
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jdagent.command-center-ios
+        INFOPLIST_FILE: JDCommandCenter/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LD_RUNPATH_SEARCH_PATHS:
+          - $(inherited)
+          - "@executable_path/Frameworks"
+    info:
+      path: JDCommandCenter/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: JD Command
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundlePackageType: $(PRODUCT_BUNDLE_PACKAGE_TYPE)
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        UILaunchScreen: {}
+        ITSAppUsesNonExemptEncryption: false
+        NSSiriUsageDescription: Use Siri to get your daily briefing and check integration status.
+        NSLocalNetworkUsageDescription: JD Command connects to your local server to sync data.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true

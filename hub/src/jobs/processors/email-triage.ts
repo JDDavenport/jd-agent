@@ -11,8 +11,10 @@
 import { Job } from 'bullmq';
 import OpenAI from 'openai';
 import { db } from '../../db/client';
-import { tasks, vaultEntries } from '../../db/schema';
+import { tasks, vaultEntries, communicationMessages, communicationVipContacts } from '../../db/schema';
+import { eq } from 'drizzle-orm';
 import type { EmailTriageJobData } from '../queue';
+import { notificationService } from '../../services/notification-service';
 
 // ============================================
 // Triage Prompt
@@ -53,6 +55,7 @@ export async function processEmailTriageJob(job: Job<EmailTriageJobData>): Promi
   category?: string;
   priority?: string;
   taskCreated?: boolean;
+  notificationSent?: boolean;
   error?: string;
 }> {
   const { emailId, from, subject, body, receivedAt } = job.data;
@@ -134,11 +137,77 @@ ${truncatedBody}
       });
     }
 
+    // Send SMS notification for urgent/action-required emails
+    let notificationSent = false;
+    if ((result.priority === 'urgent' || result.category === 'action') && result.actionRequired) {
+      // Check if sender is a VIP contact (always notify immediately)
+      const senderEmail = from.match(/<([^>]+)>/)?.[1]?.toLowerCase() || from.toLowerCase();
+      const vipContact = await db
+        .select()
+        .from(communicationVipContacts)
+        .where(eq(communicationVipContacts.identifier, senderEmail))
+        .limit(1);
+
+      const isVip = vipContact.length > 0;
+      const shouldNotify = isVip || result.priority === 'urgent';
+
+      if (shouldNotify && notificationService.isConfigured()) {
+        const senderName = from.match(/^([^<]+)/)?.[1]?.trim() || from;
+        const urgencyPrefix = result.priority === 'urgent' ? '🚨 URGENT: ' : '';
+        const message = `${urgencyPrefix}📧 ${senderName}\n${subject}\n${result.actionRequired ? '⚡ Action needed' : ''}`;
+
+        try {
+          const smsResult = await notificationService.sendSms(message);
+          notificationSent = smsResult.success;
+
+          if (notificationSent) {
+            console.log(`[EmailTriage] SMS notification sent for: ${subject}`);
+          } else {
+            // Fallback to Telegram
+            const telegramResult = await notificationService.sendTelegram(message);
+            notificationSent = telegramResult.success;
+            if (notificationSent) {
+              console.log(`[EmailTriage] Telegram notification sent for: ${subject}`);
+            }
+          }
+        } catch (notifyError) {
+          console.error(`[EmailTriage] Failed to send notification:`, notifyError);
+        }
+      }
+
+      // Log to communication_messages for tracking
+      try {
+        await db.insert(communicationMessages).values({
+          channel: 'gmail',
+          externalId: emailId,
+          fromAddress: from,
+          fromName: from.match(/^([^<]+)/)?.[1]?.trim(),
+          subject,
+          preview: body.substring(0, 200),
+          fullContent: body,
+          receivedAt: new Date(receivedAt),
+          triaged: true,
+          triagedAt: new Date(),
+          importance: result.priority,
+          category: result.category === 'action' ? 'action_required' : result.category,
+          requiresAction: result.actionRequired,
+          triageReasoning: result.reasoning,
+          notified: notificationSent,
+          notifiedAt: notificationSent ? new Date() : null,
+          notificationChannel: notificationSent ? 'sms' : null,
+        });
+      } catch (insertError) {
+        // Ignore duplicate key errors (email already processed)
+        console.log(`[EmailTriage] Could not log to communication_messages: ${insertError}`);
+      }
+    }
+
     return {
       success: true,
       category: result.category,
       priority: result.priority,
       taskCreated,
+      notificationSent,
     };
   } catch (error) {
     console.error(`[EmailTriage] Failed for "${subject}":`, error);

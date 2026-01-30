@@ -258,16 +258,18 @@ export class PlaudIntegration {
 
       // Parse metadata from filename
       const metadata = this.parseFilename(filename);
+      const recordedAt = metadata.recordedAt || statSync(filePath).mtime;
+      const safeFilename = filename || `Recording ${recordedAt.toISOString().split('T')[0]}`;
 
       // Create recording record
       const [recording] = await db.insert(recordings).values({
         filePath: r2Path || filePath,
-        originalFilename: filename,
+        originalFilename: safeFilename,
         fileSizeBytes: statSync(filePath).size,
         recordingType: metadata.type || 'other',
         context: metadata.context,
         status: 'pending',
-        recordedAt: metadata.recordedAt || statSync(filePath).mtime,
+        recordedAt,
       }).returning();
 
       this.processedFiles.add(filePath);

@@ -146,11 +146,12 @@ projectsRouter.patch('/:id', async (c) => {
   }
 
   // Convert date string to Date object
+  const finalUpdateData: any = { ...updateData };
   if (updateData.targetCompletionDate) {
-    updateData.targetCompletionDate = new Date(updateData.targetCompletionDate);
+    finalUpdateData.targetCompletionDate = new Date(updateData.targetCompletionDate);
   }
 
-  const project = await projectService.update(id, updateData as any);
+  const project = await projectService.update(id, finalUpdateData);
 
   if (!project) {
     throw new NotFoundError('Project');

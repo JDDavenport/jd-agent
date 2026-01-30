@@ -57,6 +57,85 @@ interface CanvasAssignment {
   workflow_state: string;
   published: boolean;
   grading_type: string;
+  // Enhanced fields for Canvas Complete
+  allowed_extensions?: string[];
+  group_category_id?: number | null;
+  peer_reviews?: boolean;
+  rubric?: CanvasRubricCriterion[];
+  rubric_settings?: {
+    id: number;
+    title: string;
+    points_possible: number;
+    free_form_criterion_comments: boolean;
+  };
+  use_rubric_for_grading?: boolean;
+  lock_info?: {
+    lock_at?: string;
+    unlock_at?: string;
+    can_view?: boolean;
+    asset_string?: string;
+  };
+  locked_for_user?: boolean;
+  lock_explanation?: string;
+}
+
+interface CanvasRubricCriterion {
+  id: string;
+  description: string;
+  long_description?: string;
+  points: number;
+  criterion_use_range?: boolean;
+  ratings: CanvasRubricRating[];
+}
+
+interface CanvasRubricRating {
+  id: string;
+  description: string;
+  long_description?: string;
+  points: number;
+}
+
+interface CanvasFile {
+  id: number;
+  uuid: string;
+  folder_id: number;
+  display_name: string;
+  filename: string;
+  content_type: string;
+  url: string;
+  size: number;
+  created_at: string;
+  updated_at: string;
+  unlock_at?: string;
+  locked?: boolean;
+  hidden?: boolean;
+}
+
+// Enhanced assignment details for Canvas Complete
+export interface EnhancedAssignmentDetails {
+  instructions: string | null;
+  instructionsHtml: string | null;
+  rubric: FormattedRubric[] | null;
+  submissionTypes: string[];
+  allowedExtensions: string[] | null;
+  isGroupAssignment: boolean;
+  hasPeerReview: boolean;
+  gradingType: string;
+  lockInfo: Record<string, unknown> | null;
+  wordCountMin: number | null;
+  wordCountMax: number | null;
+  estimatedMinutes: number | null;
+}
+
+export interface FormattedRubric {
+  id: string;
+  criterion: string;
+  description: string | null;
+  points: number;
+  ratings: Array<{
+    description: string;
+    points: number;
+  }>;
 }
 
 interface CanvasAnnouncement {
@@ -384,17 +463,238 @@ export class CanvasIntegration {
 
   /**
    * Get all assignments for a course (including quizzes with due dates)
+   * Enhanced to include rubric information for Canvas Complete
    */
-  async getAssignments(courseId: number): Promise<CanvasAssignment[]> {
+  async getAssignments(courseId: number, includeRubric = true): Promise<CanvasAssignment[]> {
     try {
+      const includes = ['submission'];
+      if (includeRubric) {
+        includes.push('rubric_assessment');
+      }
       return await this.requestAll<CanvasAssignment>(
-        `/courses/${courseId}/assignments?order_by=due_at&include[]=submission`
+        `/courses/${courseId}/assignments?order_by=due_at&${includes.map(i => `include[]=${i}`).join('&')}`
       );
     } catch (error) {
       // Course might be unpublished
       console.log(`[Canvas] Cannot access assignments for course ${courseId} (likely unpublished)`);
       return [];
     }
+  }
+
+  /**
+   * Get a single assignment with full details including rubric
+   */
+  async getAssignment(courseId: number, assignmentId: number): Promise<CanvasAssignment | null> {
+    try {
+      return await this.request<CanvasAssignment>(
+        `/courses/${courseId}/assignments/${assignmentId}?include[]=submission&include[]=rubric_assessment`
+      );
+    } catch (error) {
+      console.log(`[Canvas] Cannot access assignment ${assignmentId} in course ${courseId}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get rubric for an assignment (more detailed than assignment.rubric)
+   */
+  async getAssignmentRubric(courseId: number, assignmentId: number): Promise<CanvasRubricCriterion[] | null> {
+    try {
+      const assignment = await this.request<CanvasAssignment>(
+        `/courses/${courseId}/assignments/${assignmentId}?include[]=rubric_assessment`
+      );
+      return assignment.rubric || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get files for a course
+   */
+  async getFiles(courseId: number): Promise<CanvasFile[]> {
+    try {
+      return await this.requestAll<CanvasFile>(`/courses/${courseId}/files`);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get file download URL
+   */
+  async getFileDownloadUrl(fileId: number): Promise<string | null> {
+    try {
+      const file = await this.request<CanvasFile>(`/files/${fileId}`);
+      return file.url;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Extract enhanced assignment details for Canvas Complete
+   * Returns structured data ready for database insertion
+   */
+  extractEnhancedAssignmentDetails(assignment: CanvasAssignment): EnhancedAssignmentDetails {
+    const details: EnhancedAssignmentDetails = {
+      instructions: assignment.description ? this.stripHtml(assignment.description) : null,
+      instructionsHtml: assignment.description,
+      rubric: assignment.rubric ? this.formatRubric(assignment.rubric) : null,
+      submissionTypes: assignment.submission_types,
+      allowedExtensions: assignment.allowed_extensions || null,
+      isGroupAssignment: !!assignment.group_category_id,
+      hasPeerReview: assignment.peer_reviews || false,
+      gradingType: assignment.grading_type,
+      lockInfo: assignment.lock_info || null,
+      wordCountMin: null,
+      wordCountMax: null,
+      estimatedMinutes: null,
+    };
+
+    // Parse word count from instructions
+    if (details.instructions) {
+      const wordCount = this.parseWordCount(details.instructions);
+      details.wordCountMin = wordCount.min;
+      details.wordCountMax = wordCount.max;
+    }
+
+    // Estimate time based on assignment type and requirements
+    details.estimatedMinutes = this.estimateAssignmentTime(assignment, details);
+
+    return details;
+  }
+
+  /**
+   * Format rubric for storage
+   */
+  private formatRubric(rubric: CanvasRubricCriterion[]): FormattedRubric[] {
+    return rubric.map(criterion => ({
+      id: criterion.id,
+      criterion: criterion.description,
+      description: criterion.long_description || null,
+      points: criterion.points,
+      ratings: criterion.ratings.map(r => ({
+        description: r.description,
+        points: r.points,
+      })),
+    }));
+  }
+
+  /**
+   * Parse word count requirements from instructions
+   * Handles formats like: "1500 words", "1500-2000 words", "minimum 1000 words"
+   */
+  private parseWordCount(text: string): { min: number | null; max: number | null } {
+    const result = { min: null as number | null, max: null as number | null };
+
+    // Match patterns like "1500-2000 words" or "1500 to 2000 words"
+    const rangeMatch = text.match(/(\d{3,5})\s*[-–to]+\s*(\d{3,5})\s*words?/i);
+    if (rangeMatch) {
+      result.min = parseInt(rangeMatch[1]);
+      result.max = parseInt(rangeMatch[2]);
+      return result;
+    }
+
+    // Match "minimum X words" or "at least X words"
+    const minMatch = text.match(/(?:minimum|at least|min\.?)\s*(\d{3,5})\s*words?/i);
+    if (minMatch) {
+      result.min = parseInt(minMatch[1]);
+      return result;
+    }
+
+    // Match "maximum X words" or "no more than X words"
+    const maxMatch = text.match(/(?:maximum|no more than|max\.?|up to)\s*(\d{3,5})\s*words?/i);
+    if (maxMatch) {
+      result.max = parseInt(maxMatch[1]);
+      return result;
+    }
+
+    // Match simple "X words"
+    const simpleMatch = text.match(/(\d{3,5})\s*words?/i);
+    if (simpleMatch) {
+      result.min = parseInt(simpleMatch[1]);
+      result.max = parseInt(simpleMatch[1]);
+      return result;
+    }
+
+    // Match page count and convert to word count (250 words per page)
+    const pageMatch = text.match(/(\d{1,2})\s*[-–to]+\s*(\d{1,2})\s*pages?/i);
+    if (pageMatch) {
+      result.min = parseInt(pageMatch[1]) * 250;
+      result.max = parseInt(pageMatch[2]) * 250;
+      return result;
+    }
+
+    const singlePageMatch = text.match(/(\d{1,2})\s*pages?/i);
+    if (singlePageMatch) {
+      const pages = parseInt(singlePageMatch[1]);
+      result.min = pages * 250;
+      result.max = pages * 250;
+      return result;
+    }
+
+    return result;
+  }
+
+  /**
+   * Estimate time to complete assignment in minutes
+   */
+  private estimateAssignmentTime(
+    assignment: CanvasAssignment,
+    details: Partial<EnhancedAssignmentDetails>
+  ): number {
+    let minutes = 30; // Base minimum
+
+    // Factor in points (higher points = more complex)
+    if (assignment.points_possible) {
+      if (assignment.points_possible >= 100) minutes += 120; // Major assignment
+      else if (assignment.points_possible >= 50) minutes += 60;
+      else if (assignment.points_possible >= 25) minutes += 30;
+    }
+
+    // Factor in word count
+    if (details.wordCountMax) {
+      // Estimate ~30 min per 500 words (including research/editing)
+      minutes += Math.floor(details.wordCountMax / 500) * 30;
+    }
+
+    // Factor in submission type
+    if (assignment.submission_types.includes('online_upload')) {
+      minutes += 15; // File prep time
+    }
+    if (assignment.submission_types.includes('discussion_topic')) {
+      minutes = Math.min(minutes, 45); // Discussions usually quicker
+    }
+
+    // Factor in group work
+    if (details.isGroupAssignment) {
+      minutes += 30; // Coordination overhead
+    }
+
+    // Factor in peer review
+    if (details.hasPeerReview) {
+      minutes += 30;
+    }
+
+    // Cap at reasonable max
+    return Math.min(minutes, 480); // Max 8 hours
+  }
+
+  /**
+   * Strip HTML tags from text
+   */
+  private stripHtml(html: string): string {
+    return html
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /**
@@ -914,21 +1214,6 @@ export class CanvasIntegration {
       .replace(/^\d{4}\s*(Fall|Spring|Summer|Winter)\s*/i, '')
       .replace(/\s*-\s*Section\s*\d+/i, '')
       .replace(/\s*\(.*?\)\s*/g, '')
-      .trim();
-  }
-
-  /**
-   * Strip HTML tags from content
-   */
-  private stripHtml(html: string): string {
-    return html
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/\s+/g, ' ')
       .trim();
   }
 

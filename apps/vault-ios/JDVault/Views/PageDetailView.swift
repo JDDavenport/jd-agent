@@ -9,6 +9,7 @@ struct PageDetailView: View {
     @State private var editedTitle: String
     @State private var showingBlockMenu = false
     @FocusState private var isTitleFocused: Bool
+    @FocusState private var isFirstBlockFocused: Bool
 
     init(page: VaultPage, onNavigate: @escaping (VaultPage) -> Void) {
         self.page = page
@@ -68,6 +69,14 @@ struct PageDetailView: View {
             }
             .presentationDetents([.medium])
         }
+        .onChange(of: viewModel.blocks.count) { oldCount, newCount in
+            // When a block is added to an empty page, focus it for immediate typing
+            if oldCount == 0 && newCount > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isFirstBlockFocused = true
+                }
+            }
+        }
     }
 
     // MARK: - Page Header
@@ -107,7 +116,7 @@ struct PageDetailView: View {
     // MARK: - Blocks Section
     private var blocksSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(viewModel.blocks) { block in
+            ForEach(Array(viewModel.blocks.enumerated()), id: \.element.id) { index, block in
                 BlockView(
                     block: block,
                     onUpdate: { content in
@@ -124,18 +133,17 @@ struct PageDetailView: View {
                     },
                     onAddBlockAfter: {
                         Task { _ = await viewModel.addBlock(afterBlock: block) }
-                    }
+                    },
+                    shouldFocus: index == 0 && isFirstBlockFocused
                 )
             }
 
+            // Show empty state hint only if loading is complete and no blocks
             if viewModel.blocks.isEmpty && !viewModel.isLoading {
-                Text("Tap here or press + to start writing...")
+                Text("Loading...")
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
-                    .onTapGesture {
-                        Task { _ = await viewModel.addBlock() }
-                    }
             }
         }
     }

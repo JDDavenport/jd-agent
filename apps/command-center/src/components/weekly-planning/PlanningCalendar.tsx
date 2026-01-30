@@ -12,7 +12,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { format, addDays, isToday, getHours, getMinutes, parseISO, differenceInMinutes } from 'date-fns';
-import { useDroppable, useDraggable, DragOverlay, useDndMonitor } from '@dnd-kit/core';
+import { useDroppable, useDraggable, useDndMonitor } from '@dnd-kit/core';
 import TaskDetailModal from './TaskDetailModal';
 
 import type { CalendarEvent } from '../../types/calendar';
@@ -21,6 +21,12 @@ import type { Task } from '../../types/task';
 // ============================================
 // Types
 // ============================================
+
+interface DragPosition {
+  dateKey: string;
+  hour: number;
+  minute: number;
+}
 
 interface PlanningCalendarProps {
   startDate: Date;
@@ -34,6 +40,8 @@ interface PlanningCalendarProps {
   onUnscheduleTask?: (taskId: string) => void;
   onScheduleTask?: (taskId: string, startTime: string, endTime: string) => void;
   onCreateEvent?: (title: string, startTime: string, endTime: string) => void;
+  onRescheduleEvent?: (eventId: string, startTime: string, endTime: string) => void;
+  onDragPositionChange?: (position: DragPosition | null) => void;
 }
 
 interface DragState {
@@ -123,6 +131,11 @@ interface EventBlockProps {
 }
 
 function EventBlock({ event }: EventBlockProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `event-${event.id}`,
+    data: { type: 'calendarEvent', event },
+  });
+
   const start = parseISO(event.startTime);
   const end = parseISO(event.endTime);
   const startHour = getHours(start);
@@ -138,9 +151,21 @@ function EventBlock({ event }: EventBlockProps) {
 
   return (
     <div
+      ref={setNodeRef}
+      data-testid={`calendar-event-${event.id}`}
+      data-event="true"
       className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 text-[10px] overflow-hidden
-        ${colorClass} text-white shadow-sm cursor-pointer hover:brightness-110 transition-all pointer-events-none`}
-      style={{ top, height, minHeight: 20, zIndex: 5 }}
+        ${colorClass} text-white shadow-sm cursor-grab hover:brightness-110 transition-all
+        ${isDragging ? 'opacity-50 cursor-grabbing' : ''}`}
+      style={{
+        top,
+        height,
+        minHeight: 20,
+        zIndex: isDragging ? 100 : 5,
+      }}
+      {...attributes}
+      {...listeners}
+      onMouseDown={(e) => e.stopPropagation()}
       title={`${event.title}${event.location ? ` @ ${event.location}` : ''}\n${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`}
     >
       <div className="font-medium truncate leading-tight">{event.title}</div>
@@ -211,11 +236,16 @@ function TaskBlock({ task, onComplete, onUnschedule, onDoubleClick, columnIndex,
     left,
     zIndex: isDragging ? 100 : 10,
     opacity: isDragging ? 0.5 : 1,
+    // CRITICAL: Disable pointer events while dragging so the task doesn't block
+    // collision detection with the underlying DroppableDayColumn
+    pointerEvents: isDragging ? 'none' : 'auto',
   };
 
   return (
     <div
       ref={setNodeRef}
+      data-testid={`scheduled-task-${task.id}`}
+      data-task-title={task.title}
       className={`absolute rounded px-1.5 py-0.5 text-[10px] select-none
         ${colorClass} text-white shadow-sm border-l-2 border-white/30
         ${isCompleted ? 'opacity-50' : ''}
@@ -237,7 +267,10 @@ function TaskBlock({ task, onComplete, onUnschedule, onDoubleClick, columnIndex,
             e.stopPropagation();
             if (!isCompleted) onComplete?.(task.id);
           }}
-          onPointerDown={(e) => e.stopPropagation()}
+          // Removed onPointerDown stopPropagation - it was blocking drag initiation
+          // on narrow tasks where checkbox fills most of the width.
+          // dnd-kit has an 8px distance threshold, so clicks without movement
+          // will still trigger the onClick handler properly.
           className={`flex-shrink-0 w-3 h-3 mt-0.5 rounded-sm border transition-colors
             ${isCompleted ? 'bg-green-400 border-green-300' : 'border-white/50 hover:bg-white/20'}`}
         >
@@ -577,11 +610,17 @@ function PlanningCalendar({
   onUnscheduleTask,
   onScheduleTask,
   onCreateEvent,
+  onRescheduleEvent,
+  onDragPositionChange,
 }: PlanningCalendarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const calendarGridRef = useRef<HTMLDivElement>(null);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Track pointer position for time indicator tooltip
+  const [dragPointerPosition, setDragPointerPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Drag state for creating new events (on EVENTS column)
   const [dragState, setDragState] = useState<DragState>({
@@ -619,6 +658,77 @@ function PlanningCalendar({
     return result;
   }, [startDate, endDate]);
 
+  /**
+   * Single source of truth for converting pointer position to calendar time slot.
+   * Uses measured DOM values instead of hardcoded constants.
+   * Returns null if pointer is outside valid drop area.
+   */
+  const getTimeFromPointer = useCallback((clientX: number, clientY: number, allowEventsColumn = false): {
+    dateKey: string;
+    dayIndex: number;
+    hour: number;
+    minute: number;
+  } | null => {
+    if (!scrollRef.current || !stickyHeaderRef.current) return null;
+
+    const scrollContainer = scrollRef.current;
+    const stickyHeader = stickyHeaderRef.current;
+
+    // Get container bounds and scroll position
+    const scrollRect = scrollContainer.getBoundingClientRect();
+    const scrollTop = scrollContainer.scrollTop;
+
+    // Measure the sticky header dynamically instead of using hardcoded value
+    const stickyHeaderHeight = stickyHeader.offsetHeight;
+    const TIME_LABEL_WIDTH = 56;
+
+    // Check if pointer is within the scroll container bounds
+    const contentTop = scrollRect.top + stickyHeaderHeight;
+    if (clientX < scrollRect.left || clientX > scrollRect.right ||
+        clientY < contentTop || clientY > scrollRect.bottom) {
+      return null;
+    }
+
+    // Calculate which day column (accounting for time label width)
+    const relativeX = clientX - scrollRect.left - TIME_LABEL_WIDTH;
+    const dayIndex = Math.floor(relativeX / DAY_WIDTH);
+
+    // Validate day index
+    if (dayIndex < 0 || dayIndex >= days.length || relativeX < 0) {
+      return null;
+    }
+
+    // Check if in TASKS column (right half of day) vs EVENTS column (left half)
+    const positionInDay = relativeX % DAY_WIDTH;
+    const isInTasksColumn = positionInDay >= DAY_WIDTH / 2;
+
+    // For tasks: only allow drops in Tasks column
+    // For events: allow drops in either column (when allowEventsColumn is true)
+    if (!isInTasksColumn && !allowEventsColumn) {
+      return null; // In Events column - don't allow task drops here
+    }
+
+    // Calculate date for this column
+    const targetDate = days[dayIndex];
+    const dateKey = format(targetDate, 'yyyy-MM-dd');
+
+    // Calculate Y position relative to content (accounting for scroll)
+    // This is the key fix: measure from content top, then add scroll offset
+    const pointerOffsetFromContentTop = clientY - contentTop;
+    const contentY = scrollTop + pointerOffsetFromContentTop;
+
+    // Convert content Y to time (15-minute slots, SLOT_HEIGHT = 12px)
+    const totalMinutes = Math.floor(contentY / SLOT_HEIGHT) * 15;
+    const rawHour = START_HOUR + Math.floor(totalMinutes / 60);
+    const rawMinute = totalMinutes % 60;
+
+    // Clamp to valid hours (6 AM to 9:45 PM for 10 PM end)
+    const hour = Math.max(START_HOUR, Math.min(END_HOUR - 1, rawHour));
+    const minute = hour === rawHour ? Math.max(0, Math.min(45, rawMinute)) : (rawHour < START_HOUR ? 0 : 45);
+
+    return { dateKey, dayIndex, hour, minute };
+  }, [days]);
+
   // Track the actual pointer position during drag
   const pointerPositionRef = useRef({ x: 0, y: 0 });
 
@@ -631,86 +741,49 @@ function PlanningCalendar({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Monitor dnd-kit drag events for hover preview
+  // Monitor dnd-kit drag events for hover preview and handle drops
   useDndMonitor({
     onDragMove(event) {
       const { active } = event;
-      if (!active || !calendarGridRef.current) {
+      if (!active) {
         setHoverPreview(null);
+        setDragPointerPosition(null);
+        onDragPositionChange?.(null);
         return;
       }
 
-      // Use actual pointer position from mousemove tracking
+      // Get current pointer position
       const currentX = pointerPositionRef.current.x;
       const currentY = pointerPositionRef.current.y;
 
-      // Get calendar grid bounds
-      const gridRect = calendarGridRef.current.getBoundingClientRect();
-      const scrollTop = scrollRef.current?.scrollTop || 0;
+      // Update pointer position for time indicator tooltip
+      setDragPointerPosition({ x: currentX, y: currentY });
 
-      // Check if pointer is within the calendar grid vertically
-      if (currentY < gridRect.top || currentY > gridRect.bottom) {
-        setHoverPreview(null);
-        return;
-      }
-
-      // Calculate which day column
-      // Grid structure: [Time labels 56px] [Day 1: 140px] [Day 2: 140px] ...
-      // Each day has: [Events col ~70px] [Tasks col ~70px]
-      const TIME_LABEL_WIDTH = 56;
-      const relativeX = currentX - gridRect.left - TIME_LABEL_WIDTH;
-
-      // Each day is DAY_WIDTH (140px)
-      const dayIndex = Math.floor(relativeX / DAY_WIDTH);
-
-      // Check if within a valid day
-      if (dayIndex < 0 || dayIndex >= days.length || relativeX < 0) {
-        setHoverPreview(null);
-        return;
-      }
-
-      // Check if in the TASKS column (right half of day) vs EVENTS column (left half)
-      const positionInDay = relativeX % DAY_WIDTH;
-      const isInTasksColumn = positionInDay >= DAY_WIDTH / 2;
-
-      if (!isInTasksColumn) {
-        // In Events column - don't show task preview here
-        setHoverPreview(null);
-        return;
-      }
-
-      // Calculate the date for this column
-      const targetDate = days[dayIndex];
-      const dateKey = format(targetDate, 'yyyy-MM-dd');
-
-      // Calculate time slot from Y position
-      // Use the scroll container's bounding rect for accurate positioning
-      const scrollRect = scrollRef.current?.getBoundingClientRect();
-      if (!scrollRect) {
-        setHoverPreview(null);
-        return;
-      }
-
-      // The visible area starts after the sticky header (day names + Events/Tasks labels)
-      const STICKY_HEADER_HEIGHT = 80;
-      const visibleContentTop = scrollRect.top + STICKY_HEADER_HEIGHT;
-
-      // Calculate where the pointer is within the content
-      const pointerOffsetInVisibleArea = currentY - visibleContentTop;
-      const contentY = scrollTop + pointerOffsetInVisibleArea;
-
-      // Convert content Y to time (15-minute slots)
-      const totalMinutes = Math.floor(contentY / SLOT_HEIGHT) * 15;
-      const hour = START_HOUR + Math.floor(totalMinutes / 60);
-      const minute = totalMinutes % 60;
-
-
-      // Get task info from active
+      // Determine if dragging an event (allow events column) or task (tasks column only)
       const activeData = active.data.current;
+      const isCalendarEvent = activeData?.type === 'calendarEvent';
+
+      // Use single source of truth for coordinate calculation
+      const position = getTimeFromPointer(currentX, currentY, isCalendarEvent);
+
+      if (!position) {
+        setHoverPreview(null);
+        onDragPositionChange?.(null);
+        return;
+      }
+
+      const { dateKey, hour, minute } = position;
+
+      // Get duration and title from active item
       let duration = DEFAULT_DURATION;
       let title = 'Task';
 
-      if (activeData?.type === 'scheduledTask' && activeData.task) {
+      if (isCalendarEvent && activeData.event) {
+        // Calculate duration from event times
+        const evt = activeData.event;
+        duration = differenceInMinutes(parseISO(evt.endTime), parseISO(evt.startTime));
+        title = evt.title;
+      } else if (activeData?.type === 'scheduledTask' && activeData.task) {
         duration = activeData.task.timeEstimateMinutes || DEFAULT_DURATION;
         title = activeData.task.title;
       } else if (activeData?.type === 'backlogTask' && activeData.task) {
@@ -718,19 +791,101 @@ function PlanningCalendar({
         title = activeData.task.title;
       }
 
+      // Update hover preview
       setHoverPreview({
         dateKey,
-        hour: Math.max(START_HOUR, Math.min(END_HOUR - 1, hour)),
-        minute: Math.max(0, Math.min(45, minute)),
+        hour,
+        minute,
         duration,
         title,
       });
+
+      // Notify parent of drag position (for backward compatibility)
+      onDragPositionChange?.({ dateKey, hour, minute });
     },
-    onDragEnd() {
+
+    onDragEnd(event) {
+      const { active, over } = event;
+
+      // Get current pointer position
+      const currentX = pointerPositionRef.current.x;
+      const currentY = pointerPositionRef.current.y;
+
+      // Determine if this is a calendar event drag
+      const activeData = active?.data.current;
+      const isCalendarEvent = activeData?.type === 'calendarEvent';
+
+      // Get position at drop time - allow events column for calendar events
+      const dropPosition = getTimeFromPointer(currentX, currentY, isCalendarEvent);
+
+      // Clear preview state
       setHoverPreview(null);
+      setDragPointerPosition(null);
+      onDragPositionChange?.(null);
+
+      // If no valid drop position or no active item, skip
+      if (!dropPosition || !active) return;
+
+      const { dateKey, hour, minute } = dropPosition;
+      const activeId = active.id.toString();
+
+      // Handle calendar event reschedule
+      // Events use pointer position directly, no need for droppable check
+      if (isCalendarEvent && activeId.startsWith('event-')) {
+        const eventId = activeId.replace('event-', '');
+        const calEvent = events.find(e => e.id === eventId);
+        if (!calEvent || !onRescheduleEvent) return;
+
+        // Calculate duration from original event
+        const originalStart = parseISO(calEvent.startTime);
+        const originalEnd = parseISO(calEvent.endTime);
+        const durationMs = originalEnd.getTime() - originalStart.getTime();
+
+        // Create new times
+        const [year, month, day] = dateKey.split('-').map(Number);
+        const newStartTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+        const newEndTime = new Date(newStartTime.getTime() + durationMs);
+
+        // Reschedule the event
+        onRescheduleEvent(eventId, newStartTime.toISOString(), newEndTime.toISOString());
+        return;
+      }
+
+      // Handle task scheduling - requires drop on a day column
+      if (!onScheduleTask) return;
+      if (!over || !over.id.toString().startsWith('day-')) return;
+
+      const isScheduledTask = activeId.startsWith('scheduled-');
+
+      // Get the task being dragged
+      let taskId: string | undefined;
+      let taskDuration = DEFAULT_DURATION;
+
+      if (isScheduledTask) {
+        taskId = activeId.replace('scheduled-', '');
+        const task = scheduledTasks.find((t) => t.id === taskId);
+        taskDuration = task?.timeEstimateMinutes || DEFAULT_DURATION;
+      } else {
+        taskId = activeId;
+        const task = backlogTasks.find((t) => t.id === taskId);
+        taskDuration = task?.timeEstimateMinutes || DEFAULT_DURATION;
+      }
+
+      if (!taskId) return;
+
+      // Create the start and end times
+      const [year, month, day] = dateKey.split('-').map(Number);
+      const startTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+      const endTime = new Date(startTime.getTime() + taskDuration * 60 * 1000);
+
+      // Schedule the task using the exact position shown in preview
+      onScheduleTask(taskId, startTime.toISOString(), endTime.toISOString());
     },
+
     onDragCancel() {
       setHoverPreview(null);
+      setDragPointerPosition(null);
+      onDragPositionChange?.(null);
     },
   });
 
@@ -946,7 +1101,7 @@ function PlanningCalendar({
         <div ref={scrollRef} className="flex-1 overflow-auto">
           <div style={{ width: calendarWidth, minWidth: '100%' }}>
             {/* Day Headers */}
-            <div className="sticky top-0 z-10 flex bg-slate-800 border-b border-slate-600">
+            <div ref={stickyHeaderRef} className="sticky top-0 z-10 flex bg-slate-800 border-b border-slate-600">
               <div className="w-14 flex-shrink-0 border-r border-slate-700" />
               {days.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
@@ -1104,6 +1259,19 @@ function PlanningCalendar({
         </div>
       </div>
 
+      {/* Time Indicator Tooltip - shows exact time during drag */}
+      {dragPointerPosition && hoverPreview && (
+        <div
+          className="fixed bg-slate-900 text-white px-2 py-1 rounded text-xs font-medium shadow-lg border border-slate-600 pointer-events-none z-[1000]"
+          style={{
+            left: dragPointerPosition.x + 16,
+            top: dragPointerPosition.y + 16,
+          }}
+        >
+          {formatTime(hoverPreview.hour, hoverPreview.minute)}
+        </div>
+      )}
+
       {/* Event Creation Popup */}
       <EventPopup
         state={popup}
@@ -1125,3 +1293,4 @@ function PlanningCalendar({
 }
 
 export default PlanningCalendar;
+export type { DragPosition };

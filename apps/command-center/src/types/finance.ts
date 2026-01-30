@@ -106,6 +106,50 @@ export interface FinanceStatus {
 }
 
 // ============================================
+// Budget Types
+// ============================================
+
+export interface Budget {
+  id: string;
+  name: string;
+  groupName: string | null;
+  groupOrder: number | null;
+  budgetOrder: number | null;
+  category: string;
+  amountCents: number;
+  targetType: string | null;
+  targetAmountCents: number | null;
+  targetDate: string | null;
+  periodType: 'weekly' | 'monthly' | 'yearly' | string | null;
+  startDate: string | null;
+  endDate: string | null;
+  rolloverEnabled: boolean | null;
+  rolloverAmountCents: number | null;
+  carryoverOverspent: boolean | null;
+  alertThreshold: number | null;
+  alertsEnabled: boolean | null;
+  isActive: boolean | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetStatus {
+  budget: Budget;
+  periodStart: string;
+  periodEnd: string;
+  spentCents: number;
+  remainingCents: number;
+  percentUsed: number;
+  limitCents: number;
+  isOverBudget: boolean;
+  budgetedCents: number;
+  targetAmountCents: number;
+  targetProgressCents: number;
+  targetRemainingCents: number;
+  targetProgressPercent: number;
+}
+
+// ============================================
 // Sync Types
 // ============================================
 

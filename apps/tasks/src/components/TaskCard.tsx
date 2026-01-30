@@ -27,6 +27,7 @@ interface TaskCardProps {
   onAddSubtask?: (parentTask: Task) => void;
   showProject?: boolean;
   showSubtasks?: boolean;
+  isSelected?: boolean;
 }
 
 const priorityConfig = {
@@ -55,6 +56,7 @@ export function TaskCard({
   onAddSubtask,
   showProject = true,
   showSubtasks = true,
+  isSelected = false,
 }: TaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -85,17 +87,21 @@ export function TaskCard({
   return (
     <div
       data-testid={index !== undefined ? `task-card-${index}` : `task-card-${task.id}`}
+      data-task-id={task.id}
+      aria-selected={isSelected}
       className={clsx(
         'border-b border-gray-100',
         isCompleted ? 'opacity-50' : '',
-        isOverdue && !isCompleted && 'bg-red-50/50'
+        isOverdue && !isCompleted && 'bg-red-50/50',
+        isSelected && 'bg-blue-50'
       )}
     >
       {/* Main task row */}
       <div
         className={clsx(
           'group flex items-start gap-3 px-4 py-3 transition-all',
-          !isCompleted && 'hover:bg-gray-50'
+          !isCompleted && 'hover:bg-gray-50',
+          isSelected && 'ring-1 ring-inset ring-blue-200'
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

@@ -3264,7 +3264,7 @@ export const sosPosts = pgTable(
   ]
 );
 
-export const sosComments = pgTable(
+export const sosComments: ReturnType<typeof pgTable> = pgTable(
   'sos_comments',
   {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -3752,6 +3752,9 @@ export const readHelpChapters = pgTable(
     keyQuotes: jsonb('key_quotes'), // [{quote, pageNumber, context}]
     frameworks: jsonb('frameworks'), // [{name, description, pageNumbers}]
 
+    // Images extracted from PDF (charts, diagrams, figures)
+    images: jsonb('images').default(sql`'[]'::jsonb`), // [{path, pageNumber, caption?, type: "chart"|"diagram"|"figure"}]
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
@@ -3970,5 +3973,71 @@ export const readHelpFlashcards = pgTable(
     index('read_help_flashcards_chapter_idx').on(table.chapterId),
     index('read_help_flashcards_review_idx').on(table.nextReviewAt),
     index('read_help_flashcards_archived_idx').on(table.isArchived),
+  ]
+);
+
+// ============================================
+// READ HELP - YouTube Video Learning
+// ============================================
+
+export const readHelpVideos = pgTable(
+  'read_help_videos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // YouTube info
+    youtubeId: text('youtube_id').notNull().unique(),
+    youtubeUrl: text('youtube_url').notNull(),
+    title: text('title').notNull(),
+    channelName: text('channel_name'),
+    channelId: text('channel_id'),
+    description: text('description'),
+    thumbnailUrl: text('thumbnail_url'),
+    durationSeconds: integer('duration_seconds'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+
+    // Canvas integration
+    canvasCourseId: text('canvas_course_id'),
+    canvasModuleItemId: text('canvas_module_item_id'),
+    canvasModuleName: text('canvas_module_name'),
+
+    // Content
+    transcript: text('transcript'),
+    transcriptLanguage: text('transcript_language').default('en'),
+    transcriptSource: text('transcript_source'), // 'youtube_auto', 'youtube_manual', 'whisper'
+    wordCount: integer('word_count'),
+
+    // AI-generated summaries (cached)
+    summaryShort: text('summary_short'), // ~500 words, 5 min read
+    summaryMedium: text('summary_medium'), // ~1500 words, 15 min read  
+    summaryLong: text('summary_long'), // ~3000 words, 30 min read
+    summaryGeneratedAt: timestamp('summary_generated_at', { withTimezone: true }),
+
+    // Key concepts
+    keyConcepts: jsonb('key_concepts'), // [{term, definition, timestamps}]
+    keyPoints: jsonb('key_points'), // [{point, timestamp, context}]
+
+    // Processing status
+    status: text('status').default('pending').notNull(), // pending, processing, ready, error
+    processingError: text('processing_error'),
+
+    // User metadata
+    tags: text('tags').array(),
+    notes: text('notes'),
+    rating: integer('rating'), // 1-5
+
+    // State
+    isArchived: boolean('is_archived').default(false).notNull(),
+    lastWatchedAt: timestamp('last_watched_at', { withTimezone: true }),
+    watchProgress: integer('watch_progress').default(0), // seconds watched
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('read_help_videos_youtube_id_idx').on(table.youtubeId),
+    index('read_help_videos_status_idx').on(table.status),
+    index('read_help_videos_canvas_course_idx').on(table.canvasCourseId),
+    index('read_help_videos_archived_idx').on(table.isArchived),
   ]
 );

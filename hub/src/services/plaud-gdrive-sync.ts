@@ -21,9 +21,10 @@ import { OAuth2Client } from 'google-auth-library';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join, dirname, basename, extname } from 'path';
 import { db } from '../db/client';
-import { recordings, transcripts, vaultPages, vaultBlocks } from '../db/schema';
+import { recordings, transcripts, vaultBlocks } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { plaudIntegration } from '../integrations/plaud';
+import { VaultPageService } from './vault-page-service';
 
 // ============================================
 // Types
@@ -406,13 +407,20 @@ export class PlaudGDriveSync {
 
   /**
    * Create a Vault page from transcript text (when no audio available)
+   * Uses findOrCreate to prevent duplicates
    */
   private async createVaultPageFromTranscript(title: string, transcriptText: string): Promise<void> {
-    // Create Vault page
-    const [page] = await db.insert(vaultPages).values({
-      title: `${title}`,
+    // Create or find Vault page (prevent duplicates)
+    const vaultPageService = new VaultPageService();
+    const { page, created } = await vaultPageService.findOrCreate({
+      title,
       icon: '🎙️',
-    }).returning();
+    });
+
+    if (!created) {
+      console.log(`[PlaudGDrive] Using existing Vault page: ${title}`);
+      return; // Don't add duplicate blocks
+    }
 
     // Parse transcript for any structure (Plaud often includes timestamps)
     const hasTimestamps = /\[\d{2}:\d{2}\]/.test(transcriptText);

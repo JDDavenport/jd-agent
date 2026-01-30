@@ -91,18 +91,52 @@ final class JDVaultUITests: XCTestCase {
     func testT006_AddTextBlock() throws {
         // Create a new page
         app.buttons["New Note"].tap()
-        sleep(2)
+        sleep(3)
+
+        // Count initial text fields
+        let initialFieldCount = app.textFields.count
+        print("Initial text field count: \(initialFieldCount)")
 
         // Look for "Add block" button
         let addBlockButton = app.buttons["Add block"]
-        if addBlockButton.waitForExistence(timeout: 3) {
-            addBlockButton.tap()
-            sleep(1)
+        XCTAssertTrue(addBlockButton.waitForExistence(timeout: 5), "Add block button should exist")
 
-            // Should show block type menu
-            let textOption = app.buttons["Text"]
-            if textOption.exists {
-                textOption.tap()
+        addBlockButton.tap()
+        sleep(1)
+
+        // Should show block type menu - check for multiple options
+        let textOption = app.buttons["Text"]
+        let heading1Option = app.buttons["Heading 1"]
+        let todoOption = app.buttons["To-do"]
+
+        print("Text option exists: \(textOption.exists)")
+        print("Heading 1 option exists: \(heading1Option.exists)")
+        print("To-do option exists: \(todoOption.exists)")
+
+        XCTAssertTrue(textOption.exists || heading1Option.exists, "Block type menu should show options")
+
+        // Tap Text to add a text block
+        if textOption.exists {
+            textOption.tap()
+            sleep(2)
+
+            // Count text fields again - should have more now
+            let newFieldCount = app.textFields.count
+            print("Text field count after adding block: \(newFieldCount)")
+
+            // Verify a new text field was added
+            XCTAssertGreaterThan(newFieldCount, initialFieldCount, "Should have more text fields after adding a block")
+
+            // Try to type in the new block
+            let allFields = app.textFields.allElementsBoundByIndex
+            if allFields.count > 1 {
+                // The last field should be the newly added one
+                let newBlock = allFields.last!
+                newBlock.tap()
+                sleep(1)
+                newBlock.typeText("Test content from Add block")
+                sleep(1)
+                print("Successfully typed in new block")
             }
         }
     }
@@ -283,6 +317,48 @@ final class JDVaultUITests: XCTestCase {
 
             XCTAssertTrue(textOption.exists || heading1Option.exists || todoOption.exists,
                           "Should show block type options in menu")
+        }
+    }
+
+    // MARK: - T-019: Auto-create Block and Focus
+    func testT019_AutoCreateBlockOnNewNote() throws {
+        // Tap New Note button
+        let newNoteButton = app.buttons["New Note"]
+        XCTAssertTrue(newNoteButton.waitForExistence(timeout: 5))
+        newNoteButton.tap()
+
+        // Wait for page to load and auto-create block
+        sleep(5)
+
+        // Should be on detail view with back button
+        let backButton = app.buttons["Vault"]
+        XCTAssertTrue(backButton.waitForExistence(timeout: 5), "Should navigate to page detail")
+
+        // Count all text fields - should have title AND at least one body block
+        let allTextFields = app.textFields.allElementsBoundByIndex
+        print("Number of text fields: \(allTextFields.count)")
+
+        for (index, tf) in allTextFields.enumerated() {
+            print("TextField \(index): placeholder='\(tf.placeholderValue ?? "")' value='\(tf.value ?? "")'")
+        }
+
+        // Should have at least 2 text fields: title + auto-created body block
+        XCTAssertGreaterThanOrEqual(allTextFields.count, 2, "Should have title + auto-created body text fields")
+
+        // The second text field should be the body content area
+        if allTextFields.count >= 2 {
+            let bodyField = allTextFields[1]
+            print("Tapping body field to type...")
+            bodyField.tap()
+            sleep(1)
+
+            // Type some text
+            bodyField.typeText("This is body content!")
+            sleep(1)
+
+            // Verify the app still works (we're still on detail view)
+            XCTAssertTrue(backButton.exists, "Should still be on detail view after typing")
+            print("Successfully typed in body field!")
         }
     }
 }

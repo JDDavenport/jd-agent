@@ -44,35 +44,44 @@ function IntegrityLog({ checks, isLoading }: IntegrityLogProps) {
         <p className="text-text-muted text-center py-8">No integrity checks found</p>
       ) : (
         <div className="space-y-3">
-          {checks.map((check) => (
-            <div key={check.id} className="p-3 bg-dark-card-hover rounded-lg">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <span className={`text-lg ${statusColors[check.status]}`}>
-                    {statusIcons[check.status]}
+          {checks.map((check) => {
+            const parsedDate = new Date(check.timestamp);
+            const timestampLabel = Number.isNaN(parsedDate.getTime())
+              ? 'Unknown'
+              : parsedDate.toLocaleString();
+
+            return (
+              <div key={check.id} className="p-3 bg-dark-card-hover rounded-lg">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-lg ${statusColors[check.status]}`}>
+                      {statusIcons[check.status]}
+                    </span>
+                    <span className="font-medium text-text">{check.type}</span>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadgeColors[check.status]}`}>
+                    {check.status}
                   </span>
-                  <span className="font-medium text-text">{check.type}</span>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadgeColors[check.status]}`}>
-                  {check.status}
-                </span>
+
+                <p className="text-sm text-text-muted mb-2">
+                  {check.message || 'No details provided'}
+                </p>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-muted">
+                    {timestampLabel}
+                  </span>
+
+                  {check.details && Object.keys(check.details).length > 0 && (
+                    <button className="text-accent hover:underline">
+                      View Details
+                    </button>
+                  )}
+                </div>
               </div>
-
-              <p className="text-sm text-text-muted mb-2">{check.message}</p>
-
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-text-muted">
-                  {new Date(check.timestamp).toLocaleString()}
-                </span>
-
-                {check.details && Object.keys(check.details).length > 0 && (
-                  <button className="text-accent hover:underline">
-                    View Details
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

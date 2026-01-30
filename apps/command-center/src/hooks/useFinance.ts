@@ -10,6 +10,10 @@ import {
   getFinanceOverview,
   getFinanceWidget,
   getSpendingByCategory,
+  getBudgets,
+  createBudget,
+  updateBudget,
+  deleteBudget,
   getAccounts,
   getTransactions,
   getRecentTransactions,
@@ -22,6 +26,8 @@ import type {
   FinanceOverview,
   FinanceWidgetData,
   SpendingByCategory,
+  BudgetStatus,
+  Budget,
   PlaidAccount,
   Transaction,
   RecentTransaction,
@@ -65,6 +71,48 @@ export function useSpendingByCategory(startDate?: string, endDate?: string) {
     queryKey: ['finance', 'spending', startDate, endDate],
     queryFn: () => getSpendingByCategory(startDate, endDate),
     refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+// ============================================
+// Budget Hooks
+// ============================================
+
+export function useBudgets(includeInactive = false, month?: string) {
+  return useQuery<BudgetStatus[]>({
+    queryKey: ['finance', 'budgets', includeInactive, month],
+    queryFn: () => getBudgets(includeInactive, month),
+    refetchInterval: 2 * 60 * 1000,
+  });
+}
+
+export function useCreateBudget() {
+  const queryClient = useQueryClient();
+  return useMutation<Budget, Error, Parameters<typeof createBudget>[0]>({
+    mutationFn: createBudget,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'budgets'] });
+    },
+  });
+}
+
+export function useUpdateBudget() {
+  const queryClient = useQueryClient();
+  return useMutation<Budget, Error, { id: string; data: Parameters<typeof updateBudget>[1] }>({
+    mutationFn: ({ id, data }) => updateBudget(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'budgets'] });
+    },
+  });
+}
+
+export function useDeleteBudget() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: deleteBudget,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'budgets'] });
+    },
   });
 }
 
@@ -148,6 +196,126 @@ export function useManualAccounts() {
   return useQuery<ManualAccount[]>({
     queryKey: ['finance', 'manual-accounts'],
     queryFn: getManualAccounts,
+    staleTime: 60 * 1000,
+  });
+}
+
+// ============================================
+// Analytics Hooks
+// ============================================
+
+import {
+  getSpendingTrends,
+  getTopMerchants,
+  getCategoryTrends,
+  getBudgetAccuracy,
+  getIncomeExpenses,
+  getAnalyticsDashboard,
+  type SpendingTrends,
+  type MerchantAnalysis,
+  type CategoryTrend,
+  type BudgetAccuracy,
+  type IncomeExpenseComparison,
+  type AnalyticsDashboard,
+} from '../api/finance';
+
+export function useSpendingTrends(
+  period: 'daily' | 'weekly' | 'monthly' = 'daily',
+  days = 90
+) {
+  return useQuery<SpendingTrends>({
+    queryKey: ['finance', 'analytics', 'trends', period, days],
+    queryFn: () => getSpendingTrends(period, days),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useTopMerchants(limit = 20, days = 90) {
+  return useQuery<MerchantAnalysis[]>({
+    queryKey: ['finance', 'analytics', 'merchants', limit, days],
+    queryFn: () => getTopMerchants(limit, days),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCategoryTrends(months = 6) {
+  return useQuery<CategoryTrend[]>({
+    queryKey: ['finance', 'analytics', 'categories', months],
+    queryFn: () => getCategoryTrends(months),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useBudgetAccuracy(months = 6) {
+  return useQuery<BudgetAccuracy[]>({
+    queryKey: ['finance', 'analytics', 'accuracy', months],
+    queryFn: () => getBudgetAccuracy(months),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useIncomeExpenses(months = 12) {
+  return useQuery<IncomeExpenseComparison[]>({
+    queryKey: ['finance', 'analytics', 'income-expenses', months],
+    queryFn: () => getIncomeExpenses(months),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAnalyticsDashboard() {
+  return useQuery<AnalyticsDashboard>({
+    queryKey: ['finance', 'analytics', 'dashboard'],
+    queryFn: getAnalyticsDashboard,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ============================================
+// Preferences Hooks
+// ============================================
+
+import {
+  getBudgetPreferences,
+  updateBudgetPreferences,
+  getReportHistory,
+  getAlertHistory,
+  type BudgetPreferences,
+  type UpdatePreferencesInput,
+  type ReportHistoryItem,
+  type AlertHistoryItem,
+} from '../api/finance';
+
+export function useBudgetPreferences() {
+  return useQuery<BudgetPreferences>({
+    queryKey: ['finance', 'preferences'],
+    queryFn: getBudgetPreferences,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useUpdateBudgetPreferences() {
+  const queryClient = useQueryClient();
+
+  return useMutation<BudgetPreferences, Error, UpdatePreferencesInput>({
+    mutationFn: updateBudgetPreferences,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'preferences'] });
+    },
+  });
+}
+
+export function useReportHistory(limit = 20, type?: 'daily' | 'weekly') {
+  return useQuery<ReportHistoryItem[]>({
+    queryKey: ['finance', 'reports', 'history', limit, type],
+    queryFn: () => getReportHistory(limit, type),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useAlertHistory(limit = 20) {
+  return useQuery<AlertHistoryItem[]>({
+    queryKey: ['finance', 'alerts', 'history', limit],
+    queryFn: () => getAlertHistory(limit),
     staleTime: 60 * 1000,
   });
 }

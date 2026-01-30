@@ -36,7 +36,7 @@ import {
 import WeeklyBacklogPanel from '../components/weekly-planning/WeeklyBacklogPanel';
 import PlanningCalendar from '../components/weekly-planning/PlanningCalendar';
 import { useWeeklyBacklog, useScheduleTask, useReorderTasks, useScheduledTasks, useUnscheduleTask } from '../hooks/useWeeklyPlanning';
-import { useCalendarEvents, useCreateEvent } from '../hooks/useCalendar';
+import { useCalendarEvents, useCreateEvent, useUpdateEvent } from '../hooks/useCalendar';
 import { useCompleteTask } from '../hooks/useTasks';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import type { Task } from '../types/task';
@@ -108,6 +108,7 @@ function WeeklyPlanning() {
   const completeMutation = useCompleteTask();
   const unscheduleMutation = useUnscheduleTask();
   const createEventMutation = useCreateEvent();
+  const updateEventMutation = useUpdateEvent();
 
   // Week navigation handler
   const handleWeekChange = useCallback((direction: 'prev' | 'next') => {
@@ -138,6 +139,14 @@ function WeeklyPlanning() {
     });
   }, [createEventMutation]);
 
+  // Reschedule calendar event handler - syncs to Google Calendar
+  const handleRescheduleEvent = useCallback((eventId: string, startTime: string, endTime: string) => {
+    updateEventMutation.mutate({
+      id: eventId,
+      data: { startTime, endTime },
+    });
+  }, [updateEventMutation]);
+
   // Drag handlers
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -159,6 +168,11 @@ function WeeklyPlanning() {
     }
   };
 
+  /**
+   * Handle drag end events.
+   * Calendar drops are handled directly by PlanningCalendar via useDndMonitor.
+   * This handler only deals with backlog reordering.
+   */
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
@@ -169,81 +183,9 @@ function WeeklyPlanning() {
     const overId = over.id.toString();
     const isScheduledTask = activeId.startsWith('scheduled-');
 
-    // Case 1: Dropped on a day column (new behavior)
-    if (overId.startsWith('day-')) {
-      const dateKey = overId.replace('day-', '');
-      const overRect = over.rect;
-
-      // Get final pointer position (start position + delta)
-      const activatorY = (event.activatorEvent as PointerEvent)?.clientY || 0;
-      const deltaY = event.delta?.y || 0;
-      const finalY = activatorY + deltaY;
-
-      // Calculate time slot from pointer position
-      const HOUR_HEIGHT = 48;
-      const SLOT_HEIGHT = HOUR_HEIGHT / 4;
-      const START_HOUR = 6;
-      const END_HOUR = 22;
-
-      if (overRect && finalY) {
-        const relativeY = finalY - overRect.top;
-        const totalMinutes = Math.floor(relativeY / SLOT_HEIGHT) * 15;
-        const hour = Math.max(START_HOUR, Math.min(END_HOUR - 1, START_HOUR + Math.floor(totalMinutes / 60)));
-        const minute = Math.max(0, Math.min(45, totalMinutes % 60));
-
-        // Get the task
-        let task: Task | undefined;
-        if (isScheduledTask) {
-          const taskId = activeId.replace('scheduled-', '');
-          task = scheduledTasks.find((t) => t.id === taskId);
-        } else {
-          task = backlogTasks.find((t) => t.id === activeId);
-        }
-
-        if (task) {
-          const [year, month, day] = dateKey.split('-').map(Number);
-          const slotDate = new Date(year, month - 1, day, hour, minute, 0, 0);
-          const duration = task.timeEstimateMinutes || 15;
-          const endTime = new Date(slotDate.getTime() + duration * 60 * 1000);
-
-          scheduleMutation.mutate({
-            taskId: task.id,
-            startTime: slotDate.toISOString(),
-            endTime: endTime.toISOString(),
-          });
-        }
-      }
-    }
-    // Case 2: Dropped on a calendar time slot (legacy)
-    else if (overId.startsWith('slot-')) {
-      const parts = overId.split('-');
-      const dateStr = `${parts[1]}-${parts[2]}-${parts[3]}`;
-      const hour = parseInt(parts[4], 10);
-      const minute = parseInt(parts[5] || '0', 10);
-
-      let task: Task | undefined;
-      if (isScheduledTask) {
-        const taskId = activeId.replace('scheduled-', '');
-        task = scheduledTasks.find((t) => t.id === taskId);
-      } else {
-        task = backlogTasks.find((t) => t.id === activeId);
-      }
-
-      if (task) {
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const slotDate = new Date(year, month - 1, day, hour, minute, 0, 0);
-        const duration = task.timeEstimateMinutes || 15;
-        const endTime = new Date(slotDate.getTime() + duration * 60 * 1000);
-
-        scheduleMutation.mutate({
-          taskId: task.id,
-          startTime: slotDate.toISOString(),
-          endTime: endTime.toISOString(),
-        });
-      }
-    }
-    // Case 3: Reorder within backlog (only for backlog tasks)
-    else if (!isScheduledTask && overId !== activeId) {
+    // Calendar drops (day- or slot- prefixes) are handled by PlanningCalendar
+    // Only handle backlog reordering here
+    if (!isScheduledTask && !overId.startsWith('day-') && !overId.startsWith('slot-') && overId !== activeId) {
       const oldIndex = backlogTasks.findIndex((t) => t.id === activeId);
       const newIndex = backlogTasks.findIndex((t) => t.id === overId);
 
@@ -311,6 +253,7 @@ function WeeklyPlanning() {
                   scheduleMutation.mutate({ taskId, startTime, endTime });
                 }}
                 onCreateEvent={handleCreateEvent}
+                onRescheduleEvent={handleRescheduleEvent}
               />
             </div>
           </div>

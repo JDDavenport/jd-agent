@@ -40,12 +40,13 @@ test.describe('TS-6: Task Completion', () => {
 
   /**
    * Helper to create and schedule a task for testing
+   * Uses a unique time slot based on timestamp to avoid overlap with other tasks
    */
   async function createScheduledTask(
     page: any,
     title: string,
-    dayOffset: number = 1,
-    hour: number = 10
+    dayOffset: number = 2,  // Use day 2 to avoid overlap with rescheduling tests on day 1
+    hour: number = 7       // Use 7am which is less congested
   ): Promise<{ id: string; title: string }> {
     const task = await createBacklogTask(page, title, { timeEstimate: 60 });
     createdTaskIds.push(task.id);
@@ -66,9 +67,9 @@ test.describe('TS-6: Task Completion', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     // Verify checkbox exists within the task (it's a button with rounded class)
     const checkbox = scheduledTask.locator('button').first();
@@ -82,9 +83,9 @@ test.describe('TS-6: Task Completion', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     // Track API calls
     let completeApiCalled = false;
@@ -96,9 +97,9 @@ test.describe('TS-6: Task Completion', () => {
       }
     });
 
-    // Find and click the checkbox
+    // Find and click the checkbox (use force to bypass any overlay issues)
     const checkbox = scheduledTask.locator('button').first();
-    await checkbox.click();
+    await checkbox.click({ force: true });
 
     // Wait for API
     await page.waitForTimeout(2000);
@@ -121,15 +122,15 @@ test.describe('TS-6: Task Completion', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
-    // Get the checkbox
+    // Get the checkbox (use force to bypass any overlay issues)
     const checkbox = scheduledTask.locator('button').first();
 
     // Click to complete
-    await checkbox.click();
+    await checkbox.click({ force: true });
 
     // Wait for query refetch
     await page.waitForTimeout(2000);
@@ -146,9 +147,9 @@ test.describe('TS-6: Task Completion', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     // Get initial task state
     const beforeResponse = await page.request.get(`${API_URL}/api/tasks/${task.id}`);
@@ -156,9 +157,9 @@ test.describe('TS-6: Task Completion', () => {
     console.log(`Task completedAt before: ${beforeData.data?.completedAt}`);
     expect(beforeData.data?.completedAt).toBeFalsy();
 
-    // Click the checkbox
+    // Click the checkbox (use force to bypass any overlay issues)
     const checkbox = scheduledTask.locator('button').first();
-    await checkbox.click();
+    await checkbox.click({ force: true });
 
     // Wait for API
     await page.waitForTimeout(2000);

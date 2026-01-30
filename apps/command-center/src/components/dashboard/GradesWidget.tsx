@@ -8,7 +8,7 @@
  * - Pending grades notification
  */
 
-import React from 'react';
+
 import {
   useGradeSummary,
   useGradeCheck,

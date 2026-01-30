@@ -7,6 +7,7 @@ struct BlockView: View {
     let onToggleTodo: () -> Void
     let onChangeType: (BlockType) -> Void
     let onAddBlockAfter: () -> Void
+    let shouldFocus: Bool
 
     @State private var editedText: String
     @State private var showingMenu = false
@@ -17,13 +18,15 @@ struct BlockView: View {
          onDelete: @escaping () -> Void,
          onToggleTodo: @escaping () -> Void,
          onChangeType: @escaping (BlockType) -> Void,
-         onAddBlockAfter: @escaping () -> Void) {
+         onAddBlockAfter: @escaping () -> Void,
+         shouldFocus: Bool = false) {
         self.block = block
         self.onUpdate = onUpdate
         self.onDelete = onDelete
         self.onToggleTodo = onToggleTodo
         self.onChangeType = onChangeType
         self.onAddBlockAfter = onAddBlockAfter
+        self.shouldFocus = shouldFocus
         self._editedText = State(initialValue: block.content.text ?? "")
     }
 
@@ -52,6 +55,13 @@ struct BlockView: View {
                     Button(action: { onChangeType(type) }) {
                         Label(type.displayName, systemImage: type.icon)
                     }
+                }
+            }
+        }
+        .onAppear {
+            if shouldFocus {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isFocused = true
                 }
             }
         }
@@ -199,7 +209,7 @@ struct BlockView: View {
             .background(Color(.systemGray6))
             .cornerRadius(8)
 
-        case .paragraph, .text, .unknown, .bulletList, .numberedList:
+        case .paragraph, .unknown, .bulletList, .numberedList:
             TextField("Type something...", text: $editedText, axis: .vertical)
                 .font(.body)
                 .focused($isFocused)

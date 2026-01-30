@@ -56,9 +56,13 @@ class SchedulingService {
       };
     }
 
-    // Calculate end time
-    const durationMinutes = task.timeEstimateMinutes || 60; // Default 1 hour
+    // Calculate end time (default to 15 minutes if no estimate)
+    const DEFAULT_DURATION_MINUTES = 15;
+    const durationMinutes = task.timeEstimateMinutes || DEFAULT_DURATION_MINUTES;
     const endTime = input.endTime || new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+
+    // If task doesn't have a time estimate, set it to the default
+    const shouldUpdateTimeEstimate = !task.timeEstimateMinutes;
 
     let calendarEventId: string | undefined;
 
@@ -80,7 +84,7 @@ class SchedulingService {
       }
     }
 
-    // Update task with scheduled time
+    // Update task with scheduled time (and set time estimate if not already set)
     await db
       .update(tasks)
       .set({
@@ -88,6 +92,8 @@ class SchedulingService {
         scheduledEnd: endTime,
         calendarEventId: calendarEventId,
         status: 'today', // Move to today if scheduling
+        // Set default time estimate if not already set
+        ...(shouldUpdateTimeEstimate ? { timeEstimateMinutes: DEFAULT_DURATION_MINUTES } : {}),
         updatedAt: new Date(),
       })
       .where(eq(tasks.id, taskId));

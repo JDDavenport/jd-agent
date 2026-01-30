@@ -1,0 +1,235 @@
+{
+  "config": {
+    "configFile": "/Users/jddavenport/Projects/JD Agent/apps/vault/playwright.config.ts",
+    "rootDir": "/Users/jddavenport/Projects/JD Agent/apps/vault/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/jddavenport/Projects/JD Agent/apps/vault/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/jddavenport/Projects/JD Agent/apps/vault/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.0",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run dev",
+      "url": "http://localhost:5181",
+      "reuseExistingServer": true,
+      "timeout": 120000,
+      "stdout": "ignore",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "mba-session-scroll-test.spec.ts",
+      "file": "mba-session-scroll-test.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "MBA Session Page - Scroll Test",
+          "file": "mba-session-scroll-test.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should verify full page with scrolling",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11174,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== Checking Page Content ===\n"
+                        },
+                        {
+                          "text": "Class Recordings section visible: \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Handwritten Notes section visible: \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Page contains amber styling: \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Page contains blue styling: \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "View Transcript buttons found: \u001b[33m4\u001b[39m\n"
+                        },
+                        {
+                          "text": "Recording cards with left border: \u001b[33m0\u001b[39m\n"
+                        },
+                        {
+                          "text": "\n=== Summary ===\n"
+                        },
+                        {
+                          "text": "Recordings header: \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Handwritten Notes header: \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Blue styling (recordings): \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Amber styling (notes): \u001b[33mtrue\u001b[39m\n"
+                        },
+                        {
+                          "text": "Transcript buttons: \u001b[33m4\u001b[39m\n"
+                        },
+                        {
+                          "text": "Recording cards: \u001b[33m0\u001b[39m\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-26T17:22:14.278Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4a6158383195d694ab7-884be229ffbdc865d6db",
+              "file": "mba-session-scroll-test.spec.ts",
+              "line": 19,
+              "column": 3
+            },
+            {
+              "title": "should compare recording counts across different classes on same date",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 14475,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== Recording Count Comparison ===\n"
+                        },
+                        {
+                          "text": "Classes on same date (2026-01-15):\n"
+                        },
+                        {
+                          "text": "  Venture Capital: 5 recordings\n"
+                        },
+                        {
+                          "text": "  Strategy: 4 recordings\n"
+                        },
+                        {
+                          "text": "  Entrepenurial Innovation: 5 recordings\n"
+                        },
+                        {
+                          "text": "\nUnique recording counts: 5, 4\n"
+                        },
+                        {
+                          "text": "Classes have different recording counts: \u001b[33mtrue\u001b[39m\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-26T17:22:25.779Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c4a6158383195d694ab7-32b64e8130fc982e52f4",
+              "file": "mba-session-scroll-test.spec.ts",
+              "line": 131,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-01-26T17:22:13.615Z",
+    "duration": 26857.435999999998,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

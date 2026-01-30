@@ -18,7 +18,7 @@ whoopRouter.get('/authorize', async (c) => {
   const whoop = getWhoopIntegration();
   
   if (!whoop.isConfigured()) {
-    throw new AppError('Whoop integration not configured', 400, 'NOT_CONFIGURED');
+    throw new AppError(400, 'Whoop integration not configured', 'NOT_CONFIGURED');
   }
 
   // Generate state for CSRF protection
@@ -96,8 +96,8 @@ whoopRouter.get('/user', async (c) => {
     });
   } catch (error) {
     throw new AppError(
-      error instanceof Error ? error.message : 'Failed to get Whoop user',
       500,
+      error instanceof Error ? error.message : 'Failed to get Whoop user',
       'WHOOP_API_ERROR'
     );
   }
@@ -131,8 +131,8 @@ whoopRouter.get('/recovery/today', async (c) => {
     });
   } catch (error) {
     throw new AppError(
-      error instanceof Error ? error.message : 'Failed to get recovery data',
       500,
+      error instanceof Error ? error.message : 'Failed to get recovery data',
       'WHOOP_API_ERROR'
     );
   }
@@ -175,8 +175,8 @@ whoopRouter.get('/sleep/last-night', async (c) => {
     });
   } catch (error) {
     throw new AppError(
-      error instanceof Error ? error.message : 'Failed to get sleep data',
       500,
+      error instanceof Error ? error.message : 'Failed to get sleep data',
       'WHOOP_API_ERROR'
     );
   }

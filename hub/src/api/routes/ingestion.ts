@@ -8,6 +8,7 @@
  */
 
 import { Hono } from 'hono';
+import { eq } from 'drizzle-orm';
 import { canvasIntegration } from '../../integrations/canvas';
 import { remarkableIntegration } from '../../integrations/remarkable';
 import { remarkableGDriveSync } from '../../services/remarkable-gdrive-sync';
@@ -15,6 +16,7 @@ import { remarkableCloudSync } from '../../services/remarkable-cloud-sync';
 import { plaudIntegration } from '../../integrations/plaud';
 import { plaudApiClient } from '../../integrations/plaud-api';
 import { plaudGDriveSync } from '../../services/plaud-gdrive-sync';
+import { plaudBrowserSync } from '../../services/plaud-browser-sync';
 import { gmailIntegration } from '../../integrations/gmail';
 import { db } from '../../db/client';
 import { tasks, vaultEntries } from '../../db/schema';
@@ -1451,29 +1453,51 @@ ingestionRouter.get('/plaud/recordings', async (c) => {
 
 /**
  * POST /api/ingestion/plaud/sync
- * Sync all Plaud recordings
+ * Sync all Plaud recordings using browser-based sync
  */
 ingestionRouter.post('/plaud/sync', async (c) => {
-  if (!plaudIntegration.isConfigured()) {
-    return c.json({
-      success: false,
-      error: { code: 'NOT_CONFIGURED', message: 'Plaud not configured' },
-    }, 400);
+  // Use browser sync (most reliable - auto-login with credentials)
+  if (plaudBrowserSync.isConfigured()) {
+    try {
+      console.log('[Ingestion] Triggering Plaud browser sync...');
+      const result = await plaudBrowserSync.sync();
+      return c.json({
+        success: result.success,
+        data: result,
+        message: result.success
+          ? `Synced ${result.synced} recordings, skipped ${result.skipped}`
+          : `Sync failed: ${result.errors.join(', ')}`,
+      });
+    } catch (error) {
+      console.error('[Ingestion] Plaud browser sync error:', error);
+      return c.json({
+        success: false,
+        error: { code: 'SYNC_ERROR', message: String(error) },
+      }, 500);
+    }
   }
 
-  try {
-    const result = await plaudIntegration.syncAll();
-    return c.json({
-      success: true,
-      data: result,
-      message: `Uploaded ${result.uploaded} recordings, queued ${result.queued} for processing`,
-    });
-  } catch (error) {
-    return c.json({
-      success: false,
-      error: { code: 'SYNC_ERROR', message: String(error) },
-    }, 500);
+  // Fallback to local folder sync
+  if (plaudIntegration.isConfigured()) {
+    try {
+      const result = await plaudIntegration.syncAll();
+      return c.json({
+        success: true,
+        data: result,
+        message: `Uploaded ${result.uploaded} recordings, queued ${result.queued} for processing`,
+      });
+    } catch (error) {
+      return c.json({
+        success: false,
+        error: { code: 'SYNC_ERROR', message: String(error) },
+      }, 500);
+    }
   }
+
+  return c.json({
+    success: false,
+    error: { code: 'NOT_CONFIGURED', message: 'Plaud not configured' },
+  }, 400);
 });
 
 /**
@@ -1544,7 +1568,8 @@ ingestionRouter.post('/plaud/webhook', async (c) => {
 
     // Import required modules
     const { db } = await import('../../db/client');
-    const { recordings, transcripts, vaultPages, vaultBlocks } = await import('../../db/schema');
+    const { recordings, transcripts, vaultBlocks } = await import('../../db/schema');
+    const { VaultPageService } = await import('../../services/vault-page-service');
 
     // Create recording record
     const recordingId = payload.recording_id || payload.id || crypto.randomUUID();
@@ -1587,12 +1612,18 @@ ingestionRouter.post('/plaud/webhook', async (c) => {
       confidenceScore: 0.95,
     }).returning();
 
-    // Create Vault page with transcript and summary
+    // Create or find Vault page (prevent duplicates)
     const pageTitle = payload.title || `Recording - ${recordedAt.toLocaleDateString()}`;
-    const [page] = await db.insert(vaultPages).values({
+    const vaultPageService = new VaultPageService();
+    const { page, created } = await vaultPageService.findOrCreate({
       title: pageTitle,
       icon: '🎙️',
-    }).returning();
+    });
+
+    // Only add blocks if this is a new page
+    if (!created) {
+      console.log(`[Plaud Webhook] Using existing vault page: ${page.id}`);
+    }
 
     // Add summary block
     if (payload.summary) {

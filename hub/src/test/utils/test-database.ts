@@ -1,4 +1,4 @@
-import { db } from '../../db';
+import { db } from '../../db/client';
 
 export async function createTestDatabase() {
   // TODO: Implement test database setup

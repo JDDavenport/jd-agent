@@ -42,7 +42,17 @@ export type JobType =
   | 'testing-session'
   // Recurrence Pipeline
   | 'recurrence-generate'
-  | 'recurrence-batch';
+  | 'recurrence-batch'
+  // Plaud Pipeline
+  | 'plaud-sync'
+  // Acquisition Pipeline
+  | 'acquisition-enrich'
+  | 'acquisition-enrich-batch'
+  | 'acquisition-score'
+  | 'acquisition-score-batch'
+  // Notebook Pipeline
+  | 'notebook-sync'
+  | 'notebook-process';
 
 export interface TranscriptionJobData {
   recordingId: string;
@@ -167,6 +177,41 @@ export interface RecurrenceBatchJobData {
   force?: boolean; // Process all recurring tasks even if they have active instances
 }
 
+// Plaud Pipeline Job Data
+export interface PlaudSyncJobData {
+  transcribeNew?: boolean; // Also transcribe new audio with Deepgram (default: true)
+}
+
+// Acquisition Pipeline Job Data
+export interface AcquisitionEnrichJobData {
+  leadId: string;
+  sources?: ('google_places' | 'yelp' | 'website' | 'linkedin')[];
+}
+
+export interface AcquisitionEnrichBatchJobData {
+  leadIds?: string[]; // If not provided, will find leads needing enrichment
+  sources?: ('google_places' | 'yelp' | 'website' | 'linkedin')[];
+  limit?: number; // Max leads to process (default: 50)
+}
+
+export interface AcquisitionScoreJobData {
+  leadId: string;
+}
+
+export interface AcquisitionScoreBatchJobData {
+  leadIds?: string[]; // If not provided, will find leads needing scoring
+  limit?: number; // Max leads to process (default: 50)
+}
+
+// Notebook Pipeline Job Data
+export interface NotebookSyncJobData {
+  forceReprocess?: boolean; // Re-process already synced notebooks
+}
+
+export interface NotebookProcessJobData {
+  filePath: string;
+}
+
 export type JobData =
   | TranscriptionJobData
   | SummarizationJobData
@@ -189,7 +234,14 @@ export type JobData =
   | RemarkableMbaSyncJobData
   | TestingSessionJobData
   | RecurrenceGenerateJobData
-  | RecurrenceBatchJobData;
+  | RecurrenceBatchJobData
+  | PlaudSyncJobData
+  | AcquisitionEnrichJobData
+  | AcquisitionEnrichBatchJobData
+  | AcquisitionScoreJobData
+  | AcquisitionScoreBatchJobData
+  | NotebookSyncJobData
+  | NotebookProcessJobData;
 
 // ============================================
 // Redis Connection Options
@@ -404,7 +456,7 @@ export async function addRemarkableMbaSyncJob(data: RemarkableMbaSyncJobData = {
   return queue.add('remarkable-mba-sync', data, {
     priority: 2,
     jobId: `remarkable-mba-sync-${Date.now()}`,
-    timeout: 30 * 60 * 1000, // 30 minute timeout - lots of files to process
+    // Note: timeout is handled in worker configuration, not job options
   });
 }
 
@@ -417,7 +469,6 @@ export async function addTestingSessionJob(data: TestingSessionJobData): Promise
   return queue.add('testing-session', data, {
     priority: 3, // Medium priority
     attempts: 1, // No retries - testing should be atomic
-    timeout: 30 * 60 * 1000, // 30 minute timeout
     jobId: `testing-${data.sessionId}`, // Unique job ID for deduplication
     removeOnComplete: {
       count: 50, // Keep fewer test results
@@ -447,6 +498,92 @@ export async function addRecurrenceBatchJob(data: RecurrenceBatchJobData = {}): 
       count: 30,
       age: 7 * 24 * 60 * 60, // Keep for 7 days
     },
+  });
+}
+
+// ============================================
+// Plaud Pipeline Jobs
+// ============================================
+
+export async function addPlaudSyncJob(data: PlaudSyncJobData = {}): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('plaud-sync', data, {
+    priority: 3,
+    jobId: `plaud-sync-${Date.now()}`,
+    removeOnComplete: {
+      count: 50,
+      age: 7 * 24 * 60 * 60, // Keep for 7 days
+    },
+  });
+}
+
+// ============================================
+// Acquisition Pipeline Jobs
+// ============================================
+
+export async function addAcquisitionEnrichJob(data: AcquisitionEnrichJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('acquisition-enrich', data, {
+    priority: 3,
+    jobId: `acquisition-enrich-${data.leadId}`,
+  });
+}
+
+export async function addAcquisitionEnrichBatchJob(data: AcquisitionEnrichBatchJobData = {}): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('acquisition-enrich-batch', data, {
+    priority: 4, // Lower priority for batch
+    jobId: `acquisition-enrich-batch-${Date.now()}`,
+    removeOnComplete: {
+      count: 30,
+      age: 7 * 24 * 60 * 60, // Keep for 7 days
+    },
+  });
+}
+
+export async function addAcquisitionScoreJob(data: AcquisitionScoreJobData): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('acquisition-score', data, {
+    priority: 3,
+    jobId: `acquisition-score-${data.leadId}`,
+  });
+}
+
+export async function addAcquisitionScoreBatchJob(data: AcquisitionScoreBatchJobData = {}): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('acquisition-score-batch', data, {
+    priority: 4,
+    jobId: `acquisition-score-batch-${Date.now()}`,
+    removeOnComplete: {
+      count: 30,
+      age: 7 * 24 * 60 * 60, // Keep for 7 days
+    },
+  });
+}
+
+// ============================================
+// Notebook Pipeline Jobs
+// ============================================
+
+export async function addNotebookSyncJob(data: NotebookSyncJobData = {}): Promise<Job> {
+  const queue = getQueue();
+  return queue.add('notebook-sync', data, {
+    priority: 3,
+    jobId: `notebook-sync-${Date.now()}`,
+    removeOnComplete: {
+      count: 50,
+      age: 7 * 24 * 60 * 60, // Keep for 7 days
+    },
+  });
+}
+
+export async function addNotebookProcessJob(data: NotebookProcessJobData): Promise<Job> {
+  const queue = getQueue();
+  // Create a stable job ID from the file path to prevent duplicate processing
+  const pathHash = Buffer.from(data.filePath).toString('base64').slice(0, 20);
+  return queue.add('notebook-process', data, {
+    priority: 3,
+    jobId: `notebook-process-${pathHash}-${Date.now()}`,
   });
 }
 

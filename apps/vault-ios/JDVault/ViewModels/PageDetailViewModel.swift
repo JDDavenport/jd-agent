@@ -24,11 +24,35 @@ class PageDetailViewModel: ObservableObject {
             blocks = try await apiClient.getBlocks(pageId: page.id)
             blocks.sort { $0.sortOrder < $1.sortOrder }
             print("[PageVM] Loaded \(blocks.count) blocks for page \(page.id)")
+
+            // Auto-create a paragraph block if page is empty, so user can start typing immediately
+            if blocks.isEmpty {
+                print("[PageVM] Page is empty, auto-creating first block...")
+                await createInitialBlock()
+            }
         } catch {
             self.error = error.localizedDescription
             print("[PageVM] Error loading blocks: \(error)")
         }
         isLoading = false
+    }
+
+    /// Create the first block for an empty page (without reloading all blocks)
+    private func createInitialBlock() async {
+        do {
+            let input = CreateBlockInput(
+                type: .paragraph,  // .paragraph encodes as "text" for API
+                content: BlockContent(text: ""),
+                parentBlockId: nil,
+                afterBlockId: nil
+            )
+            let block = try await apiClient.createBlock(pageId: page.id, input: input)
+            // Add directly to local array instead of reloading
+            blocks.append(block)
+            print("[PageVM] Auto-created initial block. Now have \(blocks.count) blocks.")
+        } catch {
+            print("[PageVM] Error creating initial block: \(error)")
+        }
     }
 
     func updateTitle(_ newTitle: String) async {

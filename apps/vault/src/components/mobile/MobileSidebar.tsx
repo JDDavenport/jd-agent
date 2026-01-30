@@ -66,7 +66,7 @@ export function MobileSidebar({
 
     return (
       <div key={node.id}>
-        <button
+        <div
           onClick={() => onSelectPage(node.id)}
           className={`
             w-full flex items-center gap-2 px-3 py-3 text-left
@@ -74,6 +74,14 @@ export function MobileSidebar({
             touch-manipulation transition-colors
           `}
           style={{ paddingLeft: `${12 + depth * 16}px` }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelectPage(node.id);
+            }
+          }}
         >
           {hasChildren && (
             <button
@@ -94,7 +102,7 @@ export function MobileSidebar({
           <span className="flex-1 truncate font-medium">{node.title}</span>
 
           {node.isFavorite && <StarIcon className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
-        </button>
+        </div>
 
         {hasChildren && isExpanded && (
           <div>

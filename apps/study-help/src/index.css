@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply hover:shadow-md hover:-translate-y-0.5 transition-all duration-200;
+}
+
+/* Progress ring */
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Markdown content styling */
+.prose-study h2 {
+  @apply text-lg font-semibold text-gray-900 mt-6 mb-3;
+}
+
+.prose-study h3 {
+  @apply text-base font-medium text-gray-800 mt-4 mb-2;
+}
+
+.prose-study p {
+  @apply text-gray-700 mb-3 leading-relaxed;
+}
+
+.prose-study ul {
+  @apply list-disc list-inside mb-3 space-y-1;
+}
+
+.prose-study li {
+  @apply text-gray-700;
+}
+
+.prose-study strong {
+  @apply font-semibold text-gray-900;
+}
+
+/* Pomodoro timer glow effect */
+.timer-glow {
+  box-shadow: 0 0 60px rgba(59, 130, 246, 0.3);
+}
+
+.timer-glow-break {
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.3);
+}

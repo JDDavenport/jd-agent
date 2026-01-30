@@ -1,0 +1,36 @@
+{
+  "name": "study-help",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5177",
+    "build": "vite build",
+    "preview": "vite preview",
+    "sync:canvas": "npx tsx scripts/canvas-pdf-sync.ts",
+    "sync:videos": "npx tsx scripts/canvas-video-sync.ts",
+    "sync:all": "npm run sync:canvas && npm run sync:videos",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.0.18",
+    "@tanstack/react-query": "^5.17.9",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/react": "18.2.48",
+    "@types/react-dom": "18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12"
+  }
+}

@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   MagnifyingGlassIcon,
@@ -9,6 +10,20 @@ import {
   StarIcon,
 } from '@heroicons/react/24/outline';
 import type { VaultEntry } from '../api';
+
+type SearchFilter = 'all' | 'notes' | 'tasks';
+
+const NOTE_CONTENT_TYPES = [
+  'note',
+  'journal',
+  'document',
+  'class_notes',
+  'meeting_notes',
+  'reference',
+  'article',
+  'lecture',
+  'recording_summary',
+];
 
 interface SearchViewProps {
   recentEntries?: VaultEntry[];
@@ -45,7 +60,23 @@ export function SearchView({
   onSelectEntry,
   onQuickAction,
 }: SearchViewProps) {
+  const [activeFilter, setActiveFilter] = useState<SearchFilter>('all');
   const showResults = searchQuery.trim().length > 0;
+
+  // Filter search results based on active filter
+  const filteredResults = useMemo(() => {
+    if (!searchResults || searchResults.length === 0) return [];
+    if (activeFilter === 'all') return searchResults;
+    if (activeFilter === 'notes') {
+      return searchResults.filter((e) =>
+        NOTE_CONTENT_TYPES.includes(e.contentType)
+      );
+    }
+    if (activeFilter === 'tasks') {
+      return searchResults.filter((e) => e.contentType === 'task_archive');
+    }
+    return searchResults;
+  }, [searchResults, activeFilter]);
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
@@ -72,30 +103,55 @@ export function SearchView({
             <h2 className="text-sm font-medium text-gray-500">
               {isSearching
                 ? 'Searching...'
-                : `Found ${searchResults.length} results`}
+                : `Found ${filteredResults.length} results`}
             </h2>
             <div className="flex gap-2">
-              <button className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-lg">
+              <button
+                onClick={() => setActiveFilter('all')}
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  activeFilter === 'all'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
                 All
               </button>
-              <button className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setActiveFilter('notes')}
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  activeFilter === 'notes'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
                 Notes
               </button>
-              <button className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setActiveFilter('tasks')}
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  activeFilter === 'tasks'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
                 Tasks
               </button>
             </div>
           </div>
 
-          {searchResults.length === 0 && !isSearching ? (
+          {filteredResults.length === 0 && !isSearching ? (
             <div className="text-center py-12">
               <MagnifyingGlassIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-1">No results found</h3>
-              <p className="text-gray-500">Try adjusting your search terms</p>
+              <p className="text-gray-500">
+                {activeFilter !== 'all'
+                  ? `No ${activeFilter} match your search. Try "All" filter.`
+                  : 'Try adjusting your search terms'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {searchResults.map((entry) => (
+              {filteredResults.map((entry) => (
                 <button
                   key={entry.id}
                   onClick={() => onSelectEntry?.(entry)}

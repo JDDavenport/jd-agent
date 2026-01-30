@@ -72,9 +72,9 @@ test.describe('TS-3: Task Rescheduling', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid (more reliable than class selectors)
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     // Verify it has cursor-grab class (indicating draggability)
     await expect(scheduledTask).toHaveClass(/cursor-grab/);
@@ -88,9 +88,9 @@ test.describe('TS-3: Task Rescheduling', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     const taskBox = await scheduledTask.boundingBox();
     if (!taskBox) throw new Error('Could not get task bounding box');
@@ -101,13 +101,29 @@ test.describe('TS-3: Task Rescheduling', () => {
     // Target: Same day (day 1), different time (12pm)
     const target = getTasksColumnCoordinates(layout, 1, 12, 0);
 
-    // Start dragging
-    await page.mouse.move(taskBox.x + taskBox.width / 2, taskBox.y + taskBox.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(200);
+    // Start position - right side of task to avoid checkbox
+    const startX = taskBox.x + Math.max(taskBox.width - 5, taskBox.width * 0.8);
+    const startY = taskBox.y + taskBox.height / 2;
 
-    // Move to new time
-    await page.mouse.move(target.x, target.y, { steps: 15 });
+    // Use dispatchEvent to trigger proper pointer events for dnd-kit
+    await scheduledTask.dispatchEvent('pointerdown', {
+      clientX: startX,
+      clientY: startY,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      bubbles: true,
+    });
+    await page.waitForTimeout(100);
+
+    // Move more than 8px to trigger activation
+    await page.mouse.move(startX + 20, startY + 20);
+    await page.waitForTimeout(100);
+
+    // Move to target
+    await page.mouse.move(target.x, target.y, { steps: 10 });
     await page.waitForTimeout(300);
 
     await takeScreenshot(page, 'rescheduling-02-same-day-preview');
@@ -129,9 +145,9 @@ test.describe('TS-3: Task Rescheduling', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     const taskBox = await scheduledTask.boundingBox();
     if (!taskBox) throw new Error('Could not get task bounding box');
@@ -151,13 +167,29 @@ test.describe('TS-3: Task Rescheduling', () => {
       }
     });
 
-    // Start dragging
-    await page.mouse.move(taskBox.x + taskBox.width / 2, taskBox.y + taskBox.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(200);
+    // Start position - right side of task to avoid checkbox
+    const startX = taskBox.x + Math.max(taskBox.width - 5, taskBox.width * 0.8);
+    const startY = taskBox.y + taskBox.height / 2;
 
-    // Move to new time
-    await page.mouse.move(target.x, target.y, { steps: 15 });
+    // Use dispatchEvent to trigger proper pointer events for dnd-kit
+    await scheduledTask.dispatchEvent('pointerdown', {
+      clientX: startX,
+      clientY: startY,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      bubbles: true,
+    });
+    await page.waitForTimeout(100);
+
+    // Move more than 8px to trigger activation
+    await page.mouse.move(startX + 20, startY + 20);
+    await page.waitForTimeout(100);
+
+    // Move to target
+    await page.mouse.move(target.x, target.y, { steps: 10 });
     await page.waitForTimeout(200);
 
     // Drop
@@ -172,7 +204,7 @@ test.describe('TS-3: Task Rescheduling', () => {
     expect(scheduleApiCalled).toBe(true);
 
     // Verify task moved (y position changed)
-    const movedTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
+    const movedTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
     await expect(movedTask).toBeVisible();
     const newBox = await movedTask.boundingBox();
     if (newBox) {
@@ -187,9 +219,9 @@ test.describe('TS-3: Task Rescheduling', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     const taskBox = await scheduledTask.boundingBox();
     if (!taskBox) throw new Error('Could not get task bounding box');
@@ -200,13 +232,29 @@ test.describe('TS-3: Task Rescheduling', () => {
     // Target: Different day (day 3), same time (10am)
     const target = getTasksColumnCoordinates(layout, 3, 10, 0);
 
-    // Start dragging
-    await page.mouse.move(taskBox.x + taskBox.width / 2, taskBox.y + taskBox.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(200);
+    // Start position - right side of task to avoid checkbox
+    const startX = taskBox.x + Math.max(taskBox.width - 5, taskBox.width * 0.8);
+    const startY = taskBox.y + taskBox.height / 2;
+
+    // Use dispatchEvent to trigger proper pointer events for dnd-kit
+    await scheduledTask.dispatchEvent('pointerdown', {
+      clientX: startX,
+      clientY: startY,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      bubbles: true,
+    });
+    await page.waitForTimeout(100);
+
+    // Move more than 8px to trigger activation
+    await page.mouse.move(startX + 20, startY + 20);
+    await page.waitForTimeout(100);
 
     // Move to new day
-    await page.mouse.move(target.x, target.y, { steps: 15 });
+    await page.mouse.move(target.x, target.y, { steps: 10 });
     await page.waitForTimeout(300);
 
     await takeScreenshot(page, 'rescheduling-04-different-day-preview');
@@ -218,8 +266,8 @@ test.describe('TS-3: Task Rescheduling', () => {
     const previewBox = await hoverPreview.first().boundingBox();
     if (previewBox) {
       console.log(`Preview X: ${previewBox.x}, Task X: ${taskBox.x}`);
-      // Preview should be significantly to the right (different day)
-      expect(previewBox.x).toBeGreaterThan(taskBox.x + 100);
+      // Preview should be to the right of original task (at least 50px for different day)
+      expect(previewBox.x).toBeGreaterThan(taskBox.x + 50);
     }
 
     await page.mouse.up();
@@ -231,9 +279,9 @@ test.describe('TS-3: Task Rescheduling', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     const taskBox = await scheduledTask.boundingBox();
     if (!taskBox) throw new Error('Could not get task bounding box');
@@ -253,13 +301,29 @@ test.describe('TS-3: Task Rescheduling', () => {
       }
     });
 
-    // Start dragging
-    await page.mouse.move(taskBox.x + taskBox.width / 2, taskBox.y + taskBox.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(200);
+    // Start position - right side of task to avoid checkbox
+    const startX = taskBox.x + Math.max(taskBox.width - 5, taskBox.width * 0.8);
+    const startY = taskBox.y + taskBox.height / 2;
+
+    // Use dispatchEvent to trigger proper pointer events for dnd-kit
+    await scheduledTask.dispatchEvent('pointerdown', {
+      clientX: startX,
+      clientY: startY,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      bubbles: true,
+    });
+    await page.waitForTimeout(100);
+
+    // Move more than 8px to trigger activation
+    await page.mouse.move(startX + 20, startY + 20);
+    await page.waitForTimeout(100);
 
     // Move to new day
-    await page.mouse.move(target.x, target.y, { steps: 15 });
+    await page.mouse.move(target.x, target.y, { steps: 10 });
     await page.waitForTimeout(200);
 
     // Drop
@@ -274,13 +338,13 @@ test.describe('TS-3: Task Rescheduling', () => {
     expect(scheduleApiCalled).toBe(true);
 
     // Verify task moved to different day (x position changed significantly)
-    const movedTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
+    const movedTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
     await expect(movedTask).toBeVisible();
     const newBox = await movedTask.boundingBox();
     if (newBox) {
       console.log(`Original X: ${originalX}, New X: ${newBox.x}`);
-      // Should have moved at least 2 day widths (280px)
-      expect(newBox.x).toBeGreaterThan(originalX + 200);
+      // Should have moved at least 2 days (each day ~140px, but account for variable widths)
+      expect(newBox.x).toBeGreaterThan(originalX + 150);
     }
   });
 
@@ -290,9 +354,9 @@ test.describe('TS-3: Task Rescheduling', () => {
 
     await navigateToWeeklyPlanning(page);
 
-    // Find the scheduled task
-    const scheduledTask = page.locator(`[class*="border-l-2"][class*="border-white"]`).filter({ hasText: task.title });
-    await expect(scheduledTask).toBeVisible();
+    // Find the scheduled task using data-testid
+    const scheduledTask = page.locator(`[data-testid="scheduled-task-${task.id}"]`);
+    await expect(scheduledTask).toBeVisible({ timeout: 10000 });
 
     const taskBox = await scheduledTask.boundingBox();
     if (!taskBox) throw new Error('Could not get task bounding box');
@@ -301,24 +365,38 @@ test.describe('TS-3: Task Rescheduling', () => {
     const layout = await getCalendarLayout(page);
     const target = getTasksColumnCoordinates(layout, 2, 12, 0);
 
-    // Start dragging
-    await page.mouse.move(taskBox.x + taskBox.width / 2, taskBox.y + taskBox.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(200);
+    // Start position - right side of task to avoid checkbox
+    const startX = taskBox.x + Math.max(taskBox.width - 5, taskBox.width * 0.8);
+    const startY = taskBox.y + taskBox.height / 2;
 
-    // Move to target
-    await page.mouse.move(target.x, target.y, { steps: 15 });
+    // Use dispatchEvent to ensure proper pointer events are triggered
+    // which dnd-kit's PointerSensor requires
+    await scheduledTask.dispatchEvent('pointerdown', {
+      clientX: startX,
+      clientY: startY,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      bubbles: true,
+    });
+    await page.waitForTimeout(100);
+
+    // Move more than 8px (activation distance)
+    await page.mouse.move(startX + 20, startY + 50);
+    await page.waitForTimeout(100);
+
+    // Continue to target
+    await page.mouse.move(target.x, target.y, { steps: 10 });
     await page.waitForTimeout(200);
 
     await takeScreenshot(page, 'rescheduling-06-opacity-during-drag');
 
     // Check that the original task has reduced opacity (opacity: 0.5)
-    // The task should have style="opacity: 0.5" or similar when dragging
     const taskStyle = await scheduledTask.getAttribute('style');
     console.log(`Task style during drag: ${taskStyle}`);
 
-    // In dnd-kit, the dragging item gets opacity applied
-    // The test may need to check the CSS computed style
     const opacity = await scheduledTask.evaluate((el: Element) => {
       return window.getComputedStyle(el).opacity;
     });

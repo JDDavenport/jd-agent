@@ -9,8 +9,14 @@ import { z } from 'zod';
 import { plaidService } from '../../services/plaid-service';
 import { financeService } from '../../services/finance-service';
 import { ValidationError, NotFoundError, AppError } from '../middleware/error-handler';
+import { budgetReportsRouter } from './budget-reports';
+import { financeAnalyticsRouter } from './finance-analytics';
 
 export const financeRouter = new Hono();
+
+// Mount sub-routers
+financeRouter.route('/reports', budgetReportsRouter);
+financeRouter.route('/analytics', financeAnalyticsRouter);
 
 // ============================================
 // Configuration Check Routes
@@ -320,6 +326,142 @@ financeRouter.get('/spending', async (c) => {
   const spending = await financeService.getSpendingByCategory(startDate, endDate);
 
   return c.json({ success: true, data: spending });
+});
+
+// ============================================
+// Budget Routes
+// ============================================
+
+const budgetSchema = z.object({
+  name: z.string().min(1),
+  groupName: z.string().optional(),
+  groupOrder: z.number().int().optional(),
+  budgetOrder: z.number().int().optional(),
+  category: z.string().min(1),
+  amount: z.number().positive(),
+  targetType: z.enum(['monthly', 'weekly', 'yearly']).optional(),
+  targetAmount: z.number().optional(),
+  targetDate: z.string().optional(),
+  month: z.string().optional(),
+  periodType: z.enum(['weekly', 'monthly', 'yearly']).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  rolloverEnabled: z.boolean().optional(),
+  rolloverAmount: z.number().optional(),
+  carryoverOverspent: z.boolean().optional(),
+  alertThreshold: z.number().min(0).max(100).optional(),
+  alertsEnabled: z.boolean().optional(),
+});
+
+const budgetUpdateSchema = budgetSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+const centsFromAmount = (amount: number) => Math.round(amount * 100);
+
+/**
+ * GET /api/finance/budgets
+ * List budgets with current status
+ */
+financeRouter.get('/budgets', async (c) => {
+  const includeInactive = c.req.query('includeInactive') === 'true';
+  const month = c.req.query('month') || undefined;
+  const budgets = await financeService.getBudgetStatuses(includeInactive, month);
+  return c.json({ success: true, data: budgets });
+});
+
+/**
+ * GET /api/finance/budgets/:id
+ * Get budget
+ */
+financeRouter.get('/budgets/:id', async (c) => {
+  const id = c.req.param('id');
+  const budget = await financeService.getBudget(id);
+  if (!budget) {
+    throw new NotFoundError('Budget');
+  }
+  return c.json({ success: true, data: budget });
+});
+
+/**
+ * POST /api/finance/budgets
+ * Create budget
+ */
+financeRouter.post('/budgets', async (c) => {
+  const body = await c.req.json();
+  const parseResult = budgetSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.errors.map((e) => e.message).join(', '));
+  }
+
+  const budget = await financeService.createBudget({
+    name: parseResult.data.name,
+    groupName: parseResult.data.groupName,
+    groupOrder: parseResult.data.groupOrder,
+    budgetOrder: parseResult.data.budgetOrder,
+    category: parseResult.data.category,
+    amountCents: centsFromAmount(parseResult.data.amount),
+    targetType: parseResult.data.targetType,
+    targetAmountCents:
+      parseResult.data.targetAmount !== undefined ? centsFromAmount(parseResult.data.targetAmount) : undefined,
+    targetDate: parseResult.data.targetDate,
+    month: parseResult.data.month,
+    periodType: parseResult.data.periodType,
+    startDate: parseResult.data.startDate,
+    endDate: parseResult.data.endDate,
+    rolloverEnabled: parseResult.data.rolloverEnabled,
+    rolloverAmountCents: parseResult.data.rolloverAmount
+      ? centsFromAmount(parseResult.data.rolloverAmount)
+      : undefined,
+    carryoverOverspent: parseResult.data.carryoverOverspent,
+    alertThreshold: parseResult.data.alertThreshold,
+    alertsEnabled: parseResult.data.alertsEnabled,
+  });
+
+  return c.json({ success: true, data: budget, message: 'Budget created' });
+});
+
+/**
+ * PATCH /api/finance/budgets/:id
+ * Update budget
+ */
+financeRouter.patch('/budgets/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const parseResult = budgetUpdateSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    throw new ValidationError(parseResult.error.errors.map((e) => e.message).join(', '));
+  }
+
+  const { amount, rolloverAmount, targetAmount, month, ...rest } = parseResult.data;
+  const budget = await financeService.updateBudget(id, {
+    ...rest,
+    amountCents: month ? undefined : amount !== undefined ? centsFromAmount(amount) : undefined,
+    rolloverAmountCents: rolloverAmount !== undefined ? centsFromAmount(rolloverAmount) : undefined,
+    targetAmountCents: targetAmount !== undefined ? centsFromAmount(targetAmount) : undefined,
+  });
+
+  if (month && amount !== undefined) {
+    await financeService.setBudgetAllocation(id, month, centsFromAmount(amount));
+  }
+
+  if (!budget) {
+    throw new NotFoundError('Budget');
+  }
+
+  return c.json({ success: true, data: budget, message: 'Budget updated' });
+});
+
+/**
+ * DELETE /api/finance/budgets/:id
+ * Deactivate budget
+ */
+financeRouter.delete('/budgets/:id', async (c) => {
+  const id = c.req.param('id');
+  await financeService.deactivateBudget(id);
+  return c.json({ success: true, message: 'Budget deactivated' });
 });
 
 // ============================================

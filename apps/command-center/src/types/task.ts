@@ -8,7 +8,7 @@ export interface Task {
   title: string;
   description: string | null;
   status: TaskStatus;
-  priority: TaskPriority;
+  priority: number; // 0-4 (none, low, medium, high, urgent)
   dueDate: string | null;
   dueDateIsHard: boolean;
   completedAt: string | null;
@@ -22,6 +22,21 @@ export interface Task {
   parentTaskId: string | null;
   createdAt: string;
   updatedAt: string;
+  // Scheduling fields
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  calendarEventId: string | null;
+  // Labels and contexts arrays
+  taskLabels: string[] | null;
+  taskContexts: string[] | null;
+  // Ordering
+  sortOrder: number;
+  // Project relation
+  project?: {
+    id: string;
+    name: string;
+    context: string;
+  } | null;
 }
 
 export interface CreateTaskInput {
@@ -39,6 +54,7 @@ export interface CreateTaskInput {
   waitingFor?: string;
   projectId?: string;
   parentTaskId?: string;
+  taskLabels?: string[];
 }
 
 export interface UpdateTaskInput extends Partial<CreateTaskInput> {

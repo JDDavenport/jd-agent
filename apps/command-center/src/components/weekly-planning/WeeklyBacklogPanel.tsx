@@ -70,6 +70,7 @@ function DraggableTask({ task }: DraggableTaskProps) {
     <div
       ref={setNodeRef}
       style={style}
+      data-testid={`backlog-task-${task.id}`}
       className={`bg-slate-800 border border-slate-700 rounded-lg p-3 cursor-grab active:cursor-grabbing
         ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS[0]} border-l-4
         ${isDragging ? 'shadow-lg shadow-blue-500/20 ring-2 ring-blue-500' : 'hover:bg-slate-750 hover:border-slate-600'}`}

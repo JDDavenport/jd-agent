@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { Sidebar, ViewType } from './components/Sidebar';
@@ -10,7 +10,7 @@ import { FiltersView } from './views/FiltersView';
 import { QuickAddTask } from './components/QuickAddTask';
 import { SearchModal } from './components/SearchModal';
 import { TaskDetailPanel } from './components/TaskDetailPanel';
-import { useTodayTasks, useTasks, useProjects } from './hooks/useTasks';
+import { useTodayTasks, useTasks, useProjects, useCompleteTask, useDeleteTask } from './hooks/useTasks';
 import type { Task } from './api';
 
 const queryClient = new QueryClient();
@@ -22,11 +22,16 @@ function TasksApp() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [quickAddProjectId, setQuickAddProjectId] = useState<string | undefined>();
   const [quickAddProjectName, setQuickAddProjectName] = useState<string | undefined>();
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [currentTasks, setCurrentTasks] = useState<Task[]>([]);
+  const [subtaskParent, setSubtaskParent] = useState<{ id: string; title: string } | null>(null);
 
   const todayQuery = useTodayTasks();
   const allTasksQuery = useTasks();
   const projectsQuery = useProjects();
+  const completeTask = useCompleteTask();
+  const deleteTask = useDeleteTask();
 
   // Calculate inbox count (tasks without projects, due dates, or scheduled dates)
   const inboxCount = (allTasksQuery.data || []).filter(
@@ -41,11 +46,15 @@ function TasksApp() {
   const handleSelectView = useCallback((viewId: string, type: ViewType) => {
     setSelectedView(viewId);
     setViewType(type);
+    setSelectedTaskId(null);
+    setDetailTask(null);
+    setCurrentTasks([]);
   }, []);
 
   const handleAddTaskToProject = useCallback((projectId: string, projectName: string) => {
     setQuickAddProjectId(projectId);
     setQuickAddProjectName(projectName);
+    setSubtaskParent(null);
     setIsQuickAddOpen(true);
   }, []);
 
@@ -53,17 +62,44 @@ function TasksApp() {
     setIsQuickAddOpen(false);
     setQuickAddProjectId(undefined);
     setQuickAddProjectName(undefined);
+    setSubtaskParent(null);
   }, []);
+
+  const handleTaskListUpdate = useCallback(
+    (tasks: Task[]) => {
+      setCurrentTasks(tasks);
+      if (selectedTaskId && !tasks.some((task) => task.id === selectedTaskId)) {
+        setSelectedTaskId(null);
+      }
+    },
+    [selectedTaskId]
+  );
+
+  const selectedTask = useMemo(
+    () => currentTasks.find((task) => task.id === selectedTaskId) || null,
+    [currentTasks, selectedTaskId]
+  );
+
+  const scrollToTask = (taskId: string) => {
+    const element = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (element) {
+      element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      const isInput =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable;
 
       // Quick add: Q or N
       if ((e.key === 'q' || e.key === 'n') && !e.metaKey && !e.ctrlKey && !e.altKey && !isInput) {
         e.preventDefault();
+        setSubtaskParent(null);
         setIsQuickAddOpen(true);
         return;
       }
@@ -87,17 +123,79 @@ function TasksApp() {
         setTimeout(() => window.removeEventListener('keydown', handleNextKey), 1000);
       }
 
+      if (isInput) return;
+
+      // Arrow navigation
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (currentTasks.length === 0) return;
+        e.preventDefault();
+        const currentIndex = selectedTaskId
+          ? currentTasks.findIndex((task) => task.id === selectedTaskId)
+          : -1;
+        const nextIndex =
+          e.key === 'ArrowDown'
+            ? Math.min(currentIndex + 1, currentTasks.length - 1)
+            : Math.max(currentIndex - 1, 0);
+        const nextTask = currentTasks[nextIndex];
+        if (nextTask) {
+          setSelectedTaskId(nextTask.id);
+          scrollToTask(nextTask.id);
+        }
+        return;
+      }
+
+      // Complete task: Cmd/Ctrl+Enter
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (selectedTask && selectedTask.status !== 'done') {
+          e.preventDefault();
+          completeTask.mutate(selectedTask.id);
+        }
+        return;
+      }
+
+      // Open task: Enter
+      if (e.key === 'Enter' && selectedTask) {
+        e.preventDefault();
+        setDetailTask(selectedTask);
+        return;
+      }
+
+      // Edit task: E
+      if (e.key === 'e' && selectedTask) {
+        e.preventDefault();
+        setDetailTask(selectedTask);
+        return;
+      }
+
+      // Delete task: D
+      if (e.key === 'd' && selectedTask) {
+        e.preventDefault();
+        if (window.confirm(`Delete "${selectedTask.title}"?`)) {
+          deleteTask.mutate(selectedTask.id);
+          setSelectedTaskId(null);
+        }
+        return;
+      }
+
+      // Make subtask: Tab
+      if (e.key === 'Tab' && selectedTask && !selectedTask.parentTaskId) {
+        e.preventDefault();
+        setSubtaskParent({ id: selectedTask.id, title: selectedTask.title });
+        setIsQuickAddOpen(true);
+        return;
+      }
+
       // Escape to close modals and panels
       if (e.key === 'Escape') {
         setIsQuickAddOpen(false);
         setIsSearchOpen(false);
-        setSelectedTask(null);
+        setDetailTask(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSelectView]);
+  }, [handleSelectView, completeTask, currentTasks, deleteTask, selectedTask, selectedTaskId]);
 
   const getViewTitle = () => {
     switch (selectedView) {
@@ -117,32 +215,82 @@ function TasksApp() {
   };
 
   const handleSelectTask = useCallback((task: Task) => {
-    setSelectedTask(task);
+    setSelectedTaskId(task.id);
+    setDetailTask(task);
   }, []);
 
   const renderMainContent = () => {
     switch (viewType) {
       case 'inbox':
-        return <InboxView onSelectTask={handleSelectTask} />;
+        return (
+          <InboxView
+            onSelectTask={handleSelectTask}
+            selectedTaskId={selectedTaskId}
+            onTaskListUpdate={handleTaskListUpdate}
+          />
+        );
       case 'today':
-        return <TodayView onSelectTask={handleSelectTask} />;
+        return (
+          <TodayView
+            onSelectTask={handleSelectTask}
+            selectedTaskId={selectedTaskId}
+            onTaskListUpdate={handleTaskListUpdate}
+          />
+        );
       case 'upcoming':
-        return <UpcomingView onSelectTask={handleSelectTask} />;
+        return (
+          <UpcomingView
+            onSelectTask={handleSelectTask}
+            selectedTaskId={selectedTaskId}
+            onTaskListUpdate={handleTaskListUpdate}
+          />
+        );
       case 'project':
-        return <ProjectView projectId={selectedView} onSelectProject={(id) => handleSelectView(id, 'project')} onSelectTask={handleSelectTask} />;
+        return (
+          <ProjectView
+            projectId={selectedView}
+            onSelectProject={(id) => handleSelectView(id, 'project')}
+            onSelectTask={handleSelectTask}
+            selectedTaskId={selectedTaskId}
+            onTaskListUpdate={handleTaskListUpdate}
+          />
+        );
       case 'filter':
       case 'label':
-        return <FiltersView />;
+        return (
+          <FiltersView
+            filterId={selectedView}
+            onSelectTask={handleSelectTask}
+            selectedTaskId={selectedTaskId}
+            onTaskListUpdate={handleTaskListUpdate}
+          />
+        );
       default:
-        return <TodayView onSelectTask={handleSelectTask} />;
+        return (
+          <TodayView
+            onSelectTask={handleSelectTask}
+            selectedTaskId={selectedTaskId}
+            onTaskListUpdate={handleTaskListUpdate}
+          />
+        );
     }
   };
+
+  const projectTaskCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    (allTasksQuery.data || []).forEach((task) => {
+      if (!task.projectId) return;
+      if (task.status === 'done' || task.status === 'archived') return;
+      counts.set(task.projectId, (counts.get(task.projectId) || 0) + 1);
+    });
+    return counts;
+  }, [allTasksQuery.data]);
 
   const projects = (projectsQuery.data || []).map((p) => ({
     id: p.id,
     name: p.name,
     color: p.color || '#808080',
-    taskCount: 0, // TODO: Get actual count
+    taskCount: projectTaskCounts.get(p.id) || 0,
     parentProjectId: p.parentProjectId,
   }));
 
@@ -206,14 +354,16 @@ function TasksApp() {
         onClose={handleQuickAddClose}
         defaultProjectId={quickAddProjectId}
         defaultProjectName={quickAddProjectName}
+        parentTaskId={subtaskParent?.id}
+        parentTaskTitle={subtaskParent?.title}
       />
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       {/* Task Detail Panel */}
-      {selectedTask && (
+      {detailTask && (
         <TaskDetailPanel
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
+          task={detailTask}
+          onClose={() => setDetailTask(null)}
         />
       )}
     </div>

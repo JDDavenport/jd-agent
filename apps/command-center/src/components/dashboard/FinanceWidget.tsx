@@ -11,6 +11,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useFinanceWidget, useFinanceStatus, useUploadTransactions } from '../../hooks/useFinance';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { ProgressBar } from './shared';
@@ -180,6 +181,12 @@ function FinanceWidget() {
           <h2 className="text-lg font-semibold">Finance</h2>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            to="/finance"
+            className="text-xs text-text-muted hover:text-text transition-colors"
+          >
+            View budget →
+          </Link>
           {overview.pendingTransactions > 0 && (
             <span className="badge badge-warning text-xs">
               {overview.pendingTransactions} pending

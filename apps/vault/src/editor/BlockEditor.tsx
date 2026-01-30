@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import type { JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
@@ -28,7 +29,7 @@ const lowlight = createLowlight(common);
 interface BlockEditorProps {
   pageId: string;
   initialContent?: VaultBlock[];
-  onContentChange?: (content: string) => void;
+  onContentChange?: (content: { html: string; json: JSONContent }) => void;
   onSave?: () => void;
   onCreatePage?: (title: string) => Promise<VaultPage>;
   onPageClick?: (pageId: string) => void;
@@ -147,7 +148,8 @@ export function BlockEditor({
         }
         saveTimeoutRef.current = setTimeout(() => {
           const html = editor.getHTML();
-          onContentChange(html);
+          const json = editor.getJSON();
+          onContentChange({ html, json });
         }, 500);
       }
     },

@@ -23,6 +23,12 @@ import {
   type RecordingProcessJobData,
   type TestingSessionJobData,
   type RecurrenceGenerateJobData,
+  type AcquisitionEnrichJobData,
+  type AcquisitionEnrichBatchJobData,
+  type AcquisitionScoreJobData,
+  type AcquisitionScoreBatchJobData,
+  type NotebookSyncJobData,
+  type NotebookProcessJobData,
 } from './jobs/queue';
 import {
   processTranscriptionJob,
@@ -33,6 +39,7 @@ import {
   processRecurrenceGenerateJob,
   processRecurrenceBatchJob,
   processRemarkableMbaSyncJob,
+  processPlaudSyncJob,
 } from './jobs/processors';
 import {
   processVipIngestionJob,
@@ -44,6 +51,16 @@ import {
   processVipNotificationJob,
   processVipSpeakerEmbeddingJob,
 } from './jobs/processors/vip';
+import {
+  processAcquisitionEnrichJob,
+  processAcquisitionEnrichBatchJob,
+  processAcquisitionScoreJob,
+  processAcquisitionScoreBatchJob,
+} from './jobs/processors/acquisition';
+import {
+  processNotebookProcessJob,
+  processNotebookSyncJob,
+} from './jobs/processors/notebook';
 
 // ============================================
 // Worker Configuration
@@ -150,6 +167,34 @@ async function processJob(job: Job): Promise<any> {
         result = await processRemarkableMbaSyncJob(job as Job<any>);
         break;
 
+      case 'plaud-sync':
+        result = await processPlaudSyncJob(job as Job<any>);
+        break;
+
+      case 'acquisition-enrich':
+        result = await processAcquisitionEnrichJob(job as Job<AcquisitionEnrichJobData>);
+        break;
+
+      case 'acquisition-enrich-batch':
+        result = await processAcquisitionEnrichBatchJob(job as Job<AcquisitionEnrichBatchJobData>);
+        break;
+
+      case 'acquisition-score':
+        result = await processAcquisitionScoreJob(job as Job<AcquisitionScoreJobData>);
+        break;
+
+      case 'acquisition-score-batch':
+        result = await processAcquisitionScoreBatchJob(job as Job<AcquisitionScoreBatchJobData>);
+        break;
+
+      case 'notebook-sync':
+        result = await processNotebookSyncJob(job as Job<NotebookSyncJobData>);
+        break;
+
+      case 'notebook-process':
+        result = await processNotebookProcessJob(job as Job<NotebookProcessJobData>);
+        break;
+
       default:
         console.warn(`[Worker] Unknown job type: ${job.name}`);
         result = { success: false, error: `Unknown job type: ${job.name}` };
@@ -244,6 +289,11 @@ async function startWorker() {
   console.log('  - recurrence-generate');
   console.log('  - recurrence-batch');
   console.log('  - remarkable-mba-sync');
+  console.log('  - plaud-sync');
+  console.log('  - acquisition-enrich');
+  console.log('  - acquisition-enrich-batch');
+  console.log('  - acquisition-score');
+  console.log('  - acquisition-score-batch');
 }
 
 // Start the worker

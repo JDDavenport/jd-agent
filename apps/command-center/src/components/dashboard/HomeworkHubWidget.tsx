@@ -8,12 +8,12 @@
  * - Progress tracking
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   useHomeworkHub,
-  HomeworkItem,
-  ReadingItem,
+  type HomeworkItem,
+  type ReadingItem,
   getUrgencyColors,
   getStatusInfo,
   formatTimeEstimate,

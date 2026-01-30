@@ -158,11 +158,12 @@ export class VipService {
       }
 
       // Create recording record
+      const filename = file.originalName || file.filename || `Recording ${batchDate.toISOString().split('T')[0]}`;
       const [recording] = await db
         .insert(recordings)
         .values({
           filePath: storageKey, // Use storage key as file path
-          originalFilename: file.originalName || file.filename,
+          originalFilename: filename,
           durationSeconds: file.durationSeconds,
           fileSizeBytes: file.size,
           recordingType: 'class', // Default assumption, will be refined by segmentation
@@ -236,7 +237,7 @@ export class VipService {
 
     return {
       id: batch[0].id,
-      batchDate: batch[0].batchDate,
+      batchDate: new Date(batch[0].batchDate),
       status: batch[0].status as VipBatchStatus['status'],
       totalFiles: batch[0].totalFiles,
       processedFiles: batch[0].processedFiles,
@@ -256,18 +257,21 @@ export class VipService {
    * Get all batches for a date range
    */
   async getBatches(startDate: Date, endDate: Date): Promise<VipBatchStatus[]> {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+
     const batches = await db
       .select()
       .from(recordingBatches)
       .where(and(
-        gte(recordingBatches.batchDate, startDate),
-        lte(recordingBatches.batchDate, endDate)
+        gte(recordingBatches.batchDate, startDateStr),
+        lte(recordingBatches.batchDate, endDateStr)
       ))
       .orderBy(desc(recordingBatches.batchDate));
 
     return batches.map(batch => ({
       id: batch.id,
-      batchDate: batch.batchDate,
+      batchDate: new Date(batch.batchDate),
       status: batch.status as VipBatchStatus['status'],
       totalFiles: batch.totalFiles,
       processedFiles: batch.processedFiles,

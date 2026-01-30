@@ -216,7 +216,7 @@ export class JobAgent {
             excludeCompanies: input.excludeCompanies as string[] | undefined,
             minSalary: input.minSalary as number | undefined,
             preferredLocations: input.preferredLocations as string[] | undefined,
-            remotePreference: input.remotePreference as string | undefined,
+            remotePreference: input.remotePreference as any,
             skills: input.skills as string[] | undefined,
             autoApplyEnabled: input.autoApplyEnabled as boolean | undefined,
             autoApplyThreshold: input.autoApplyThreshold as number | undefined,
@@ -357,7 +357,7 @@ export class JobAgent {
           const jobs = await jobService.list({
             status: input.status as JobStatus | undefined,
             statuses: input.statuses as JobStatus[] | undefined,
-            platform: input.platform as string | undefined,
+            platform: input.platform as any,
             company: input.company as string | undefined,
             minMatchScore: input.minMatchScore as number | undefined,
           });
@@ -494,9 +494,8 @@ export class JobAgent {
 
           const contact: JobContact = {
             name: input.name as string,
-            role: input.role as string | undefined,
+            title: (input.role || input.title) as string | undefined,
             email: input.email as string | undefined,
-            phone: input.phone as string | undefined,
             linkedin: input.linkedin as string | undefined,
             notes: input.notes as string | undefined,
           };

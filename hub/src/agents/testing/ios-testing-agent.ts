@@ -140,6 +140,14 @@ export class iOSTestingAgent {
       console.warn(`⚠️  App ${this.config.bundleId} may not be installed`);
     }
 
+    // Launch app to ensure correct context
+    const launched = await this.simulator.launchApp(this.config.bundleId);
+    if (!launched) {
+      console.warn(`⚠️  Failed to launch ${this.config.bundleId}. Tests may be inconclusive.`);
+    } else {
+      await this.wait(1500);
+    }
+
     // Initialize session
     const requirements = this.normalizeRequirements();
     this.session = {

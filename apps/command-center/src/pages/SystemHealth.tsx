@@ -1,8 +1,9 @@
-import { useSystemInfo, useHealthMetrics, useIntegrityChecks, useActivityLogs, useTriggerCeremony, useRunIntegrityCheck } from '../hooks/useSystemHealth';
+import { useSystemInfo, useHealthMetrics, useIntegrityChecks, useActivityLogs, useTriggerCeremony, useRunIntegrityCheck, useCommunicationStatus, useRunCommunicationCheck } from '../hooks/useSystemHealth';
 import StatusCard from '../components/health/StatusCard';
 import IntegrityLog from '../components/health/IntegrityLog';
 import ActivityLog from '../components/health/ActivityLog';
 import MetricChart from '../components/health/MetricChart';
+import CommunicationStatus from '../components/health/CommunicationStatus';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -11,9 +12,20 @@ function SystemHealth() {
   const { data: metrics, isLoading: loadingMetrics } = useHealthMetrics();
   const { data: integrityChecks, isLoading: loadingIntegrity } = useIntegrityChecks(10);
   const { data: activityLogs, isLoading: loadingLogs } = useActivityLogs(20);
+  const { data: communicationStatus, isLoading: loadingComms } = useCommunicationStatus();
 
   const triggerCeremony = useTriggerCeremony();
   const runIntegrityCheck = useRunIntegrityCheck();
+  const runCommunicationCheck = useRunCommunicationCheck();
+
+  const handleRunCommunicationCheck = async () => {
+    try {
+      const result = await runCommunicationCheck.mutateAsync();
+      alert(`Communication check complete: ${result.totalNew} new, ${result.totalUrgent} urgent, ${result.totalNotified} notified`);
+    } catch (error) {
+      alert(`Failed to run communication check: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   const handleTriggerCeremony = async (type: string) => {
     try {
@@ -33,6 +45,16 @@ function SystemHealth() {
     }
   };
 
+  const formatUptime = (uptime?: number | string) => {
+    if (typeof uptime === 'number' && Number.isFinite(uptime)) {
+      return `${Math.floor(uptime / 3600)}h`;
+    }
+    if (typeof uptime === 'string' && uptime.trim()) {
+      return uptime;
+    }
+    return '—';
+  };
+
   if (loadingInfo || loadingMetrics) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -48,7 +70,7 @@ function SystemHealth() {
         <div>
           <h1 className="text-3xl font-bold">System Health</h1>
           <p className="text-text-muted mt-1">
-            Version {systemInfo?.version} • Uptime: {systemInfo?.uptime ? Math.floor(systemInfo.uptime / 3600) : 0}h
+            Version {systemInfo?.version} • Uptime: {formatUptime(systemInfo?.uptime)}
           </p>
         </div>
 
@@ -82,6 +104,16 @@ function SystemHealth() {
           ))}
         </div>
       </div>
+
+      {/* Communication Monitoring */}
+      {communicationStatus && (
+        <CommunicationStatus
+          status={communicationStatus}
+          isLoading={loadingComms}
+          onRunCheck={handleRunCommunicationCheck}
+          isRunningCheck={runCommunicationCheck.isPending}
+        />
+      )}
 
       {/* Ceremony Triggers */}
       <div className="card">

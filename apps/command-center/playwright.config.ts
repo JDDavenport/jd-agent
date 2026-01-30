@@ -1,15 +1,27 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
+ * Playwright Test Configuration
+ *
+ * By default, tests run in HEADLESS mode on a separate port (5174)
+ * so they don't interfere with your development workflow.
+ *
+ * To run tests visually (headed mode):
+ *   bun run test:e2e --headed
+ *
+ * To run against your existing dev server (port 5173):
+ *   TEST_USE_DEV_SERVER=1 bun run test:e2e
  */
-// import dotenv from 'dotenv';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
+const TEST_PORT = 5174;
+const DEV_PORT = 5173;
+
+// Use existing dev server if TEST_USE_DEV_SERVER is set
+const useDevServer = !!process.env.TEST_USE_DEV_SERVER;
+const baseURL = useDevServer
+  ? `http://localhost:${DEV_PORT}`
+  : `http://localhost:${TEST_PORT}`;
+
 export default defineConfig({
   testDir: './e2e',
   /* Run tests in files in parallel */
@@ -29,7 +41,10 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:5173',
+    baseURL,
+
+    /* Run headless by default - won't open browser windows */
+    headless: true,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'retain-on-failure',
@@ -58,11 +73,11 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'bun run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+  /* Run a dedicated test server on port 5174 (separate from dev server) */
+  webServer: useDevServer ? undefined : {
+    command: `bun run dev -- --port ${TEST_PORT}`,
+    url: `http://localhost:${TEST_PORT}`,
+    reuseExistingServer: false,
     timeout: 120000,
     stdout: 'ignore',
     stderr: 'pipe',

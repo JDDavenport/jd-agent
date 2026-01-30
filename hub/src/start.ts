@@ -1,4 +1,8 @@
 // Simple startup script for Railway deployment
+
+// Make this file a module to enable top-level await
+export {};
+
 console.log('[START] Initializing JD Agent Hub...');
 console.log('[START] Environment:', process.env.NODE_ENV || 'not set');
 console.log('[START] App Environment:', process.env.APP_ENV || 'not set');

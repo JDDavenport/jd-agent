@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   useRecordings,
   useRecording,
@@ -7,8 +7,11 @@ import {
   useUpdateSpeaker,
   useReprocessRecording,
   useSyncRecordings,
+  useAnalyzeRecording,
+  useExportTasks,
   formatDuration,
   formatFileSize,
+  type RecordingAnalysis,
 } from '../hooks/useRecordings';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -36,6 +39,8 @@ function Recordings() {
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [editingSpeaker, setEditingSpeaker] = useState<number | null>(null);
   const [speakerName, setSpeakerName] = useState('');
+  const [analysis, setAnalysis] = useState<RecordingAnalysis | null>(null);
+  const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
 
   const { data: recordingsData, isLoading: loadingRecordings } = useRecordings({
     status: statusFilter || undefined,
@@ -48,8 +53,34 @@ function Recordings() {
   const syncRecordings = useSyncRecordings();
   const reprocessRecording = useReprocessRecording();
   const updateSpeaker = useUpdateSpeaker();
+  const analyzeRecording = useAnalyzeRecording();
+  const exportTasks = useExportTasks();
 
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Load stored analysis when changing recordings
+  const handleSelectRecording = (id: string) => {
+    setSelectedId(id);
+    setAnalysis(null);
+    setSelectedTasks(new Set());
+  };
+
+  // Load stored analysis when recording data loads
+  const loadedAnalysis = selectedRecording?.transcript?.summary ? {
+    summary: selectedRecording.transcript.summary,
+    extractedTasks: selectedRecording.transcript.extractedTasks || [],
+    analyzedAt: selectedRecording.transcript.analyzedAt || new Date().toISOString(),
+  } : null;
+
+  // Use loaded analysis or manually triggered analysis
+  const displayAnalysis = analysis || loadedAnalysis;
+
+  // Auto-select tasks when analysis is loaded from storage
+  useEffect(() => {
+    if (loadedAnalysis?.extractedTasks && loadedAnalysis.extractedTasks.length > 0 && !analysis) {
+      setSelectedTasks(new Set(loadedAnalysis.extractedTasks.map((_, i) => i)));
+    }
+  }, [selectedRecording?.id, loadedAnalysis?.extractedTasks?.length]);
 
   const handleSync = async () => {
     try {
@@ -83,6 +114,50 @@ function Recordings() {
     } catch (error) {
       alert(`Failed to save speaker: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedId) return;
+    try {
+      const result = await analyzeRecording.mutateAsync(selectedId);
+      setAnalysis(result);
+      // Select all tasks by default
+      setSelectedTasks(new Set(result.extractedTasks.map((_, i) => i)));
+    } catch (error) {
+      alert(`Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleExportTasks = async () => {
+    if (!selectedId || !displayAnalysis || selectedTasks.size === 0) return;
+    const tasksToExport = displayAnalysis.extractedTasks
+      .filter((_, i) => selectedTasks.has(i))
+      .map(t => ({
+        title: t.title,
+        description: t.description || t.context,
+        priority: t.priority,
+        dueDate: t.dueDate,
+      }));
+
+    try {
+      const result = await exportTasks.mutateAsync({
+        recordingId: selectedId,
+        tasks: tasksToExport,
+      });
+      alert(`Exported ${result.data.tasksCreated} tasks successfully!`);
+    } catch (error) {
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const toggleTask = (index: number) => {
+    const newSelected = new Set(selectedTasks);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedTasks(newSelected);
   };
 
   // Get unique speakers from transcript
@@ -189,7 +264,7 @@ function Recordings() {
             {recordingsData?.data?.map((recording) => (
               <button
                 key={recording.id}
-                onClick={() => setSelectedId(recording.id)}
+                onClick={() => handleSelectRecording(recording.id)}
                 className={`w-full text-left p-4 rounded-lg border transition-all ${
                   selectedId === recording.id
                     ? 'bg-accent/20 border-accent'
@@ -246,6 +321,16 @@ function Recordings() {
                     {selectedRecording.originalFilename || 'Recording'}
                   </h2>
                   <div className="flex items-center gap-2">
+                    {selectedRecording.transcript && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleAnalyze}
+                        disabled={analyzeRecording.isPending}
+                      >
+                        {analyzeRecording.isPending ? 'Analyzing...' : 'Analyze'}
+                      </Button>
+                    )}
                     {selectedRecording.status === 'failed' && (
                       <Button
                         variant="secondary"
@@ -289,6 +374,118 @@ function Recordings() {
                   </div>
                 </div>
               </div>
+
+              {/* Analysis Results */}
+              {displayAnalysis && (
+                <>
+                  {/* Summary */}
+                  <div className="card p-4">
+                    <h3 className="text-md font-semibold mb-3">Summary</h3>
+                    <p className="text-text mb-4">{displayAnalysis.summary.overview}</p>
+
+                    {displayAnalysis.summary.keyPoints && displayAnalysis.summary.keyPoints.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-text-muted mb-2">Key Points</h4>
+                        <ul className="list-disc list-inside space-y-1">
+                          {displayAnalysis.summary.keyPoints.map((point, idx) => (
+                            <li key={idx} className="text-sm text-text">{point}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex gap-4 text-sm text-text-muted">
+                      {displayAnalysis.summary.participants && displayAnalysis.summary.participants.length > 0 && (
+                        <div>
+                          <span className="font-medium">Participants:</span>{' '}
+                          {displayAnalysis.summary.participants.join(', ')}
+                        </div>
+                      )}
+                      {displayAnalysis.summary.topics && displayAnalysis.summary.topics.length > 0 && (
+                        <div>
+                          <span className="font-medium">Topics:</span>{' '}
+                          {displayAnalysis.summary.topics.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Extracted Tasks */}
+                  {displayAnalysis.extractedTasks.length > 0 && (
+                    <div className="card p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-md font-semibold">
+                          Extracted Tasks ({displayAnalysis.extractedTasks.length})
+                        </h3>
+                        <Button
+                          size="sm"
+                          onClick={handleExportTasks}
+                          disabled={selectedTasks.size === 0 || exportTasks.isPending}
+                        >
+                          {exportTasks.isPending
+                            ? 'Exporting...'
+                            : `Export ${selectedTasks.size} Tasks`}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                        {displayAnalysis.extractedTasks.map((task, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                              selectedTasks.has(idx)
+                                ? 'bg-accent/10 border-accent'
+                                : 'bg-dark-card border-dark-border hover:border-accent/50'
+                            }`}
+                            onClick={() => toggleTask(idx)}
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedTasks.has(idx)}
+                                onChange={() => toggleTask(idx)}
+                                className="mt-1 accent-accent"
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-text">{task.title}</div>
+                                {task.description && (
+                                  <div className="text-sm text-text-muted mt-1">{task.description}</div>
+                                )}
+                                <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
+                                  {task.assignee && (
+                                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                      {task.assignee}
+                                    </span>
+                                  )}
+                                  {task.priority && (
+                                    <span className={`px-2 py-0.5 rounded ${
+                                      task.priority === 'high'
+                                        ? 'bg-red-500/20 text-red-400'
+                                        : task.priority === 'medium'
+                                        ? 'bg-yellow-500/20 text-yellow-400'
+                                        : 'bg-gray-500/20 text-gray-400'
+                                    }`}>
+                                      {task.priority}
+                                    </span>
+                                  )}
+                                  {task.dueDate && (
+                                    <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                                  )}
+                                </div>
+                                {task.context && (
+                                  <div className="mt-2 text-xs text-text-muted italic border-l-2 border-dark-border pl-2">
+                                    "{task.context}"
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Speaker Labels */}
               {selectedRecording.transcript && getSpeakers().length > 0 && (
