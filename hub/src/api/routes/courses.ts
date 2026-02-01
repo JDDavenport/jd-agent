@@ -3,16 +3,42 @@ import { z } from 'zod';
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { existsSync } from 'fs';
-import OpenAI from 'openai';
 
 const coursesRouter = new Hono();
+
+// Ollama API helper
+async function ollamaChat(systemPrompt: string, messages: Array<{role: 'user' | 'assistant', content: string}>): Promise<string> {
+  const ollamaMessages = [
+    { role: 'system' as const, content: systemPrompt },
+    ...messages,
+  ];
+  
+  const response = await fetch('http://localhost:11434/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'llama3.1:8b',
+      messages: ollamaMessages,
+      stream: false,
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Ollama API error: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.message?.content || 'Sorry, I could not generate a response.';
+}
 
 // Course ID to Obsidian vault folder mapping
 const COURSE_FOLDERS: Record<string, string> = {
   'mba560': 'MBA 560 - Business Analytics',
   'mba580': 'MBA 580 - Business Strategy',
   'ent': 'Entrepreneurial Innovation',
+  'entrepreneurial-innovation': 'Entrepreneurial Innovation',
   'mba664': 'MBA 664 - Venture Capital',
+  'mba677': 'MBA 677R - Entrepreneurship',
   'mba677r': 'MBA 677R - Entrepreneurship',
   'mba654': 'MBA 654 - Strategic Client',
   'mba693r': 'Post-MBA Career Strategy',
@@ -22,7 +48,9 @@ const COURSE_SUBJECTS: Record<string, string> = {
   'mba560': 'Business Analytics, Statistics, Data Analysis, Regression, Probability, Hypothesis Testing',
   'mba580': 'Business Strategy, Competitive Advantage, Porter\'s Five Forces, SWOT Analysis, Strategic Planning',
   'ent': 'Entrepreneurship, Innovation, Product Development, Design Thinking, Lean Startup',
+  'entrepreneurial-innovation': 'Entrepreneurship, Innovation, Product Development, Design Thinking, Lean Startup',
   'mba664': 'Venture Capital, Private Equity, Investment Analysis, Due Diligence, Term Sheets',
+  'mba677': 'Entrepreneurship Through Acquisition, Search Funds, Small Business Acquisition',
   'mba677r': 'Entrepreneurship Through Acquisition, Search Funds, Small Business Acquisition',
   'mba654': 'Client Acquisition, Sales, Marketing, Customer Retention, CRM',
   'mba693r': 'Career Strategy, Job Search, Networking, Personal Branding',
@@ -30,11 +58,6 @@ const COURSE_SUBJECTS: Record<string, string> = {
 
 const VAULT_BASE = process.env.OBSIDIAN_VAULT_PATH || '/Users/jddavenport/Documents/Obsidian/JD Vault';
 const MBA_PATH = join(VAULT_BASE, 'MBA', 'Spring 2026');
-
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 interface Lecture {
   id: string;
@@ -318,20 +341,13 @@ FORMAT:
 - Include source citations like: 📎 Source: Jan 22 Lecture
 - For complex concepts, break them into numbered steps`;
 
-    const messages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: 'system', content: systemPrompt },
+    // Build conversation history for Ollama
+    const ollamaMessages: Array<{role: 'user' | 'assistant', content: string}> = [
       ...history.map(h => ({ role: h.role as 'user' | 'assistant', content: h.content })),
-      { role: 'user', content: message },
+      { role: 'user' as const, content: message },
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages,
-      max_tokens: 1500,
-      temperature: 0.7,
-    });
-
-    const response = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+    const response = await ollamaChat(systemPrompt, ollamaMessages);
 
     // Extract sources mentioned (simple pattern matching)
     const sourceMatches = response.match(/(?:Jan|Feb|Mar|Apr|May)\s+\d{1,2}(?:\s+Lecture)?/gi) || [];
@@ -342,7 +358,7 @@ FORMAT:
       data: {
         response,
         sources,
-        model: 'gpt-4o',
+        model: 'llama3.1:8b (local)',
       },
     });
   } catch (error) {

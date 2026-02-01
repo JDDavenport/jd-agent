@@ -106,6 +106,7 @@ import { classesRouter } from './api/routes/classes';
 import readHelpRouter from './api/routes/read-help';
 import { lecturesRouter } from './api/routes/lectures';
 import { coursesRouter } from './api/routes/courses';
+import { studyHelpAuthRouter } from './api/routes/study-help-auth';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -271,6 +272,7 @@ app.route('/api/classes', classesRouter);
 app.route('/api/read-help', readHelpRouter);
 app.route('/api/lectures', lecturesRouter);
 app.route('/api/courses', coursesRouter);
+app.route('/api/study-help/auth', studyHelpAuthRouter);
 
 // Web UI
 app.route('/setup', setupUI);
