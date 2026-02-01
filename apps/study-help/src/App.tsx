@@ -10,11 +10,14 @@ import {
   XMarkIcon,
   ChevronRightIcon,
   FolderIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSchoolTasks } from './hooks/useStudy';
 import { COURSES, getCourseById, matchCourse } from './types/courses';
 import type { Course } from './types/courses';
+import { useAuth } from './contexts/AuthContext';
+import { ProtectedRoute, GuestRoute } from './components/ProtectedRoute';
 
 // Views
 import { DashboardView } from './views/DashboardView';
@@ -26,11 +29,70 @@ import { LectureDetailView } from './views/LectureDetailView';
 import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
 import { CanvasView } from './views/CanvasView';
+import { LoginView } from './views/LoginView';
+import { SignupView } from './views/SignupView';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { data: tasks } = useSchoolTasks();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show auth routes when not authenticated
+  if (!isAuthenticated && !isLoading) {
+    return (
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <LoginView />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <GuestRoute>
+              <SignupView />
+            </GuestRoute>
+          }
+        />
+        <Route path="*" element={<LoginView />} />
+      </Routes>
+    );
+  }
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <svg
+            className="animate-spin h-10 w-10 text-blue-600"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Count tasks per course
   const taskCounts = useMemo(() => {
@@ -151,9 +213,15 @@ interface SidebarContentProps {
 
 function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    onNavigate?.();
+  };
 
   return (
-    <div className="py-4">
+    <div className="py-4 flex flex-col h-full">
       {/* Overview */}
       <div className="px-3 mb-4">
         <NavLink
@@ -267,6 +335,35 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
           <p className="text-xs mt-1 opacity-80">7 courses active</p>
         </div>
       </div>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* User info & logout */}
+      {user && (
+        <div className="px-4 py-4 border-t border-gray-200 mt-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="text-sm font-medium text-blue-700">
+                {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {user.name || 'Student'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Sign out"
+            >
+              <ArrowRightOnRectangleIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

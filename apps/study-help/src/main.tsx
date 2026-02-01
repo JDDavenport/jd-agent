@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './ErrorBoundary';
+import { AuthProvider } from './contexts/AuthContext';
 import App from './App';
 import './index.css';
 
@@ -30,7 +31,9 @@ if (rootEl) {
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <BrowserRouter>
-              <App />
+              <AuthProvider>
+                <App />
+              </AuthProvider>
             </BrowserRouter>
           </QueryClientProvider>
         </ErrorBoundary>
