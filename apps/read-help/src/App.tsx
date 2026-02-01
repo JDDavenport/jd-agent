@@ -25,7 +25,7 @@ export default function App() {
   const location = useLocation();
 
   return (
-    <div className="h-full bg-gray-900">
+    <div className="h-full bg-gray-900 overflow-x-hidden">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -102,7 +102,7 @@ export default function App() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col lg:pl-64">
+      <div className="flex flex-1 flex-col lg:pl-64 min-w-0">
         {/* Mobile header */}
         <div className="sticky top-0 z-10 flex h-16 items-center gap-4 bg-gray-800 px-4 lg:hidden">
           <button

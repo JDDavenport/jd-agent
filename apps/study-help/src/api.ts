@@ -8,6 +8,7 @@ import type {
   SummaryLength,
   Video,
 } from './types';
+import type { Lecture, LectureDetail } from './types/lecture';
 
 const API_BASE = '/api';
 
@@ -61,6 +62,10 @@ export async function getTodayTasks(): Promise<Task[]> {
 
 export async function completeTask(taskId: string): Promise<Task> {
   return fetchApi<Task>(`${API_BASE}/tasks/${taskId}/complete`, { method: 'POST' });
+}
+
+export async function reopenTask(taskId: string): Promise<Task> {
+  return fetchApi<Task>(`${API_BASE}/tasks/${taskId}/reopen`, { method: 'POST' });
 }
 
 export async function updateTask(taskId: string, updates: Partial<Task>): Promise<Task> {
@@ -332,4 +337,66 @@ export async function updateVideo(
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
+}
+
+// ============================================
+// Lectures API
+// ============================================
+
+export async function getLectures(courseId: string): Promise<Lecture[]> {
+  return fetchApi<Lecture[]>(`${API_BASE}/lectures/${courseId}`);
+}
+
+export async function getLecture(courseId: string, lectureId: string): Promise<LectureDetail> {
+  return fetchApi<LectureDetail>(`${API_BASE}/lectures/${courseId}/${lectureId}`);
+}
+
+export function getLectureAudioUrl(courseId: string, lectureId: string): string {
+  return `${API_BASE}/lectures/${courseId}/${lectureId}/audio`;
+}
+
+// ============================================
+// Course AI Chat API
+// ============================================
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  response: string;
+  sources: string[];
+  model: string;
+}
+
+export async function sendCourseChat(
+  courseId: string,
+  message: string,
+  history?: ChatMessage[]
+): Promise<ChatResponse> {
+  return fetchApi<ChatResponse>(`${API_BASE}/courses/${courseId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ message, history }),
+  });
+}
+
+// ============================================
+// Remarkable Notes API
+// ============================================
+
+export interface RemarkableNote {
+  id: string;
+  name: string;
+  pages: number;
+  preview: string;
+  ocrText: string;
+}
+
+export async function getRemarkableNotes(courseId: string): Promise<RemarkableNote[]> {
+  return fetchApi<RemarkableNote[]>(`${API_BASE}/courses/${courseId}/remarkable`);
+}
+
+export function getRemarkablePdfUrl(courseId: string, noteId: string): string {
+  return `${API_BASE}/courses/${courseId}/remarkable/${noteId}/pdf`;
 }

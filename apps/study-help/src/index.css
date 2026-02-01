@@ -70,3 +70,18 @@
 .timer-glow-break {
   box-shadow: 0 0 60px rgba(34, 197, 94, 0.3);
 }
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out;
+}

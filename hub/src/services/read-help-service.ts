@@ -699,7 +699,35 @@ export class ReadHelpService {
 
       // Get content between this case and the next
       const startLine = currentCase.lineNum;
-      const endLine = nextCase ? nextCase.lineNum - 1 : lines.length - 1;
+      let endLine: number;
+
+      if (nextCase) {
+        // For the end boundary, look backward from the next case start to find where content actually ends
+        // Skip blank lines and common footer/header markers
+        endLine = nextCase.lineNum - 1;
+
+        // Scan backward from next case to include all content of current case
+        // Stop at blank lines that might separate cases
+        for (let j = nextCase.lineNum - 1; j > currentCase.lineNum + 10; j--) {
+          const line = lines[j].trim();
+
+          // If we hit substantial content (not just page numbers, footers, etc), this is likely the real end
+          if (line.length > 30 &&
+              !line.match(/^Only for individual use/) &&
+              !line.match(/^No posting, copying/) &&
+              !line.match(/^\d+$/) && // Page numbers
+              !line.match(/^[A-Z\s]+$/) // All caps (likely headers)
+          ) {
+            // Found substantial content - include everything up to here
+            endLine = j;
+            break;
+          }
+        }
+      } else {
+        // Last case - include everything to the end
+        endLine = lines.length - 1;
+      }
+
       const content = lines.slice(startLine, endLine + 1).join('\n');
 
       // Estimate page numbers

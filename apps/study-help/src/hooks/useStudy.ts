@@ -62,6 +62,16 @@ export function useCompleteTask() {
   });
 }
 
+export function useReopenTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.reopenTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -349,5 +359,39 @@ export function useReprocessVideo() {
       queryClient.invalidateQueries({ queryKey: ['video', videoId] });
       queryClient.invalidateQueries({ queryKey: ['videos'] });
     },
+  });
+}
+
+// ============================================
+// Lecture Hooks
+// ============================================
+
+export function useLectures(courseId: string) {
+  return useQuery({
+    queryKey: ['lectures', courseId],
+    queryFn: () => api.getLectures(courseId),
+    enabled: !!courseId,
+    retry: false,
+  });
+}
+
+export function useLecture(courseId: string, lectureId: string) {
+  return useQuery({
+    queryKey: ['lecture', courseId, lectureId],
+    queryFn: () => api.getLecture(courseId, lectureId),
+    enabled: !!courseId && !!lectureId,
+  });
+}
+
+// ============================================
+// Remarkable Notes Hooks
+// ============================================
+
+export function useRemarkableNotes(courseId: string) {
+  return useQuery({
+    queryKey: ['remarkable', courseId],
+    queryFn: () => api.getRemarkableNotes(courseId),
+    enabled: !!courseId,
+    retry: false,
   });
 }

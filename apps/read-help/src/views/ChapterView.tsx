@@ -182,7 +182,7 @@ export function ChapterView() {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-6 max-w-full">
         {/* Summary Tab */}
         {activeTab === 'summary' && (
           <div>

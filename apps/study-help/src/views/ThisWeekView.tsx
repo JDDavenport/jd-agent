@@ -12,14 +12,17 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
-import { useSchoolTasks, useCompleteTask } from '../hooks/useStudy';
+import { useSchoolTasks, useCompleteTask, useReopenTask } from '../hooks/useStudy';
 import { matchCourse, COURSES } from '../types/courses';
+import { UndoToast } from '../components/UndoToast';
 import type { Task } from '../types';
 
 export function ThisWeekView() {
   const { data: tasks, isLoading } = useSchoolTasks();
   const completeTask = useCompleteTask();
+  const reopenTask = useReopenTask();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [undoTask, setUndoTask] = useState<{ id: string; title: string } | null>(null);
 
   // Calculate date range: tomorrow through next Friday
   const { startDate, endDate, dayGroups } = useMemo(() => {
@@ -69,8 +72,16 @@ export function ThisWeekView() {
     };
   }, [tasks]);
 
-  const handleComplete = async (taskId: string) => {
+  const handleComplete = async (taskId: string, taskTitle: string) => {
     await completeTask.mutateAsync(taskId);
+    setUndoTask({ id: taskId, title: taskTitle });
+  };
+
+  const handleUndo = async () => {
+    if (undoTask) {
+      await reopenTask.mutateAsync(undoTask.id);
+      setUndoTask(null);
+    }
   };
 
   const totalTasks = dayGroups.reduce((sum, g) => sum + g.tasks.length, 0);
@@ -154,6 +165,15 @@ export function ThisWeekView() {
           ))}
         </div>
       )}
+      
+      {/* Undo Toast */}
+      {undoTask && (
+        <UndoToast
+          message={`"${undoTask.title}" completed`}
+          onUndo={handleUndo}
+          onDismiss={() => setUndoTask(null)}
+        />
+      )}
     </div>
   );
 }
@@ -166,7 +186,7 @@ function TaskRow({
 }: {
   task: Task;
   course: ReturnType<typeof matchCourse>;
-  onComplete: (id: string) => void;
+  onComplete: (id: string, title: string) => void;
   onClick: () => void;
 }) {
   const [completing, setCompleting] = useState(false);
@@ -176,7 +196,7 @@ function TaskRow({
     if (completing) return;
     setCompleting(true);
     try {
-      await onComplete(task.id);
+      await onComplete(task.id, task.title);
     } finally {
       setTimeout(() => setCompleting(false), 2000);
     }
@@ -189,6 +209,8 @@ function TaskRow({
     const type = parts[1];
     const id = parts[2];
     
+    if (!id || !/^\d+$/.test(id)) return null;
+    
     const courseIds: Record<string, string> = {
       'mba560': '32991',
       'mba580': '33202',
@@ -199,11 +221,25 @@ function TaskRow({
       'mba693r': '34634',
     };
     
-    const courseId = course?.id ? courseIds[course.id] : null;
-    if (!courseId || !id || !/^\d+$/.test(id)) return null;
+    // Try to get course ID from matched course
+    let canvasCourseId = course?.id ? courseIds[course.id] : null;
     
-    return `https://byu.instructure.com/courses/${courseId}/${type === 'quiz' ? 'quizzes' : 'assignments'}/${id}`;
-  }, [task.sourceRef, course]);
+    // Fallback: match by context keywords
+    if (!canvasCourseId && task.context) {
+      const ctx = task.context.toLowerCase();
+      if (ctx.includes('career') || ctx.includes('693')) canvasCourseId = '34634';
+      else if (ctx.includes('analytics') || ctx.includes('560')) canvasCourseId = '32991';
+      else if (ctx.includes('strategy') || ctx.includes('580')) canvasCourseId = '33202';
+      else if (ctx.includes('innovation') || ctx.includes('entrepreneurial')) canvasCourseId = '33259';
+      else if (ctx.includes('vc') || ctx.includes('venture') || ctx.includes('664')) canvasCourseId = '34638';
+      else if (ctx.includes('eta') || ctx.includes('acquisition') || ctx.includes('677')) canvasCourseId = '34458';
+      else if (ctx.includes('client') || ctx.includes('654')) canvasCourseId = '34642';
+    }
+    
+    if (!canvasCourseId) return null;
+    
+    return `https://byu.instructure.com/courses/${canvasCourseId}/${type === 'quiz' ? 'quizzes' : 'assignments'}/${id}`;
+  }, [task.sourceRef, task.context, course]);
 
   return (
     <div

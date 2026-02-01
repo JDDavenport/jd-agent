@@ -1,5 +1,33 @@
 @import 'tailwindcss';
 
+/* Prevent horizontal overflow and ensure proper text wrapping */
+* {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Ensure prose content wraps properly */
+.prose {
+  max-width: 100% !important;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+.prose p,
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6,
+.prose li,
+.prose td,
+.prose th {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
 /* Custom scrollbar for dark mode */
 ::-webkit-scrollbar {
   width: 8px;

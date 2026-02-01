@@ -16,18 +16,24 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
-import { useSchoolTasks, useBooks, useCompleteTask, useDueFlashcards, useVideos } from '../hooks/useStudy';
+import { useSchoolTasks, useBooks, useCompleteTask, useReopenTask, useDueFlashcards, useVideos, useLectures } from '../hooks/useStudy';
 import { getCourseById, matchCourse, CANVAS_COURSE_IDS } from '../types/courses';
 import { TaskDetailModal } from '../components/TaskDetailModal';
+import { UndoToast } from '../components/UndoToast';
+import { CourseChat } from '../components/CourseChat';
+import { EnhancedClassNotesView } from '../components/EnhancedClassNotesView';
 import type { Task, Book, Video } from '../types';
+import type { Lecture } from '../types/lecture';
+import { MicrophoneIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
-type TabId = 'overview' | 'tasks' | 'readings' | 'calendar';
+type TabId = 'ask-ai' | 'class-notes' | 'tasks' | 'readings' | 'calendar';
 
 export function CourseView() {
   const { courseId } = useParams<{ courseId: string }>();
   const course = getCourseById(courseId || '');
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [activeTab, setActiveTab] = useState<TabId>('ask-ai');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [undoTask, setUndoTask] = useState<{ id: string; title: string } | null>(null);
 
   // Get Canvas course ID for video filtering
   const canvasCourseId = course?.id ? CANVAS_COURSE_IDS[course.id] : undefined;
@@ -36,7 +42,9 @@ export function CourseView() {
   const { data: allBooks, isLoading: booksLoading } = useBooks();
   const { data: allVideos, isLoading: videosLoading } = useVideos(canvasCourseId);
   const { data: allFlashcards } = useDueFlashcards();
+  const { data: lectures, isLoading: lecturesLoading } = useLectures(courseId || '');
   const completeTask = useCompleteTask();
+  const reopenTask = useReopenTask();
 
   // Filter tasks for this course
   const courseTasks = useMemo(() => {
@@ -83,6 +91,23 @@ export function CourseView() {
       const days = differenceInDays(due, new Date());
       return days >= 0 && days <= 3;
     });
+    
+    // This week: tomorrow through next Friday
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const nextFriday = new Date(today);
+    const dayOfWeek = nextFriday.getDay();
+    const daysUntilFriday = dayOfWeek <= 5 ? 5 - dayOfWeek : 5 + (7 - dayOfWeek);
+    nextFriday.setDate(nextFriday.getDate() + daysUntilFriday + 7);
+    nextFriday.setHours(23, 59, 59, 999);
+    
+    const thisWeekTasks = activeTasks.filter((t) => {
+      if (!t.dueDate) return false;
+      const due = parseISO(t.dueDate);
+      return due >= tomorrow && due <= nextFriday;
+    });
 
     const totalMinutes = activeTasks.reduce(
       (sum, t) => sum + (t.timeEstimateMinutes || 15),
@@ -94,18 +119,33 @@ export function CourseView() {
       completed: completedTasks.length,
       overdue: overdueTasks.length,
       dueSoon: dueSoonTasks.length,
+      thisWeek: thisWeekTasks.length,
       readings: courseBooks.length,
       videos: courseVideos.length,
+      lectures: lectures?.length || 0,
       estimatedHours: Math.round(totalMinutes / 60 * 10) / 10,
     };
-  }, [courseTasks, courseBooks, courseVideos]);
+  }, [courseTasks, courseBooks, courseVideos, lectures]);
 
-  const handleCompleteTask = useCallback(async (taskId: string) => {
+  const handleCompleteTask = useCallback(async (taskId: string, taskTitle?: string) => {
+    // Find the task to get the title if not provided
+    const task = courseTasks.find(t => t.id === taskId);
+    const title = taskTitle || task?.title || 'Task';
+    
     await completeTask.mutateAsync(taskId);
+    setUndoTask({ id: taskId, title });
+    
     if (selectedTask?.id === taskId) {
       setSelectedTask(null);
     }
-  }, [completeTask, selectedTask]);
+  }, [completeTask, selectedTask, courseTasks]);
+
+  const handleUndo = useCallback(async () => {
+    if (undoTask) {
+      await reopenTask.mutateAsync(undoTask.id);
+      setUndoTask(null);
+    }
+  }, [reopenTask, undoTask]);
 
   if (!course) {
     return (
@@ -127,8 +167,12 @@ export function CourseView() {
     );
   }
 
-  const tabs: { id: TabId; label: string; count?: number }[] = [
-    { id: 'overview', label: 'Overview' },
+  // Count class days (unique dates in lectures)
+  const classDayCount = lectures ? new Set(lectures.map(l => l.date)).size : 0;
+
+  const tabs: { id: TabId; label: string; count?: number; icon?: React.ReactNode }[] = [
+    { id: 'ask-ai', label: 'Ask AI', icon: <SparklesIcon className="w-4 h-4" /> },
+    { id: 'class-notes', label: 'Class Notes', count: classDayCount, icon: <BookOpenIcon className="w-4 h-4" /> },
     { id: 'tasks', label: 'Tasks', count: stats.active },
     { id: 'readings', label: 'Materials', count: stats.readings + stats.videos },
     { id: 'calendar', label: 'Calendar' },
@@ -197,16 +241,17 @@ export function CourseView() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                'flex-1 px-4 py-3 text-sm font-medium transition-colors relative',
+                'flex-1 px-4 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5',
                 activeTab === tab.id
                   ? clsx(course.color, course.bgColor)
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               )}
             >
+              {tab.icon}
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
                 <span className={clsx(
-                  'ml-2 text-xs px-1.5 py-0.5 rounded-full',
+                  'ml-1 text-xs px-1.5 py-0.5 rounded-full',
                   activeTab === tab.id
                     ? 'bg-white/50'
                     : 'bg-gray-200'
@@ -219,15 +264,12 @@ export function CourseView() {
         </div>
 
         {/* Tab Content */}
-        <div className="p-4">
-          {activeTab === 'overview' && (
-            <OverviewTab
-              course={course}
-              tasks={courseTasks}
-              books={courseBooks}
-              onComplete={handleCompleteTask}
-              onTaskClick={setSelectedTask}
-            />
+        <div className={activeTab === 'ask-ai' || activeTab === 'class-notes' ? '' : 'p-4'}>
+          {activeTab === 'ask-ai' && (
+            <CourseChat course={course} />
+          )}
+          {activeTab === 'class-notes' && (
+            <EnhancedClassNotesView course={course} />
           )}
           {activeTab === 'tasks' && (
             <TasksTab
@@ -254,6 +296,15 @@ export function CourseView() {
           books={allBooks || []}
           onClose={() => setSelectedTask(null)}
           onComplete={handleCompleteTask}
+        />
+      )}
+      
+      {/* Undo Toast */}
+      {undoTask && (
+        <UndoToast
+          message={`"${undoTask.title}" completed`}
+          onUndo={handleUndo}
+          onDismiss={() => setUndoTask(null)}
         />
       )}
     </div>
@@ -383,6 +434,93 @@ function OverviewTab({ course, tasks, books, onComplete, onTaskClick }: Overview
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// This Week Tab (Course-specific)
+// ============================================
+
+interface ThisWeekTabProps {
+  course: ReturnType<typeof getCourseById>;
+  tasks: Task[];
+  onComplete: (id: string) => void;
+  onTaskClick: (task: Task) => void;
+}
+
+function ThisWeekTab({ course, tasks, onComplete, onTaskClick }: ThisWeekTabProps) {
+  // Calculate date range: tomorrow through next Friday
+  const { dayGroups, totalTasks } = useMemo(() => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const nextFriday = new Date(today);
+    const dayOfWeek = nextFriday.getDay();
+    const daysUntilFriday = dayOfWeek <= 5 ? 5 - dayOfWeek : 5 + (7 - dayOfWeek);
+    nextFriday.setDate(nextFriday.getDate() + daysUntilFriday + 7);
+    nextFriday.setHours(23, 59, 59, 999);
+    
+    // Filter for this week only
+    const weekTasks = tasks.filter(task => {
+      if (!task.dueDate || task.status === 'done') return false;
+      const due = parseISO(task.dueDate);
+      return due >= tomorrow && due <= nextFriday;
+    });
+    
+    // Group by date
+    const groups: Map<string, Task[]> = new Map();
+    weekTasks.forEach(task => {
+      const dateKey = format(parseISO(task.dueDate!), 'yyyy-MM-dd');
+      if (!groups.has(dateKey)) groups.set(dateKey, []);
+      groups.get(dateKey)!.push(task);
+    });
+    
+    // Convert to sorted array
+    const sortedGroups = Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, tasks]) => ({
+        date,
+        dateObj: parseISO(date),
+        tasks: tasks.sort((a, b) => (a.title || '').localeCompare(b.title || '')),
+      }));
+    
+    return {
+      dayGroups: sortedGroups,
+      totalTasks: weekTasks.length,
+    };
+  }, [tasks]);
+  
+  if (totalTasks === 0) {
+    return (
+      <div className="text-center py-12">
+        <CheckCircleIcon className="w-12 h-12 text-green-500 mx-auto mb-4" />
+        <p className="text-gray-600">No tasks due this week. You're all caught up!</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      {dayGroups.map(({ date, dateObj, tasks: dayTasks }) => (
+        <div key={date}>
+          <h3 className="text-sm font-semibold text-gray-500 mb-2">
+            {format(dateObj, 'EEEE, MMMM d')}
+          </h3>
+          <div className="bg-gray-50 rounded-lg divide-y divide-gray-200">
+            {dayTasks.map(task => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onComplete={onComplete}
+                onClick={() => onTaskClick(task)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -826,6 +964,72 @@ function BookCard({
         </div>
       </div>
     </Link>
+  );
+}
+
+// ============================================
+// Lectures Tab
+// ============================================
+
+interface LecturesTabProps {
+  course: ReturnType<typeof getCourseById>;
+  lectures: Lecture[];
+}
+
+function LecturesTab({ course, lectures }: LecturesTabProps) {
+  if (lectures.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <MicrophoneIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+        <p className="text-gray-600 font-medium">No lecture recordings found</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Plaud recordings will appear here once synced
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {lectures.map((lecture) => (
+        <Link
+          key={lecture.id}
+          to={`/course/${course?.id}/lectures/${lecture.id}`}
+          className="block rounded-lg border border-gray-200 p-4 hover:border-purple-300 hover:shadow-sm transition-all"
+        >
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+              <MicrophoneIcon className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="font-medium text-gray-900 line-clamp-1">{lecture.title}</h4>
+                {lecture.hasAudio && (
+                  <span className="flex-shrink-0 text-xs px-2 py-0.5 bg-green-50 text-green-600 rounded">
+                    🎧 Audio
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                <span>{lecture.date && format(parseISO(lecture.date), 'MMM d, yyyy')}</span>
+                {lecture.durationMinutes && (
+                  <span className="flex items-center gap-1">
+                    <ClockIcon className="w-3.5 h-3.5" />
+                    {lecture.durationMinutes} min
+                  </span>
+                )}
+              </div>
+              {lecture.previewSnippet && (
+                <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+                  {lecture.previewSnippet}...
+                </p>
+              )}
+            </div>
+            <ChevronRightIcon className="w-5 h-5 text-gray-400 flex-shrink-0 self-center" />
+          </div>
+        </Link>
+      ))}
+    </div>
   );
 }
 

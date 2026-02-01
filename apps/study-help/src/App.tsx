@@ -4,10 +4,12 @@ import {
   HomeIcon,
   BookOpenIcon,
   ClockIcon,
+  CalendarDaysIcon,
   AcademicCapIcon,
   Bars3Icon,
   XMarkIcon,
   ChevronRightIcon,
+  FolderIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSchoolTasks } from './hooks/useStudy';
@@ -20,8 +22,10 @@ import { ThisWeekView } from './views/ThisWeekView';
 import { CourseView } from './views/CourseView';
 import { ReadingDetailView } from './views/ReadingDetailView';
 import { VideoDetailView } from './views/VideoDetailView';
+import { LectureDetailView } from './views/LectureDetailView';
 import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
+import { CanvasView } from './views/CanvasView';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -123,10 +127,14 @@ export default function App() {
             <Route path="/course/:courseId/readings/:bookId" element={<ReadingDetailView />} />
             <Route path="/course/:courseId/readings/:bookId/chapters/:chapterId" element={<ReadingDetailView />} />
             <Route path="/course/:courseId/videos/:videoId" element={<VideoDetailView />} />
+            <Route path="/course/:courseId/lectures/:lectureId" element={<LectureDetailView />} />
             <Route path="/readings/:bookId" element={<ReadingDetailView />} />
             <Route path="/readings/:bookId/chapters/:chapterId" element={<ReadingDetailView />} />
             <Route path="/videos/:videoId" element={<VideoDetailView />} />
             <Route path="/this-week" element={<ThisWeekView />} />
+            <Route path="/canvas" element={<CanvasView />} />
+            <Route path="/canvas/:courseSlug" element={<CanvasView />} />
+            <Route path="/canvas/:courseSlug/:section" element={<CanvasView />} />
             <Route path="/timer" element={<PomodoroView />} />
             <Route path="/flashcards" element={<FlashcardsView />} />
           </Routes>
@@ -177,6 +185,21 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
         >
           <CalendarDaysIcon className="h-5 w-5" />
           This Week
+        </NavLink>
+        <NavLink
+          to="/canvas"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-purple-50 text-purple-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            )
+          }
+        >
+          <FolderIcon className="h-5 w-5" />
+          Canvas Content
         </NavLink>
       </div>
 

@@ -83,9 +83,9 @@ export function FormattedCaseContent({ content, chapterTitle }: FormattedCaseCon
   }, [content]);
 
   return (
-    <div className="prose prose-invert prose-lg max-w-none">
+    <div className="prose prose-invert prose-lg max-w-none break-words">
       {/* Case title */}
-      <h1 className="text-3xl font-bold text-white mb-8 border-b border-gray-700 pb-4">
+      <h1 className="text-3xl font-bold text-white mb-8 border-b border-gray-700 pb-4 break-words">
         {chapterTitle}
       </h1>
 
@@ -95,25 +95,25 @@ export function FormattedCaseContent({ content, chapterTitle }: FormattedCaseCon
           switch (section.type) {
             case 'heading':
               return (
-                <h2 key={idx} className="text-2xl font-bold text-indigo-300 mt-12 mb-4">
+                <h2 key={idx} className="text-2xl font-bold text-indigo-300 mt-12 mb-4 break-words">
                   {section.content}
                 </h2>
               );
 
             case 'subheading':
               return (
-                <h3 key={idx} className="text-xl font-semibold text-indigo-200 mt-8 mb-3">
+                <h3 key={idx} className="text-xl font-semibold text-indigo-200 mt-8 mb-3 break-words">
                   {section.content}
                 </h3>
               );
 
             case 'exhibit':
               return (
-                <div key={idx} className="my-6 rounded-lg bg-blue-900/20 border border-blue-500/30 p-4">
-                  <p className="text-sm font-semibold text-blue-300 mb-2">
+                <div key={idx} className="my-6 rounded-lg bg-blue-900/20 border border-blue-500/30 p-4 break-words">
+                  <p className="text-sm font-semibold text-blue-300 mb-2 break-words">
                     📊 {section.content}
                   </p>
-                  <p className="text-xs text-gray-400 italic">
+                  <p className="text-xs text-gray-400 italic break-words">
                     Note: Charts and tables from the original PDF are referenced in the text
                   </p>
                 </div>
@@ -121,7 +121,7 @@ export function FormattedCaseContent({ content, chapterTitle }: FormattedCaseCon
 
             case 'paragraph':
               return (
-                <p key={idx} className="text-gray-300 leading-relaxed text-base mb-4">
+                <p key={idx} className="text-gray-300 leading-relaxed text-base mb-4 break-words whitespace-pre-wrap">
                   {section.content}
                 </p>
               );
