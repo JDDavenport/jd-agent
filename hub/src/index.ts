@@ -130,6 +130,8 @@ app.use('*', cors({
     if (origin?.endsWith('.vercel.app')) return origin;
     // Allow specific production domains
     if (origin === 'https://jdagent.app' || origin === 'https://www.jdagent.app') return origin;
+    // Allow Study Aide domains
+    if (origin === 'https://studyaide.app' || origin === 'https://www.studyaide.app') return origin;
     // Allow Cloudflare tunnel domain (api.jdagent.dev or custom)
     if (origin?.endsWith('.jdagent.dev')) return origin;
     // Allow additional origins from environment (for custom tunnel domains)

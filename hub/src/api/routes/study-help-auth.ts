@@ -6,10 +6,12 @@ const studyHelpAuthRouter = new Hono();
 
 // Cookie configuration
 const COOKIE_NAME = 'study_help_session';
+// For cross-origin cookies (frontend on studyaide.app, backend on railway.app),
+// we need sameSite: 'none' and secure: true
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: true, // Required for sameSite: 'none'
+  sameSite: 'none' as const, // Allow cross-site cookies
   path: '/',
   maxAge: 30 * 24 * 60 * 60, // 30 days
 };
