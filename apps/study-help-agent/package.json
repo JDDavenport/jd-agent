@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Study Help Desktop Agent - Sync your learning materials",
   "author": "Study Aide",
-  "main": "dist/main.js",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:main": "tsc -p tsconfig.main.json --watch",
