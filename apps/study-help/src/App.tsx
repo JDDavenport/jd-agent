@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import {
   HomeIcon,
@@ -8,12 +8,14 @@ import {
   AcademicCapIcon,
   Bars3Icon,
   XMarkIcon,
-  ChevronRightIcon,
   FolderIcon,
   ArrowRightOnRectangleIcon,
+  PlusIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSchoolTasks } from './hooks/useStudy';
+import { useUserCourses, useHasCourses } from './hooks/useUserCourses';
 import { COURSES, getCourseById, matchCourse } from './types/courses';
 import type { Course } from './types/courses';
 import { useAuth } from './contexts/AuthContext';
@@ -31,15 +33,56 @@ import { FlashcardsView } from './views/FlashcardsView';
 import { CanvasView } from './views/CanvasView';
 import { LoginView } from './views/LoginView';
 import { SignupView } from './views/SignupView';
+import { CourseSetupView } from './views/CourseSetupView';
+
+// Color mapping for dynamic courses
+const colorClasses: Record<string, { bg: string; border: string; text: string }> = {
+  blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+  purple: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+  orange: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
+  green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
+  rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700' },
+  cyan: { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700' },
+  amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
+  gray: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+};
+
+// Map canvasCourseId to internal course ID for routing
+const canvasIdToInternalId: Record<string, string> = {
+  '32991': 'mba560',
+  '33202': 'mba580',
+  '33259': 'entrepreneurial-innovation',
+  '34638': 'mba664',
+  '34458': 'mba677',
+  '34642': 'mba654',
+  '34634': 'mba693r',
+};
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { data: tasks } = useSchoolTasks();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { data: userCourses, isLoading: coursesLoading } = useUserCourses();
+  const { hasCourses, isLoading: hasCoursesLoading } = useHasCourses();
+
+  // Count tasks per course - MUST be before any early returns (React hooks rule)
+  const taskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!tasks) return counts;
+
+    for (const task of tasks) {
+      if (task.status === 'done') continue;
+      const course = matchCourse(task.context, task.taskLabels);
+      if (course) {
+        counts[course.id] = (counts[course.id] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [tasks]);
 
   // Show auth routes when not authenticated
-  if (!isAuthenticated && !isLoading) {
+  if (!isAuthenticated && !authLoading) {
     return (
       <Routes>
         <Route
@@ -64,7 +107,7 @@ export default function App() {
   }
 
   // Show loading state while checking auth
-  if (isLoading) {
+  if (authLoading || (isAuthenticated && hasCoursesLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -94,20 +137,15 @@ export default function App() {
     );
   }
 
-  // Count tasks per course
-  const taskCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    if (!tasks) return counts;
-
-    for (const task of tasks) {
-      if (task.status === 'done') continue;
-      const course = matchCourse(task.context, task.taskLabels);
-      if (course) {
-        counts[course.id] = (counts[course.id] || 0) + 1;
-      }
-    }
-    return counts;
-  }, [tasks]);
+  // Redirect to course setup if no courses
+  if (isAuthenticated && !hasCourses && location.pathname !== '/setup-courses') {
+    return (
+      <Routes>
+        <Route path="/setup-courses" element={<CourseSetupView />} />
+        <Route path="*" element={<Navigate to="/setup-courses" replace />} />
+      </Routes>
+    );
+  }
 
   const getPageTitle = () => {
     const path = location.pathname;
@@ -143,7 +181,7 @@ export default function App() {
         <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <AcademicCapIcon className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">Study Help</span>
+            <span className="text-xl font-bold text-gray-900">Study Aide</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -152,7 +190,11 @@ export default function App() {
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
-        <SidebarContent taskCounts={taskCounts} onNavigate={() => setSidebarOpen(false)} />
+        <SidebarContent 
+          taskCounts={taskCounts} 
+          userCourses={userCourses || []} 
+          onNavigate={() => setSidebarOpen(false)} 
+        />
       </div>
 
       {/* Desktop sidebar */}
@@ -160,10 +202,13 @@ export default function App() {
         <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
           <div className="flex h-16 items-center px-4 border-b border-gray-200">
             <AcademicCapIcon className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-xl font-bold text-gray-900">Study Help</span>
+            <span className="ml-2 text-xl font-bold text-gray-900">Study Aide</span>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <SidebarContent taskCounts={taskCounts} />
+            <SidebarContent 
+              taskCounts={taskCounts} 
+              userCourses={userCourses || []} 
+            />
           </div>
         </div>
       </div>
@@ -185,6 +230,7 @@ export default function App() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<DashboardView />} />
+            <Route path="/setup-courses" element={<CourseSetupView />} />
             <Route path="/course/:courseId" element={<CourseView />} />
             <Route path="/course/:courseId/readings/:bookId" element={<ReadingDetailView />} />
             <Route path="/course/:courseId/readings/:bookId/chapters/:chapterId" element={<ReadingDetailView />} />
@@ -206,12 +252,24 @@ export default function App() {
   );
 }
 
+interface UserCourse {
+  id: string;
+  canvasCourseId: string;
+  courseName: string;
+  courseCode: string | null;
+  term: string | null;
+  isPinned: boolean;
+  icon: string;
+  color: string;
+}
+
 interface SidebarContentProps {
   taskCounts: Record<string, number>;
+  userCourses: UserCourse[];
   onNavigate?: () => void;
 }
 
-function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
+function SidebarContent({ taskCounts, userCourses, onNavigate }: SidebarContentProps) {
   const location = useLocation();
   const { user, logout } = useAuth();
 
@@ -271,21 +329,44 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
         </NavLink>
       </div>
 
-      {/* Courses */}
-      <div className="px-3 mb-2">
+      {/* User's Courses */}
+      <div className="px-3 mb-2 flex items-center justify-between">
         <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Courses
+          My Courses
         </h3>
+        <NavLink
+          to="/setup-courses"
+          onClick={onNavigate}
+          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Manage courses"
+        >
+          <Cog6ToothIcon className="h-4 w-4" />
+        </NavLink>
       </div>
       <div className="px-3 space-y-1">
-        {COURSES.map((course) => (
-          <CourseNavItem
-            key={course.id}
-            course={course}
-            taskCount={taskCounts[course.id] || 0}
-            onNavigate={onNavigate}
-          />
-        ))}
+        {userCourses.length > 0 ? (
+          userCourses.map((course) => {
+            const internalId = canvasIdToInternalId[course.canvasCourseId] || course.canvasCourseId;
+            return (
+              <UserCourseNavItem
+                key={course.id}
+                course={course}
+                internalId={internalId}
+                taskCount={taskCounts[internalId] || 0}
+                onNavigate={onNavigate}
+              />
+            );
+          })
+        ) : (
+          <NavLink
+            to="/setup-courses"
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 border-2 border-dashed border-gray-200"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add courses
+          </NavLink>
+        )}
       </div>
 
       {/* Tools */}
@@ -332,7 +413,7 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
         <div className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 p-4 text-white">
           <p className="text-xs font-medium opacity-80">Winter 2026</p>
           <p className="text-lg font-bold">BYU MBA</p>
-          <p className="text-xs mt-1 opacity-80">7 courses active</p>
+          <p className="text-xs mt-1 opacity-80">{userCourses.length} courses active</p>
         </div>
       </div>
 
@@ -368,32 +449,40 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
   );
 }
 
-interface CourseNavItemProps {
-  course: Course;
+interface UserCourseNavItemProps {
+  course: UserCourse;
+  internalId: string;
   taskCount: number;
   onNavigate?: () => void;
 }
 
-function CourseNavItem({ course, taskCount, onNavigate }: CourseNavItemProps) {
+function UserCourseNavItem({ course, internalId, taskCount, onNavigate }: UserCourseNavItemProps) {
   const location = useLocation();
-  const isActive = location.pathname.startsWith(`/course/${course.id}`);
+  const isActive = location.pathname.startsWith(`/course/${internalId}`);
+  const colors = colorClasses[course.color] || colorClasses.gray;
+
+  // Generate short name from course name
+  const shortName = course.courseName
+    .split(/[\/\-]/)
+    .map(s => s.trim().split(' ')[0])
+    .join('/');
 
   return (
     <NavLink
-      to={`/course/${course.id}`}
+      to={`/course/${internalId}`}
       onClick={onNavigate}
       className={clsx(
         'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
         isActive
-          ? clsx(course.bgColor, course.color)
+          ? clsx(colors.bg, colors.text)
           : 'text-gray-700 hover:bg-gray-100'
       )}
     >
       <span className="text-lg">{course.icon}</span>
       <div className="flex-1 min-w-0">
-        <p className="truncate">{course.shortName}</p>
+        <p className="truncate">{shortName}</p>
         <p className={clsx('text-xs', isActive ? 'opacity-70' : 'text-gray-500')}>
-          {course.code}
+          {course.courseCode}
         </p>
       </div>
       {taskCount > 0 && (

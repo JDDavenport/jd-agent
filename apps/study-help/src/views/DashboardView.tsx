@@ -14,32 +14,74 @@ import {
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import { useSchoolTasks, useTodayTasks, useBooks, useCompleteTask, useDueFlashcards } from '../hooks/useStudy';
+import { useUserCourses } from '../hooks/useUserCourses';
+import { useAuth } from '../contexts/AuthContext';
 import { COURSES, matchCourse, getCourseById } from '../types/courses';
 import type { Task, Book } from '../types';
 import type { Course } from '../types/courses';
 
+// Color classes for dynamic courses
+const colorClasses: Record<string, { bg: string; border: string; text: string; textColor: string }> = {
+  blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', textColor: 'text-blue-700' },
+  purple: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', textColor: 'text-purple-700' },
+  orange: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', textColor: 'text-orange-700' },
+  green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', textColor: 'text-green-700' },
+  rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', textColor: 'text-rose-700' },
+  cyan: { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', textColor: 'text-cyan-700' },
+  amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', textColor: 'text-amber-700' },
+  gray: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', textColor: 'text-gray-700' },
+};
+
+// Map canvasCourseId to internal course ID for routing
+const canvasIdToInternalId: Record<string, string> = {
+  '32991': 'mba560',
+  '33202': 'mba580',
+  '33259': 'entrepreneurial-innovation',
+  '34638': 'mba664',
+  '34458': 'mba677',
+  '34642': 'mba654',
+  '34634': 'mba693r',
+};
+
+interface UserCourse {
+  id: string;
+  canvasCourseId: string;
+  courseName: string;
+  courseCode: string | null;
+  term: string | null;
+  isPinned: boolean;
+  icon: string;
+  color: string;
+}
+
 export function DashboardView() {
+  const { user } = useAuth();
   const { data: schoolTasks, isLoading: tasksLoading } = useSchoolTasks();
   const { data: books, isLoading: booksLoading } = useBooks();
   const { data: dueFlashcards } = useDueFlashcards();
+  const { data: userCourses, isLoading: coursesLoading } = useUserCourses();
   const completeTask = useCompleteTask();
 
   // Group tasks by course
   const courseData = useMemo(() => {
-    if (!schoolTasks) return [];
+    if (!schoolTasks || !userCourses) return [];
 
     const data: Array<{
-      course: Course;
+      course: UserCourse;
+      internalId: string;
       activeTasks: Task[];
       urgentTasks: Task[];
       totalMinutes: number;
       completedCount: number;
     }> = [];
 
-    for (const course of COURSES) {
+    for (const userCourse of userCourses) {
+      const internalId = canvasIdToInternalId[userCourse.canvasCourseId] || userCourse.canvasCourseId;
+      
+      // Match tasks to this course
       const courseTasks = schoolTasks.filter((task) => {
         const taskCourse = matchCourse(task.context, task.taskLabels);
-        return taskCourse?.id === course.id;
+        return taskCourse?.id === internalId;
       });
 
       const activeTasks = courseTasks.filter((t) => t.status !== 'done');
@@ -57,15 +99,14 @@ export function DashboardView() {
         0
       );
 
-      if (courseTasks.length > 0 || activeTasks.length > 0) {
-        data.push({
-          course,
-          activeTasks,
-          urgentTasks,
-          totalMinutes,
-          completedCount,
-        });
-      }
+      data.push({
+        course: userCourse,
+        internalId,
+        activeTasks,
+        urgentTasks,
+        totalMinutes,
+        completedCount,
+      });
     }
 
     // Sort by urgent tasks, then active tasks
@@ -77,7 +118,7 @@ export function DashboardView() {
     });
 
     return data;
-  }, [schoolTasks]);
+  }, [schoolTasks, userCourses]);
 
   // Get all urgent tasks across courses
   const allUrgentTasks = useMemo(() => {
@@ -115,7 +156,7 @@ export function DashboardView() {
 
   const flashcardCount = dueFlashcards?.length || 0;
 
-  if (tasksLoading || booksLoading) {
+  if (tasksLoading || booksLoading || coursesLoading) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
         <div className="animate-pulse space-y-6">
@@ -131,12 +172,14 @@ export function DashboardView() {
     );
   }
 
+  const userName = user?.name?.split(' ')[0] || 'there';
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Good {getGreeting()}, JD 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Good {getGreeting()}, {userName} 👋</h1>
           <p className="text-gray-600 mt-1">
             {format(new Date(), "EEEE, MMMM d")} — {stats.active} tasks across {courseData.length} courses
           </p>
@@ -229,21 +272,33 @@ export function DashboardView() {
       {/* Course Cards */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Courses</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {COURSES.map((course) => {
-            const data = courseData.find((d) => d.course.id === course.id);
-            return (
-              <CourseCard
-                key={course.id}
-                course={course}
-                activeTasks={data?.activeTasks.length || 0}
-                urgentTasks={data?.urgentTasks.length || 0}
-                totalMinutes={data?.totalMinutes || 0}
-                completedCount={data?.completedCount || 0}
+        {courseData.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {courseData.map((data) => (
+              <UserCourseCard
+                key={data.course.id}
+                course={data.course}
+                internalId={data.internalId}
+                activeTasks={data.activeTasks.length}
+                urgentTasks={data.urgentTasks.length}
+                totalMinutes={data.totalMinutes}
+                completedCount={data.completedCount}
               />
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+            <AcademicCapIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="font-medium text-gray-900 mb-2">No courses yet</h3>
+            <p className="text-gray-500 mb-4">Add your courses to get started</p>
+            <Link
+              to="/setup-courses"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Add Courses
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -328,14 +383,16 @@ function StatCard({
   return content;
 }
 
-function CourseCard({
+function UserCourseCard({
   course,
+  internalId,
   activeTasks,
   urgentTasks,
   totalMinutes,
   completedCount,
 }: {
-  course: Course;
+  course: UserCourse;
+  internalId: string;
   activeTasks: number;
   urgentTasks: number;
   totalMinutes: number;
@@ -343,22 +400,29 @@ function CourseCard({
 }) {
   const totalTasks = activeTasks + completedCount;
   const progressPercent = totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
+  const colors = colorClasses[course.color] || colorClasses.gray;
+
+  // Generate short name
+  const shortName = course.courseName
+    .split(/[\/\-]/)
+    .map(s => s.trim().split(' ')[0])
+    .join('/');
 
   return (
     <Link
-      to={`/course/${course.id}`}
+      to={`/course/${internalId}`}
       className={clsx(
         'block rounded-xl border p-4 hover:shadow-md transition-all',
-        course.bgColor,
-        course.borderColor
+        colors.bg,
+        colors.border
       )}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <span className="text-2xl">{course.icon}</span>
           <div>
-            <h3 className={clsx('font-semibold', course.color)}>{course.shortName}</h3>
-            <p className="text-xs text-gray-600">{course.code}</p>
+            <h3 className={clsx('font-semibold', colors.text)}>{shortName}</h3>
+            <p className="text-xs text-gray-600">{course.courseCode}</p>
           </div>
         </div>
         {urgentTasks > 0 && (
@@ -370,15 +434,15 @@ function CourseCard({
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
         <div>
-          <p className={clsx('text-xl font-bold', course.color)}>{activeTasks}</p>
+          <p className={clsx('text-xl font-bold', colors.text)}>{activeTasks}</p>
           <p className="text-xs text-gray-500">Active</p>
         </div>
         <div>
-          <p className={clsx('text-xl font-bold', course.color)}>{completedCount}</p>
+          <p className={clsx('text-xl font-bold', colors.text)}>{completedCount}</p>
           <p className="text-xs text-gray-500">Done</p>
         </div>
         <div>
-          <p className={clsx('text-xl font-bold', course.color)}>
+          <p className={clsx('text-xl font-bold', colors.text)}>
             {Math.round(totalMinutes / 60 * 10) / 10}h
           </p>
           <p className="text-xs text-gray-500">Est.</p>
@@ -389,7 +453,7 @@ function CourseCard({
       <div className="mt-3">
         <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
           <div
-            className={clsx('h-full rounded-full transition-all', course.color.replace('text-', 'bg-'))}
+            className={clsx('h-full rounded-full transition-all', colors.text.replace('text-', 'bg-'))}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
