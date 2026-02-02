@@ -107,6 +107,8 @@ import readHelpRouter from './api/routes/read-help';
 import { lecturesRouter } from './api/routes/lectures';
 import { coursesRouter } from './api/routes/courses';
 import { studyHelpAuthRouter } from './api/routes/study-help-auth';
+import { studyHelpCoursesRouter } from './api/routes/study-help-courses';
+import { canvasSyncRouter } from './api/routes/canvas-sync';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -273,6 +275,8 @@ app.route('/api/read-help', readHelpRouter);
 app.route('/api/lectures', lecturesRouter);
 app.route('/api/courses', coursesRouter);
 app.route('/api/study-help/auth', studyHelpAuthRouter);
+app.route('/api/study-help/courses', studyHelpCoursesRouter);
+app.route('/api/canvas', canvasSyncRouter);
 
 // Web UI
 app.route('/setup', setupUI);
