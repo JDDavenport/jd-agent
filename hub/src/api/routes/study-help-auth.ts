@@ -6,13 +6,15 @@ const studyHelpAuthRouter = new Hono();
 
 // Cookie configuration
 const COOKIE_NAME = 'study_help_session';
-// For cross-origin cookies (frontend on studyaide.app, backend on railway.app),
-// we need sameSite: 'none' and secure: true
+// With api.studyaide.app as a subdomain of studyaide.app,
+// cookies can be shared across the parent domain using domain=.studyaide.app
+// SameSite=Lax is more secure and works for same-site (parent domain) requests
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: true, // Required for sameSite: 'none'
-  sameSite: 'none' as const, // Allow cross-site cookies
+  secure: true,
+  sameSite: 'lax' as const, // Same-site cookies (shared parent domain)
   path: '/',
+  domain: '.studyaide.app', // Share cookie across subdomains
   maxAge: 30 * 24 * 60 * 60, // 30 days
 };
 

@@ -3,32 +3,152 @@ import { z } from 'zod';
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { existsSync } from 'fs';
+import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 
 const coursesRouter = new Hono();
 
-// Ollama API helper
-async function ollamaChat(systemPrompt: string, messages: Array<{role: 'user' | 'assistant', content: string}>): Promise<string> {
+// Initialize cloud LLM clients
+const groqApiKey = process.env.GROQ_API_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY;
+
+const groqClient = groqApiKey ? new Groq({ apiKey: groqApiKey }) : null;
+const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+
+console.log('[Courses] LLM providers available:', {
+  groq: !!groqClient,
+  openai: !!openaiClient,
+});
+
+// Groq API helper - primary cloud provider (fast & free tier)
+async function groqChat(
+  systemPrompt: string, 
+  messages: Array<{role: 'user' | 'assistant', content: string}>
+): Promise<{ response: string; model: string }> {
+  if (!groqClient) {
+    throw new Error('Groq API key not configured');
+  }
+  
+  const response = await groqClient.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 2048,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ],
+  });
+  
+  return {
+    response: response.choices[0]?.message?.content || 'Sorry, I could not generate a response.',
+    model: 'llama-3.3-70b-versatile (Groq)',
+  };
+}
+
+// OpenAI API helper - secondary cloud provider
+async function openaiChat(
+  systemPrompt: string, 
+  messages: Array<{role: 'user' | 'assistant', content: string}>
+): Promise<{ response: string; model: string }> {
+  if (!openaiClient) {
+    throw new Error('OpenAI API key not configured');
+  }
+  
+  const response = await openaiClient.chat.completions.create({
+    model: 'gpt-4o-mini',
+    max_tokens: 2048,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ],
+  });
+  
+  return {
+    response: response.choices[0]?.message?.content || 'Sorry, I could not generate a response.',
+    model: 'gpt-4o-mini (OpenAI)',
+  };
+}
+
+// Ollama API helper - fallback for offline use
+async function ollamaChat(
+  systemPrompt: string, 
+  messages: Array<{role: 'user' | 'assistant', content: string}>
+): Promise<{ response: string; model: string }> {
   const ollamaMessages = [
     { role: 'system' as const, content: systemPrompt },
     ...messages,
   ];
   
-  const response = await fetch('http://localhost:11434/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'llama3.1:8b',
-      messages: ollamaMessages,
-      stream: false,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
   
-  if (!response.ok) {
-    throw new Error(`Ollama API error: ${response.status}`);
+  try {
+    const response = await fetch('http://localhost:11434/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama3.1:8b',
+        messages: ollamaMessages,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      response: data.message?.content || 'Sorry, I could not generate a response.',
+      model: 'llama3.1:8b (local Ollama)',
+    };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+// Unified chat helper - tries Groq first, then OpenAI, then Ollama
+async function courseTutorChat(
+  systemPrompt: string,
+  messages: Array<{role: 'user' | 'assistant', content: string}>
+): Promise<{ response: string; model: string }> {
+  // Try Groq first (fast cloud provider with good free tier)
+  if (groqClient) {
+    try {
+      console.log('[Courses] Trying Groq...');
+      return await groqChat(systemPrompt, messages);
+    } catch (error) {
+      console.warn('[Courses] Groq failed:', error);
+    }
   }
   
-  const data = await response.json();
-  return data.message?.content || 'Sorry, I could not generate a response.';
+  // Fallback to OpenAI
+  if (openaiClient) {
+    try {
+      console.log('[Courses] Trying OpenAI fallback...');
+      return await openaiChat(systemPrompt, messages);
+    } catch (error) {
+      console.warn('[Courses] OpenAI failed:', error);
+    }
+  }
+  
+  // Final fallback to local Ollama
+  try {
+    console.log('[Courses] Trying local Ollama fallback...');
+    return await ollamaChat(systemPrompt, messages);
+  } catch (error) {
+    console.error('[Courses] All LLM providers failed:', error);
+    throw new Error('No LLM provider available. Please check API keys or start Ollama.');
+  }
 }
 
 // Course ID to Obsidian vault folder mapping
@@ -284,7 +404,7 @@ const chatSchema = z.object({
   })).optional(),
 });
 
-// POST /api/courses/:courseId/chat - Chat with course AI tutor
+// POST /api/courses/:courseId/chat - Chat with course AI tutor (RAG-powered)
 coursesRouter.post('/:courseId/chat', async (c) => {
   const courseId = c.req.param('courseId');
   const body = await c.req.json();
@@ -309,56 +429,58 @@ coursesRouter.post('/:courseId/chat', async (c) => {
   }
 
   try {
-    // Load course materials for context
-    const lectures = await getLecturesForCourse(courseId);
+    // Use vector search for RAG - get relevant context from indexed content
+    const searchResults = await hybridSearch(message, courseId, {
+      topK: 5,
+      useHybrid: true,
+    });
+
+    // Build context from search results
+    const contextParts: string[] = [];
+    const citations: Array<{ source: string; content: string }> = [];
     
-    // Build context from recent lectures (limit to avoid token overflow)
-    const lectureContext: string[] = [];
-    for (const lecture of lectures.slice(0, 5)) {
-      const content = await readFile(lecture.transcriptPath, 'utf-8');
-      // Truncate each lecture to ~2000 chars
-      const truncated = content.substring(0, 2000);
-      lectureContext.push(`## Lecture: ${lecture.date} - ${lecture.title}\n${truncated}...`);
+    for (const result of searchResults) {
+      const sourceLabel = result.sourceType === 'lecture' 
+        ? `📝 ${result.sourceTitle}${result.sourceDate ? ` (${result.sourceDate})` : ''}`
+        : `📖 ${result.sourceTitle}${result.pageNumber ? ` p.${result.pageNumber}` : ''}`;
+      
+      contextParts.push(`[${sourceLabel}]\n${result.chunkText.slice(0, 600)}`);
+      citations.push({
+        source: sourceLabel,
+        content: result.chunkText.slice(0, 100) + '...',
+      });
     }
 
-    const systemPrompt = `You are an expert tutor for ${folderName}. Your expertise covers: ${subject}.
+    const contextText = contextParts.length > 0 
+      ? contextParts.join('\n\n---\n\n')
+      : 'No specific content found for this query.';
 
-You have access to the student's lecture recordings and notes from this course. Use them to answer questions with specific references when relevant.
+    const systemPrompt = `You are an expert tutor for ${folderName} (${subject}). Answer based on the course materials provided.
 
-COURSE MATERIALS:
-${lectureContext.join('\n\n')}
+RELEVANT COURSE MATERIALS:
+${contextText}
 
-INSTRUCTIONS:
-1. Answer questions using the student's course materials when relevant
-2. Cite specific lectures by date when referencing material (e.g., "In your Jan 22 lecture...")
-3. You're also an expert in ${subject} - provide additional context beyond the materials
-4. Help the student understand concepts, prepare for exams, and succeed in this course
-5. Be concise but thorough
-6. If asked about something not in the materials, use your subject expertise
+Guidelines:
+- Be concise and direct
+- Cite sources when referencing specific content (e.g., "According to the Jan 15 lecture...")
+- If the materials don't contain relevant information, say so
+- Use markdown formatting for readability`;
 
-FORMAT:
-- Use markdown for formatting
-- Include source citations like: 📎 Source: Jan 22 Lecture
-- For complex concepts, break them into numbered steps`;
-
-    // Build conversation history for Ollama
-    const ollamaMessages: Array<{role: 'user' | 'assistant', content: string}> = [
+    // Build conversation history
+    const chatMessages: Array<{role: 'user' | 'assistant', content: string}> = [
       ...history.map(h => ({ role: h.role as 'user' | 'assistant', content: h.content })),
       { role: 'user' as const, content: message },
     ];
 
-    const response = await ollamaChat(systemPrompt, ollamaMessages);
-
-    // Extract sources mentioned (simple pattern matching)
-    const sourceMatches = response.match(/(?:Jan|Feb|Mar|Apr|May)\s+\d{1,2}(?:\s+Lecture)?/gi) || [];
-    const sources = [...new Set(sourceMatches)];
+    const { response, model } = await courseTutorChat(systemPrompt, chatMessages);
 
     return c.json({
       success: true,
       data: {
         response,
-        sources,
-        model: 'llama3.1:8b (local)',
+        sources: citations.slice(0, 3), // Return top 3 citations
+        model,
+        contextUsed: searchResults.length,
       },
     });
   } catch (error) {
@@ -586,6 +708,200 @@ coursesRouter.get('/:courseId/remarkable/:noteId/pdf', async (c) => {
     return c.json({
       success: false,
       error: { code: 'SERVE_ERROR', message: 'Failed to serve PDF' },
+    }, 500);
+  }
+});
+
+// ============================================
+// VECTOR SEARCH ENDPOINTS
+// ============================================
+
+import { hybridSearch, keywordSearch, getSearchStats } from '../../services/course-vector-search';
+import { indexCourse, getIndexStats } from '../../services/course-content-indexer';
+
+// GET /api/courses/:courseId/search - Semantic search across course content
+coursesRouter.get('/:courseId/search', async (c) => {
+  const courseId = c.req.param('courseId');
+  const query = c.req.query('q');
+  const topK = parseInt(c.req.query('limit') || '20', 10);
+  const sourceTypesParam = c.req.query('types'); // comma-separated: 'lecture,reading'
+  const mode = c.req.query('mode') || 'hybrid'; // 'hybrid', 'vector', 'keyword'
+
+  if (!query) {
+    return c.json({
+      success: false,
+      error: { code: 'MISSING_QUERY', message: 'Query parameter "q" is required' },
+    }, 400);
+  }
+
+  const folderName = COURSE_FOLDERS[courseId];
+  if (!folderName) {
+    return c.json({
+      success: false,
+      error: { code: 'INVALID_COURSE', message: 'Course not found' },
+    }, 404);
+  }
+
+  try {
+    const sourceTypes = sourceTypesParam?.split(',').filter(Boolean);
+    
+    let results;
+    if (mode === 'keyword') {
+      results = await keywordSearch(query, courseId, { topK, sourceTypes });
+    } else {
+      results = await hybridSearch(query, courseId, { 
+        topK, 
+        sourceTypes,
+        useHybrid: mode === 'hybrid',
+      });
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        query,
+        courseId,
+        mode,
+        count: results.length,
+        results: results.map(r => ({
+          id: r.id,
+          sourceType: r.sourceType,
+          sourceTitle: r.sourceTitle,
+          sourceDate: r.sourceDate,
+          chunkText: r.chunkText,
+          pageNumber: r.pageNumber,
+          timestamp: r.startTimestampSeconds,
+          score: r.fusedScore,
+          vectorScore: r.vectorScore,
+          keywordScore: r.keywordScore,
+          metadata: r.metadata,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('[Courses] Search error:', error);
+    return c.json({
+      success: false,
+      error: { code: 'SEARCH_ERROR', message: 'Failed to search course content' },
+    }, 500);
+  }
+});
+
+// GET /api/courses/:courseId/search/stats - Get search index stats
+coursesRouter.get('/:courseId/search/stats', async (c) => {
+  const courseId = c.req.param('courseId');
+
+  try {
+    const stats = await getSearchStats(courseId);
+    const indexStats = await getIndexStats(courseId);
+
+    return c.json({
+      success: true,
+      data: {
+        courseId,
+        searchStats: stats,
+        indexStats,
+      },
+    });
+  } catch (error) {
+    console.error('[Courses] Stats error:', error);
+    return c.json({
+      success: false,
+      error: { code: 'STATS_ERROR', message: 'Failed to get search stats' },
+    }, 500);
+  }
+});
+
+// POST /api/courses/:courseId/index - Trigger content indexing for a course
+coursesRouter.post('/:courseId/index', async (c) => {
+  const courseId = c.req.param('courseId');
+
+  const folderName = COURSE_FOLDERS[courseId];
+  if (!folderName) {
+    return c.json({
+      success: false,
+      error: { code: 'INVALID_COURSE', message: 'Course not found' },
+    }, 404);
+  }
+
+  try {
+    console.log(`[Courses] Starting index for course: ${courseId}`);
+    const results = await indexCourse(courseId);
+
+    const summary = {
+      courseId,
+      totalChunks: results.reduce((sum, r) => sum + r.chunksCreated, 0),
+      totalEmbedded: results.reduce((sum, r) => sum + r.chunksEmbedded, 0),
+      totalErrors: results.reduce((sum, r) => sum + r.errors.length, 0),
+      bySourceType: results.map(r => ({
+        sourceType: r.sourceType,
+        chunksCreated: r.chunksCreated,
+        chunksEmbedded: r.chunksEmbedded,
+        errors: r.errors.length,
+      })),
+    };
+
+    return c.json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    console.error('[Courses] Index error:', error);
+    return c.json({
+      success: false,
+      error: { code: 'INDEX_ERROR', message: 'Failed to index course content' },
+    }, 500);
+  }
+});
+
+// GET /api/courses/:courseId/syllabus - Get syllabus content for a course
+coursesRouter.get('/:courseId/syllabus', async (c) => {
+  const courseId = c.req.param('courseId');
+
+  try {
+    // Import the db and schema here to avoid circular deps
+    const { db } = await import('../../db/client');
+    const { courseContentChunks } = await import('../../db/schema');
+    const { eq, and, asc } = await import('drizzle-orm');
+
+    // Fetch all syllabus chunks for this course
+    const chunks = await db
+      .select()
+      .from(courseContentChunks)
+      .where(
+        and(
+          eq(courseContentChunks.courseId, courseId),
+          eq(courseContentChunks.sourceType, 'syllabus')
+        )
+      )
+      .orderBy(asc(courseContentChunks.chunkIndex));
+
+    if (chunks.length === 0) {
+      return c.json({
+        success: true,
+        data: null,
+        message: 'No syllabus found for this course',
+      });
+    }
+
+    // Combine chunks into full syllabus content
+    const syllabusContent = chunks.map(ch => ch.chunkText).join('\n\n');
+
+    return c.json({
+      success: true,
+      data: {
+        courseId,
+        title: chunks[0]?.sourceTitle || `${courseId.toUpperCase()} Syllabus`,
+        content: syllabusContent,
+        chunkCount: chunks.length,
+        lastUpdated: chunks[0]?.sourceDate,
+      },
+    });
+  } catch (error) {
+    console.error('[Courses] Syllabus error:', error);
+    return c.json({
+      success: false,
+      error: { code: 'SYLLABUS_ERROR', message: 'Failed to fetch syllabus' },
     }, 500);
   }
 });
