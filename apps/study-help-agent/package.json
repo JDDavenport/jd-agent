@@ -1,0 +1,53 @@
+{
+  "name": "study-help-agent",
+  "version": "1.0.0",
+  "description": "Study Help Desktop Agent - Sync your learning materials",
+  "author": "Study Aide",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "tsc -p tsconfig.main.json --watch",
+    "dev:renderer": "vite",
+    "build": "tsc -p tsconfig.main.json && vite build",
+    "start": "electron .",
+    "package": "npm run build && electron-builder --mac",
+    "package:dmg": "npm run build && electron-builder --mac dmg"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "electron-store": "^8.1.0",
+    "menubar": "^9.3.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.33",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12"
+  },
+  "build": {
+    "appId": "app.studyaide.agent",
+    "productName": "Study Aide",
+    "mac": {
+      "category": "public.app-category.education",
+      "icon": "assets/icon.icns",
+      "target": ["dmg", "zip"]
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}

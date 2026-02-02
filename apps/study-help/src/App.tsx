@@ -34,6 +34,7 @@ import { CanvasView } from './views/CanvasView';
 import { LoginView } from './views/LoginView';
 import { SignupView } from './views/SignupView';
 import { CourseSetupView } from './views/CourseSetupView';
+import { DownloadView } from './views/DownloadView';
 
 // Color mapping for dynamic courses
 const colorClasses: Record<string, { bg: string; border: string; text: string }> = {
@@ -101,6 +102,7 @@ export default function App() {
             </GuestRoute>
           }
         />
+        <Route path="/download" element={<DownloadView />} />
         <Route path="*" element={<LoginView />} />
       </Routes>
     );
@@ -245,6 +247,7 @@ export default function App() {
             <Route path="/canvas/:courseSlug/:section" element={<CanvasView />} />
             <Route path="/timer" element={<PomodoroView />} />
             <Route path="/flashcards" element={<FlashcardsView />} />
+            <Route path="/download" element={<DownloadView />} />
           </Routes>
         </main>
       </div>

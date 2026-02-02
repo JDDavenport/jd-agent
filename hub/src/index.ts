@@ -109,6 +109,7 @@ import { coursesRouter } from './api/routes/courses';
 import { studyHelpAuthRouter } from './api/routes/study-help-auth';
 import { studyHelpCoursesRouter } from './api/routes/study-help-courses';
 import { canvasSyncRouter } from './api/routes/canvas-sync';
+import { syncSourcesRouter } from './api/routes/sync-sources';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -277,6 +278,7 @@ app.route('/api/courses', coursesRouter);
 app.route('/api/study-help/auth', studyHelpAuthRouter);
 app.route('/api/study-help/courses', studyHelpCoursesRouter);
 app.route('/api/canvas', canvasSyncRouter);
+app.route('/api/sync', syncSourcesRouter);
 
 // Web UI
 app.route('/setup', setupUI);

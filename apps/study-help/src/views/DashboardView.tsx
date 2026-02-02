@@ -287,16 +287,42 @@ export function DashboardView() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-            <AcademicCapIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="font-medium text-gray-900 mb-2">No courses yet</h3>
-            <p className="text-gray-500 mb-4">Add your courses to get started</p>
-            <Link
-              to="/setup-courses"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Add Courses
-            </Link>
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-8">
+            <div className="max-w-lg mx-auto text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <AcademicCapIcon className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Connect Your Learning Sources</h3>
+              <p className="text-gray-600 mb-6">
+                Sync your Canvas courses, lecture recordings, and handwritten notes to get personalized study help.
+              </p>
+              
+              <div className="space-y-3">
+                <a
+                  href="https://www.studyaide.app/download"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Desktop Agent
+                </a>
+                <p className="text-sm text-gray-500">
+                  The desktop agent syncs Canvas, Plaud recordings, and Remarkable notes
+                </p>
+              </div>
+              
+              <div className="mt-6 pt-6 border-t border-blue-100">
+                <p className="text-sm text-gray-600 mb-3">Already have the agent? Select your courses:</p>
+                <Link
+                  to="/setup-courses"
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Choose Your Courses
+                  <ArrowRightIcon className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
           </div>
         )}
       </div>
