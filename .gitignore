@@ -58,6 +58,7 @@ temp/
 
 # Docker local data
 data/
+!apps/study-help/public/data/
 backups/
 .env.local.docker
 
@@ -90,3 +91,6 @@ test-report.json
 apps/jd-tasks-ios/JDTasks.xcodeproj/project.xcworkspace/xcuserdata/
 apps/jd-tasks-ios/JDTasks.xcodeproj/xcuserdata/
 *.xcuserstate
+
+# Electron releases (large binaries)
+apps/study-help-agent/release/

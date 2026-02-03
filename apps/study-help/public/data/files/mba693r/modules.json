@@ -1,0 +1,194 @@
+[
+  {
+    "id": 374481,
+    "position": 1,
+    "name": "1: Assess",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-26T15:35:31Z",
+    "items_count": 4,
+    "items_url": "https://byu.instructure.com/api/v1/courses/34634/modules/374481/items",
+    "items": [
+      {
+        "id": 2851548,
+        "position": 1,
+        "title": "Session 1: Time Travel",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374481,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851548",
+        "content_id": 1304275,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304275"
+      },
+      {
+        "id": 2851549,
+        "position": 2,
+        "title": "Session 2: North Star",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374481,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851549",
+        "content_id": 1304276,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304276"
+      },
+      {
+        "id": 2851550,
+        "position": 3,
+        "title": "Session 3: North Star Refinement",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374481,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851550",
+        "content_id": 1304277,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304277"
+      },
+      {
+        "id": 2851551,
+        "position": 4,
+        "title": "Session 4: A Life Well Lived (Eulogy)",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374481,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851551",
+        "content_id": 1304278,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304278"
+      }
+    ]
+  },
+  {
+    "id": 374482,
+    "position": 2,
+    "name": "2: Chart",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-26T15:35:31Z",
+    "items_count": 3,
+    "items_url": "https://byu.instructure.com/api/v1/courses/34634/modules/374482/items",
+    "items": [
+      {
+        "id": 2851552,
+        "position": 1,
+        "title": "Session 5: Clifton Strengths",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374482,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851552",
+        "content_id": 1304279,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304279"
+      },
+      {
+        "id": 2851553,
+        "position": 2,
+        "title": "Session 6: Your Tribe",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374482,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851553",
+        "content_id": 1304280,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304280"
+      },
+      {
+        "id": 2851554,
+        "position": 3,
+        "title": "Session 7: Your Brand (Mind Mapping & Odyssey Journeys)",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374482,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851554",
+        "content_id": 1304281,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304281"
+      }
+    ]
+  },
+  {
+    "id": 374483,
+    "position": 3,
+    "name": "3: Execute",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-26T15:35:31Z",
+    "items_count": 5,
+    "items_url": "https://byu.instructure.com/api/v1/courses/34634/modules/374483/items",
+    "items": [
+      {
+        "id": 2851555,
+        "position": 1,
+        "title": "Session 8: \"Trying It On\" - Prototyping",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374483,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851555",
+        "content_id": 1304282,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304282"
+      },
+      {
+        "id": 2851556,
+        "position": 2,
+        "title": "Session 9: Critical Pathing",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374483,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851556",
+        "content_id": 1304283,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304283"
+      },
+      {
+        "id": 2851557,
+        "position": 3,
+        "title": "Session 10: Failure Immunity",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374483,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851557",
+        "content_id": 1304272,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304272"
+      },
+      {
+        "id": 2851558,
+        "position": 4,
+        "title": "Session 11: Reflection",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374483,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851558",
+        "content_id": 1304273,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304273"
+      },
+      {
+        "id": 2851559,
+        "position": 5,
+        "title": "Session 12: Choosing Happiness (Dave & Lisa)",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374483,
+        "html_url": "https://byu.instructure.com/courses/34634/modules/items/2851559",
+        "content_id": 1304274,
+        "url": "https://byu.instructure.com/api/v1/courses/34634/assignments/1304274"
+      }
+    ]
+  }
+]
