@@ -1,0 +1,82 @@
+{
+  "courses": [
+    {
+      "id": 32991,
+      "slug": "mba560",
+      "name": "Business Analytics",
+      "tag": "MBA560",
+      "hasSyllabus": true,
+      "assignmentCount": 29,
+      "pageCount": 0,
+      "moduleCount": 5,
+      "fileCount": 0
+    },
+    {
+      "id": 33202,
+      "slug": "mba580",
+      "name": "Business Strategy",
+      "tag": "MBA580",
+      "hasSyllabus": true,
+      "assignmentCount": 56,
+      "pageCount": 15,
+      "moduleCount": 6,
+      "fileCount": 53
+    },
+    {
+      "id": 33259,
+      "slug": "entrepreneurial-innovation",
+      "name": "Entrepreneurial Innovation",
+      "tag": "ENTRE",
+      "hasSyllabus": true,
+      "assignmentCount": 15,
+      "pageCount": 0,
+      "moduleCount": 14,
+      "fileCount": 0
+    },
+    {
+      "id": 34458,
+      "slug": "mba677",
+      "name": "Entrepreneurship Through Acquisition",
+      "tag": "MBA677R",
+      "hasSyllabus": false,
+      "assignmentCount": 6,
+      "pageCount": 4,
+      "moduleCount": 0,
+      "fileCount": 0
+    },
+    {
+      "id": 34634,
+      "slug": "mba693r",
+      "name": "Post-MBA Career Strategy",
+      "tag": "MBA693R",
+      "hasSyllabus": true,
+      "assignmentCount": 13,
+      "pageCount": 0,
+      "moduleCount": 3,
+      "fileCount": 0
+    },
+    {
+      "id": 34638,
+      "slug": "mba664",
+      "name": "VC/Private Equity",
+      "tag": "MBA664",
+      "hasSyllabus": true,
+      "assignmentCount": 8,
+      "pageCount": 0,
+      "moduleCount": 1,
+      "fileCount": 4
+    },
+    {
+      "id": 34642,
+      "slug": "mba654",
+      "name": "Strategic Client Acquisition",
+      "tag": "MBA654",
+      "hasSyllabus": true,
+      "assignmentCount": 21,
+      "pageCount": 0,
+      "moduleCount": 0,
+      "fileCount": 0
+    }
+  ],
+  "syncedAt": "2026-02-03T20:32:14.209Z"
+}

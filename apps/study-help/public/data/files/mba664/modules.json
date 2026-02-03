@@ -1,0 +1,30 @@
+[
+  {
+    "id": 374704,
+    "position": 1,
+    "name": "Syllabus",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-20T00:08:01Z",
+    "items_count": 1,
+    "items_url": "https://byu.instructure.com/api/v1/courses/34638/modules/374704/items",
+    "items": [
+      {
+        "id": 2853033,
+        "position": 1,
+        "title": "MBA 664 Syllabus Winter 26.docx",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "File",
+        "module_id": 374704,
+        "html_url": "https://byu.instructure.com/courses/34638/modules/items/2853033",
+        "content_id": 12161361,
+        "url": "https://byu.instructure.com/api/v1/courses/34638/files/12161361"
+      }
+    ]
+  }
+]

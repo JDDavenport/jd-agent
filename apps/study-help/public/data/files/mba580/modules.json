@@ -1,0 +1,799 @@
+[
+  {
+    "id": 374659,
+    "position": 1,
+    "name": "1. Introduction to strategy and the foundations of strategic thinking",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-19T16:13:24Z",
+    "items_count": 9,
+    "items_url": "https://byu.instructure.com/api/v1/courses/33202/modules/374659/items",
+    "items": [
+      {
+        "id": 2852577,
+        "position": 1,
+        "title": "TUESDAY 1/16 Session ",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374659
+      },
+      {
+        "id": 2852578,
+        "position": 2,
+        "title": "****Read the ENTIRE Syllabus****",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374659
+      },
+      {
+        "id": 2852579,
+        "position": 3,
+        "title": "Quiz #0: Syllabus Quiz",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374659,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852579",
+        "content_id": 596819,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596819"
+      },
+      {
+        "id": 2852580,
+        "position": 4,
+        "title": "THURSDAY 1/18 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374659
+      },
+      {
+        "id": 2852581,
+        "position": 5,
+        "title": "Quiz #1: Describe Strategy Toolkit  and A2 Milk Company",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374659,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852581",
+        "content_id": 596832,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596832"
+      },
+      {
+        "id": 2852583,
+        "position": 7,
+        "title": "TUESDAY 1/23 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374659
+      },
+      {
+        "id": 2852584,
+        "position": 8,
+        "title": "Case Writeup #1: Freemark Abbey Winery",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374659,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852584",
+        "content_id": 1304726,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304726"
+      },
+      {
+        "id": 2852585,
+        "position": 9,
+        "title": "Strategy and your life journal entry #1",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374659,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852585",
+        "content_id": 1304756,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304756"
+      },
+      {
+        "id": 2852586,
+        "position": 10,
+        "title": "Final Group Project Information",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Page",
+        "module_id": 374659,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852586",
+        "page_url": "final-group-project-information",
+        "publish_at": null,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/pages/final-group-project-information"
+      }
+    ]
+  },
+  {
+    "id": 374660,
+    "position": 2,
+    "name": "2. Which markets to pursue? External environment and industry analysis",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-22T08:20:31Z",
+    "items_count": 17,
+    "items_url": "https://byu.instructure.com/api/v1/courses/33202/modules/374660/items",
+    "items": [
+      {
+        "id": 2852589,
+        "position": 1,
+        "title": "THURSDAY 1/25 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374660
+      },
+      {
+        "id": 2852591,
+        "position": 3,
+        "title": "Case Writeup #3: RyanAir",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852591",
+        "content_id": 1304728,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304728"
+      },
+      {
+        "id": 2852592,
+        "position": 4,
+        "title": "TUESDAY 1/30 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374660
+      },
+      {
+        "id": 2852593,
+        "position": 5,
+        "title": "Quiz #2: Industry Analysis Toolkit",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852593",
+        "content_id": 596818,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596818"
+      },
+      {
+        "id": 2852594,
+        "position": 6,
+        "title": "Allegiant Air 10K 2021",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "ExternalUrl",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/api/v1/courses/33202/module_item_redirect/2852594",
+        "external_url": "https://ir.allegiantair.com/static-files/df11a0fd-eb4a-42a6-9bff-4f0fa573abf9",
+        "new_tab": true
+      },
+      {
+        "id": 2852595,
+        "position": 7,
+        "title": "Provo Airport_Allegiant Story",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "ExternalUrl",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/api/v1/courses/33202/module_item_redirect/2852595",
+        "external_url": "https://www.heraldextra.com/news/local/2022/apr/26/allegiant-air-announces-provo-will-be-new-hub-for-airline/",
+        "new_tab": true
+      },
+      {
+        "id": 2852596,
+        "position": 8,
+        "title": "THURSDAY 2/1 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374660
+      },
+      {
+        "id": 2852597,
+        "position": 9,
+        "title": "Case Writeup #4: Cola Wars",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852597",
+        "content_id": 1304729,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304729"
+      },
+      {
+        "id": 2852598,
+        "position": 10,
+        "title": "Five Forces Strategy Excel Tool.xlsx",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "File",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852598",
+        "content_id": 12158949,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/files/12158949"
+      },
+      {
+        "id": 2852599,
+        "position": 11,
+        "title": "Strategy and your life journal entry #2",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852599",
+        "content_id": 1304757,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304757"
+      },
+      {
+        "id": 2852600,
+        "position": 12,
+        "title": "TUESDAY 2/6 Session with Peter Christensen, VP @ Swire Coca-Cola",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374660
+      },
+      {
+        "id": 2852601,
+        "position": 13,
+        "title": "THURSDAY 2/8",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374660
+      },
+      {
+        "id": 2852602,
+        "position": 14,
+        "title": "TEAM PROJECTS DAY--NO CLASS. WORK ON TEAM CONTRACT AND FINDING A COMPANY",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374660
+      },
+      {
+        "id": 2852603,
+        "position": 15,
+        "title": "Final Group Project Team Contract",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852603",
+        "content_id": 1304740,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304740"
+      },
+      {
+        "id": 2852604,
+        "position": 16,
+        "title": "Final Group Project Information",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Page",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852604",
+        "page_url": "final-group-project-information",
+        "publish_at": null,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/pages/final-group-project-information"
+      },
+      {
+        "id": 2852605,
+        "position": 17,
+        "title": "Quiz Who is Contributing to YOUR Learning Experience in Class? (1)",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852605",
+        "content_id": 596820,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596820"
+      },
+      {
+        "id": 2852606,
+        "position": 18,
+        "title": "Examples of Final Projects to Stimulate Thinking.png",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "File",
+        "module_id": 374660,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852606",
+        "content_id": 12158964,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/files/12158964"
+      }
+    ]
+  },
+  {
+    "id": 374661,
+    "position": 3,
+    "name": "3. Resources, capabilities, activities, positioning, and sources of advantage",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-29T16:22:10Z",
+    "items_count": 12,
+    "items_url": "https://byu.instructure.com/api/v1/courses/33202/modules/374661/items",
+    "items": [
+      {
+        "id": 2852607,
+        "position": 1,
+        "title": "THURSDAY 2/13 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852609,
+        "position": 3,
+        "title": "Quiz #3: Competitive Positioning Toolkit",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374661,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852609",
+        "content_id": 596821,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596821"
+      },
+      {
+        "id": 2852610,
+        "position": 4,
+        "title": "TUESDAY 2/15 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852611,
+        "position": 5,
+        "title": "TUESDAY 2/20 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852612,
+        "position": 6,
+        "title": "MONDAY INSTRUCTION--NO CLASS",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852613,
+        "position": 7,
+        "title": "Company Selection and Statement of Work",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374661,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852613",
+        "content_id": 1304737,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304737"
+      },
+      {
+        "id": 2852614,
+        "position": 8,
+        "title": "THURSDAY 2/22 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852615,
+        "position": 9,
+        "title": "TUESDAY 2/27 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852617,
+        "position": 11,
+        "title": "Strategy and your life journal entry #3",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374661,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852617",
+        "content_id": 1304758,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304758"
+      },
+      {
+        "id": 2852618,
+        "position": 12,
+        "title": "THURSDAY 2/29 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374661
+      },
+      {
+        "id": 2852621,
+        "position": 15,
+        "title": "Demand_Gubler2.xlsx",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "File",
+        "module_id": 374661,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852621",
+        "content_id": 12158976,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/files/12158976"
+      },
+      {
+        "id": 2852623,
+        "position": 17,
+        "title": "Demand Basics_POST.pdf",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "File",
+        "module_id": 374661,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852623",
+        "content_id": 12158935,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/files/12158935"
+      }
+    ]
+  },
+  {
+    "id": 374662,
+    "position": 4,
+    "name": "4. Innovative strategies",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-29T16:22:10Z",
+    "items_count": 12,
+    "items_url": "https://byu.instructure.com/api/v1/courses/33202/modules/374662/items",
+    "items": [
+      {
+        "id": 2852624,
+        "position": 1,
+        "title": "TUESDAY 3/5 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852626,
+        "position": 3,
+        "title": "Quiz #4: Innovative Strategy Toolkit",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374662,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852626",
+        "content_id": 596817,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596817"
+      },
+      {
+        "id": 2852627,
+        "position": 4,
+        "title": "THURSDAY 3/7 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852628,
+        "position": 5,
+        "title": "Case Writeup #9: Netflix",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374662,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852628",
+        "content_id": 1304734,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304734"
+      },
+      {
+        "id": 2852629,
+        "position": 6,
+        "title": "TUESDAY 3/12 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852630,
+        "position": 7,
+        "title": "THURSDAY 3/14 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852631,
+        "position": 8,
+        "title": "TUESDAY 3/19 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852632,
+        "position": 9,
+        "title": "Strategy and your life journal entry #4",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374662,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852632",
+        "content_id": 1304759,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304759"
+      },
+      {
+        "id": 2852634,
+        "position": 11,
+        "title": "3/20 MIDTERM EXAM STARTS",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852636,
+        "position": 13,
+        "title": "TUESDAY 3/26 SESSION",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852637,
+        "position": 14,
+        "title": "TEAM PROJECTS DAY--NO CLASS",
+        "indent": 3,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374662
+      },
+      {
+        "id": 2852638,
+        "position": 15,
+        "title": "Quiz Who is Contributing to YOUR Learning Experience in Class? (2)",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374662,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852638",
+        "content_id": 596822,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596822"
+      }
+    ]
+  },
+  {
+    "id": 374663,
+    "position": 5,
+    "name": "5. Corporate strategy",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-29T16:22:10Z",
+    "items_count": 6,
+    "items_url": "https://byu.instructure.com/api/v1/courses/33202/modules/374663/items",
+    "items": [
+      {
+        "id": 2852639,
+        "position": 1,
+        "title": "THURSDAY 3/28 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374663
+      },
+      {
+        "id": 2852641,
+        "position": 3,
+        "title": "Quiz #7: Corporate Strategy Toolkit",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374663,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852641",
+        "content_id": 596823,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596823"
+      },
+      {
+        "id": 2852642,
+        "position": 4,
+        "title": "TUESDAY 4/2 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374663
+      },
+      {
+        "id": 2852643,
+        "position": 5,
+        "title": "Case Writeup #10: Disney",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374663,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852643",
+        "content_id": 1304725,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304725"
+      },
+      {
+        "id": 2852644,
+        "position": 6,
+        "title": "THURSDAY 4/4 Session",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374663
+      },
+      {
+        "id": 2852646,
+        "position": 8,
+        "title": "Strategy and your life journal entry #5",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374663,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852646",
+        "content_id": 1304760,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304760"
+      }
+    ]
+  },
+  {
+    "id": 374664,
+    "position": 6,
+    "name": "6. Presentations",
+    "unlock_at": null,
+    "require_sequential_progress": false,
+    "requirement_type": "all",
+    "publish_final_grade": false,
+    "prerequisite_module_ids": [],
+    "state": "completed",
+    "completed_at": "2026-01-29T16:22:10Z",
+    "items_count": 10,
+    "items_url": "https://byu.instructure.com/api/v1/courses/33202/modules/374664/items",
+    "items": [
+      {
+        "id": 2852648,
+        "position": 1,
+        "title": "TUESDAY 4/9 Session--TEAMS PRESENTING: TBD",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374664
+      },
+      {
+        "id": 2852649,
+        "position": 2,
+        "title": "Strategy and your life memo",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852649",
+        "content_id": 1304761,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304761"
+      },
+      {
+        "id": 2852650,
+        "position": 3,
+        "title": "Final Group Presentation",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852650",
+        "content_id": 1304739,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304739"
+      },
+      {
+        "id": 2852651,
+        "position": 4,
+        "title": "Final Group Slides",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852651",
+        "content_id": 1304741,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304741"
+      },
+      {
+        "id": 2852652,
+        "position": 5,
+        "title": "Quiz Who is Contributing to YOUR Learning Experience in Class? (3)",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852652",
+        "content_id": 596829,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596829"
+      },
+      {
+        "id": 2852655,
+        "position": 8,
+        "title": "THURSDAY 4/13 Session--TEAMS PRESENTING: TBD",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374664
+      },
+      {
+        "id": 2852656,
+        "position": 9,
+        "title": "TUESDAY 4/16 Session--TEAMS PRESENTING: TBD",
+        "indent": 1,
+        "quiz_lti": false,
+        "type": "SubHeader",
+        "module_id": 374664
+      },
+      {
+        "id": 2852657,
+        "position": 10,
+        "title": "Final presentation evaluations",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852657",
+        "content_id": 1304742,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304742"
+      },
+      {
+        "id": 2852659,
+        "position": 12,
+        "title": "Student rating submitted?",
+        "indent": 2,
+        "quiz_lti": false,
+        "type": "Quiz",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852659",
+        "content_id": 596830,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/quizzes/596830"
+      },
+      {
+        "id": 2852661,
+        "position": 14,
+        "title": "Presentation to Company Memo",
+        "indent": 0,
+        "quiz_lti": false,
+        "type": "Assignment",
+        "module_id": 374664,
+        "html_url": "https://byu.instructure.com/courses/33202/modules/items/2852661",
+        "content_id": 1304748,
+        "url": "https://byu.instructure.com/api/v1/courses/33202/assignments/1304748"
+      }
+    ]
+  }
+]
