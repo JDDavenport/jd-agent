@@ -9,6 +9,7 @@
     "hub"
   ],
   "scripts": {
+    "start": "cd hub && bun run start",
     "dev": "cd hub && bun run dev",
     "hub": "cd hub && bun run dev",
     "tasks": "cd apps/tasks && bun run dev",
