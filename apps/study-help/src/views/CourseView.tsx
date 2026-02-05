@@ -13,16 +13,18 @@ import {
   ChevronRightIcon,
   ListBulletIcon,
   VideoCameraIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import { useSchoolTasks, useBooks, useCompleteTask, useDueFlashcards, useVideos, useMaterialsByCanvasCourseId } from '../hooks/useStudy';
 import { getCourseById, matchCourse, CANVAS_COURSE_IDS } from '../types/courses';
 import { TaskDetailModal } from '../components/TaskDetailModal';
+import { ClassGPTView } from '../components/ClassGPTView';
 import type { Task, Book, Video } from '../types';
 import type { CourseMaterial } from '../api';
 
-type TabId = 'overview' | 'tasks' | 'readings' | 'calendar';
+type TabId = 'overview' | 'tasks' | 'readings' | 'calendar' | 'chat';
 
 export function CourseView() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -130,10 +132,11 @@ export function CourseView() {
     );
   }
 
-  const tabs: { id: TabId; label: string; count?: number }[] = [
+  const tabs: { id: TabId; label: string; count?: number; icon?: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks', count: stats.active },
     { id: 'readings', label: 'Materials', count: stats.readings + stats.videos + stats.materials },
+    { id: 'chat', label: 'Class GPT', icon: <SparklesIcon className="w-4 h-4 inline mr-1" /> },
     { id: 'calendar', label: 'Calendar' },
   ];
 
@@ -242,6 +245,9 @@ export function CourseView() {
           )}
           {activeTab === 'readings' && (
             <ReadingsTab course={course} books={courseBooks} videos={courseVideos} materials={canvasMaterials || []} />
+          )}
+          {activeTab === 'chat' && canvasCourseId && (
+            <ClassGPTView course={course} canvasCourseId={canvasCourseId} />
           )}
           {activeTab === 'calendar' && (
             <CalendarTab course={course} tasks={courseTasks} onTaskClick={setSelectedTask} />

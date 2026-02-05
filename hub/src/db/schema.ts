@@ -4184,3 +4184,26 @@ export const studyHelpUserCourses = pgTable(
     index('study_help_user_courses_active_idx').on(table.isActive),
   ]
 );
+
+/**
+ * Chat messages for Class GPT (per-course RAG chat)
+ * Stores conversation history per user per course
+ */
+export const studyHelpChatMessages = pgTable(
+  'study_help_chat_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => studyHelpUsers.id, { onDelete: 'cascade' })
+      .notNull(),
+    canvasCourseId: text('canvas_course_id').notNull(),
+    role: text('role').notNull(), // 'user' | 'assistant'
+    content: text('content').notNull(),
+    citations: jsonb('citations'), // [{name, url, type, snippet}]
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('study_help_chat_user_course_idx').on(table.userId, table.canvasCourseId),
+    index('study_help_chat_created_idx').on(table.createdAt),
+  ]
+);

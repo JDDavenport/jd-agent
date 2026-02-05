@@ -400,7 +400,7 @@ export function getLectureAudioUrl(courseId: string, lectureId: string): string 
 }
 
 // ============================================
-// Course AI Chat API
+// Course AI Chat API (Legacy)
 // ============================================
 
 export interface ChatMessage {
@@ -423,6 +423,128 @@ export async function sendCourseChat(
     method: 'POST',
     body: JSON.stringify({ message, history }),
   });
+}
+
+// ============================================
+// Class GPT API (Study Help Chat)
+// ============================================
+
+export interface ClassGPTCitation {
+  name: string;
+  url: string | null;
+  type: string;
+  snippet?: string;
+}
+
+export interface ClassGPTMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations?: ClassGPTCitation[];
+  createdAt: string;
+}
+
+export interface ClassGPTSource {
+  name: string;
+  url: string | null;
+  type: string;
+}
+
+export interface ClassGPTResponse {
+  response: string;
+  citations: ClassGPTCitation[];
+  sources: ClassGPTSource[];
+  model: string;
+}
+
+export async function sendClassGPTMessage(
+  canvasCourseId: string,
+  message: string,
+  courseName?: string,
+): Promise<ClassGPTResponse> {
+  return fetchApi<ClassGPTResponse>(`${API_BASE}/study-help/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ canvasCourseId, message, courseName }),
+  });
+}
+
+export async function streamClassGPTMessage(
+  canvasCourseId: string,
+  message: string,
+  courseName?: string,
+  onDelta: (text: string) => void = () => {},
+  onDone: (citations: ClassGPTCitation[], sources: ClassGPTSource[]) => void = () => {},
+  onError: (error: string) => void = () => {},
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/study-help/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ canvasCourseId, message, courseName, stream: true }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error?.message || 'Chat request failed');
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data:')) {
+        const data = line.slice(5).trim();
+        if (!data) continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'delta') {
+            onDelta(parsed.text);
+          } else if (parsed.type === 'done') {
+            onDone(parsed.citations || [], parsed.sources || []);
+          } else if (parsed.type === 'error') {
+            onError(parsed.message);
+          }
+        } catch {
+          // Ignore parse errors for partial SSE data
+        }
+      }
+    }
+  }
+}
+
+export async function getClassGPTHistory(
+  canvasCourseId: string,
+): Promise<{ messages: ClassGPTMessage[] }> {
+  return fetchApi<{ messages: ClassGPTMessage[] }>(
+    `${API_BASE}/study-help/chat/history/${canvasCourseId}`
+  );
+}
+
+export async function clearClassGPTHistory(
+  canvasCourseId: string,
+): Promise<void> {
+  await fetchApi(`${API_BASE}/study-help/chat/history/${canvasCourseId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getClassGPTSources(
+  canvasCourseId: string,
+): Promise<{ sources: ClassGPTSource[]; totalSources: number }> {
+  return fetchApi<{ sources: ClassGPTSource[]; totalSources: number }>(
+    `${API_BASE}/study-help/chat/sources/${canvasCourseId}`
+  );
 }
 
 // ============================================
