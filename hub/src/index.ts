@@ -111,6 +111,7 @@ import { errorHandler, requestLogger, AppError } from './api/middleware/error-ha
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
 import { plaudIntegration } from './integrations/plaud';
+import plaudDashboardRouter from './api/routes/plaud-dashboard';
 
 // Create Hono app
 const app = new Hono();
@@ -273,6 +274,7 @@ app.route('/api/read-help', readHelpRouter);
 app.route('/api/study-help/auth', studyHelpAuthRouter);
 app.route('/api/study-help/courses', studyHelpCoursesRouter);
 app.route('/api/study-help/chat', studyHelpChatRouter);
+app.route('/api/plaud', plaudDashboardRouter);
 
 // Web UI
 app.route('/setup', setupUI);
