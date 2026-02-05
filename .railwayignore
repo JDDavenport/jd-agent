@@ -1,0 +1,10 @@
+# Railway only needs the hub (backend API)
+apps/
+storage/
+*.sqlite
+*.db
+playwright-report/
+test-results/
+test-screenshots/
+.claude/
+.vercel/
