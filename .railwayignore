@@ -1,10 +1,18 @@
-# Railway only needs the hub (backend API)
-apps/
-storage/
+# Railway ignore - extends (replaces) .gitignore for uploads
+node_modules/
+dist/
+build/
+.next/
+.env
+.env.*
+!.env.example
+.claude/
+.vercel/
 *.sqlite
 *.db
 playwright-report/
 test-results/
 test-screenshots/
-.claude/
-.vercel/
+coverage/
+storage/
+.DS_Store
