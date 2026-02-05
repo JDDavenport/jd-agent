@@ -75,6 +75,7 @@
     "pg": "^8.13.1",
     "plaid": "^41.0.0",
     "playwright": "^1.57.0",
+    "postgres": "^3.4.8",
     "resend": "^4.0.1",
     "rrule": "^2.8.1",
     "tesseract.js": "^7.0.0",
