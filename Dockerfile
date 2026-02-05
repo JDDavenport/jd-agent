@@ -2,8 +2,19 @@
 FROM oven/bun:1.1-alpine AS base
 WORKDIR /app
 
-# Dependencies stage - copy all workspace package.json files
-FROM base AS deps
+# Install system dependencies needed for native modules (canvas, sharp, etc.)
+RUN apk add --no-cache \
+    cairo-dev \
+    pango-dev \
+    libjpeg-turbo-dev \
+    giflib-dev \
+    librsvg-dev \
+    python3 \
+    make \
+    g++ \
+    pixman-dev
+
+# Copy all workspace package.json files for bun workspace resolution
 COPY package.json bun.lockb* bun.lock* ./
 COPY hub/package.json ./hub/
 COPY packages/types/package.json ./packages/types/
@@ -20,26 +31,13 @@ COPY apps/study-help/package.json ./apps/study-help/
 COPY apps/sync-service/package.json ./apps/sync-service/
 COPY apps/tasks/package.json ./apps/tasks/
 COPY apps/vault/package.json ./apps/vault/
+
+# Install dependencies
 RUN bun install --frozen-lockfile || bun install
 
-# Runner stage with native deps
-FROM base AS runner
-RUN apk add --no-cache \
-    cairo-dev \
-    pango-dev \
-    libjpeg-turbo-dev \
-    giflib-dev \
-    librsvg-dev \
-    python3 \
-    make \
-    g++ \
-    pixman-dev
-
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code (only hub + packages needed for runtime)
 COPY hub/ ./hub/
 COPY packages/ ./packages/
-COPY package.json ./
 
 ENV NODE_ENV=production
 ENV PORT=3000
