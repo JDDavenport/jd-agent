@@ -1,52 +1,26 @@
+/**
+ * Study Help Courses API
+ * 
+ * Manages user course enrollments with per-user Canvas integration.
+ * Each user connects their own Canvas account.
+ */
+
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { db } from '../../db/client';
-import { studyHelpUsers, studyHelpSessions, studyHelpUserCourses } from '../../db/schema';
-import { eq, and, gt } from 'drizzle-orm';
-import { createHash } from 'crypto';
-import { CanvasIntegration } from '../../integrations/canvas';
-
-// Canvas integration instance (uses env vars for token)
-const canvasApi = new CanvasIntegration();
+import { studyHelpUserCourses } from '../../db/schema';
+import { eq, and } from 'drizzle-orm';
+import { getUserFromSession, getDecryptedCanvasToken, getInstitutionForUser } from './study-help-auth';
+import { createUserCanvasClient, UserCanvasClient } from '../../integrations/canvas-user';
 
 const studyHelpCoursesRouter = new Hono();
 
 const COOKIE_NAME = 'study_help_session';
 
-// Hash token for lookup
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
+// ============================================
+// Helper functions
+// ============================================
 
-// Auth middleware - get user from session
-async function getUserFromSession(sessionToken: string | undefined) {
-  if (!sessionToken) return null;
-
-  const tokenHash = hashToken(sessionToken);
-
-  const [session] = await db
-    .select()
-    .from(studyHelpSessions)
-    .where(
-      and(
-        eq(studyHelpSessions.tokenHash, tokenHash),
-        gt(studyHelpSessions.expiresAt, new Date())
-      )
-    )
-    .limit(1);
-
-  if (!session) return null;
-
-  const [user] = await db
-    .select()
-    .from(studyHelpUsers)
-    .where(eq(studyHelpUsers.id, session.userId))
-    .limit(1);
-
-  return user?.isActive ? user : null;
-}
-
-// Helper functions for course icons and colors
 function getIconForCourse(name: string): string {
   const iconMap: Record<string, string> = {
     'analytics': '📊', 'strategy': '🎯', 'finance': '💰', 'marketing': '📣',
@@ -75,7 +49,6 @@ function getColorForCourse(name: string): string {
   return 'gray';
 }
 
-// Helper to get current term string
 function getCurrentTerm(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -86,47 +59,35 @@ function getCurrentTerm(): string {
   return `Fall ${year}`;
 }
 
-// Fetch available courses from Canvas API dynamically
-async function fetchAvailableCourses(): Promise<Array<{
-  canvasCourseId: string;
-  courseName: string;
-  courseCode: string;
-  term: string;
-  icon: string;
-  color: string;
-}>> {
-  try {
-    const canvasCourses = await canvasApi.getCourses();
-    const currentTerm = getCurrentTerm();
-    const now = new Date();
-    
-    // Filter to current/active courses
-    const activeCourses = canvasCourses.filter(course => {
-      if (course.workflow_state === 'deleted') return false;
-      // Include available courses or unpublished (upcoming)
-      if (course.workflow_state === 'available') return true;
-      // For unpublished, include if start date is within 60 days
-      if (course.start_at) {
-        const startDate = new Date(course.start_at);
-        const daysUntilStart = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysUntilStart >= -30 && daysUntilStart <= 60) return true;
-      }
-      return false;
-    });
-    
-    return activeCourses.map(course => ({
-      canvasCourseId: String(course.id),
-      courseName: course.name,
-      courseCode: course.course_code || '',
-      term: currentTerm,
-      icon: getIconForCourse(course.name),
-      color: getColorForCourse(course.name),
-    }));
-  } catch (error) {
-    console.error('[Courses] Error fetching from Canvas:', error);
-    return [];
+/**
+ * Get Canvas client for the authenticated user
+ */
+async function getUserCanvasClient(sessionToken: string | undefined): Promise<{
+  user: any;
+  canvasClient: UserCanvasClient | null;
+  institution: any;
+  error?: { code: string; message: string };
+}> {
+  const user = await getUserFromSession(sessionToken);
+  
+  if (!user) {
+    return { user: null, canvasClient: null, institution: null, error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' } };
   }
+
+  // Get institution for Canvas URL
+  const institution = await getInstitutionForUser(user);
+  const canvasBaseUrl = institution?.canvasBaseUrl || null;
+
+  // Get decrypted Canvas token
+  const canvasToken = getDecryptedCanvasToken(user);
+  const canvasClient = createUserCanvasClient(canvasBaseUrl, canvasToken);
+
+  return { user, canvasClient, institution };
 }
+
+// ============================================
+// Routes
+// ============================================
 
 /**
  * GET /api/study-help/courses
@@ -134,16 +95,10 @@ async function fetchAvailableCourses(): Promise<Array<{
  */
 studyHelpCoursesRouter.get('/', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json(
-      {
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      },
-      401
-    );
+  if (error) {
+    return c.json({ success: false, error }, 401);
   }
 
   try {
@@ -157,57 +112,56 @@ studyHelpCoursesRouter.get('/', async (c) => {
         )
       );
 
-    // Enrich with dynamic icons/colors based on course name
-    const enrichedCourses = courses.map((course) => {
-      return {
-        id: course.id,
-        canvasCourseId: course.canvasCourseId,
-        courseName: course.courseName,
-        courseCode: course.courseCode,
-        term: course.term,
-        isPinned: course.isPinned,
-        icon: getIconForCourse(course.courseName || ''),
-        color: getColorForCourse(course.courseName || ''),
-      };
-    });
+    const enrichedCourses = courses.map((course) => ({
+      id: course.id,
+      canvasCourseId: course.canvasCourseId,
+      courseName: course.courseName,
+      courseCode: course.courseCode,
+      term: course.term,
+      isPinned: course.isPinned,
+      icon: getIconForCourse(course.courseName || ''),
+      color: getColorForCourse(course.courseName || ''),
+    }));
 
     return c.json({
       success: true,
-      data: { courses: enrichedCourses },
+      data: { 
+        courses: enrichedCourses,
+        canvasConnected: !!user.canvasTokenEncrypted,
+      },
     });
   } catch (error) {
     console.error('[Courses] Error fetching courses:', error);
-    return c.json(
-      {
-        success: false,
-        error: { code: 'FETCH_ERROR', message: 'Failed to fetch courses' },
-      },
-      500
-    );
+    return c.json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: 'Failed to fetch courses' },
+    }, 500);
   }
 });
 
 /**
  * GET /api/study-help/courses/available
- * Get list of available courses that can be added (fetched from Canvas)
+ * Get list of available courses from user's Canvas (for adding)
  */
 studyHelpCoursesRouter.get('/available', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json(
-      {
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      },
-      401
-    );
+  if (error) {
+    return c.json({ success: false, error }, 401);
+  }
+
+  if (!canvasClient) {
+    return c.json({
+      success: false,
+      error: { code: 'CANVAS_NOT_CONNECTED', message: 'Please connect your Canvas account first' },
+    }, 400);
   }
 
   try {
-    // Fetch courses from Canvas dynamically
-    const canvasCourses = await fetchAvailableCourses();
+    // Fetch courses from user's Canvas
+    const canvasCourses = await canvasClient.getCurrentCourses();
+    const currentTerm = getCurrentTerm();
     
     // Get user's current courses to mark which are already added
     const userCourses = await db
@@ -223,8 +177,14 @@ studyHelpCoursesRouter.get('/available', async (c) => {
     const userCourseIds = new Set(userCourses.map((c) => c.canvasCourseId));
 
     const available = canvasCourses.map((course) => ({
-      ...course,
-      isEnrolled: userCourseIds.has(course.canvasCourseId),
+      canvasCourseId: String(course.id),
+      courseName: course.name,
+      courseCode: course.course_code || '',
+      term: currentTerm,
+      icon: getIconForCourse(course.name),
+      color: getColorForCourse(course.name),
+      isEnrolled: userCourseIds.has(String(course.id)),
+      workflowState: course.workflow_state,
     }));
 
     return c.json({
@@ -233,13 +193,10 @@ studyHelpCoursesRouter.get('/available', async (c) => {
     });
   } catch (error) {
     console.error('[Courses] Error fetching available courses:', error);
-    return c.json(
-      {
-        success: false,
-        error: { code: 'FETCH_ERROR', message: 'Failed to fetch available courses' },
-      },
-      500
-    );
+    return c.json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: 'Failed to fetch available courses from Canvas' },
+    }, 500);
   }
 });
 
@@ -249,46 +206,35 @@ studyHelpCoursesRouter.get('/available', async (c) => {
  */
 studyHelpCoursesRouter.post('/', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json(
-      {
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      },
-      401
-    );
+  if (error) {
+    return c.json({ success: false, error }, 401);
   }
 
   try {
     const body = await c.req.json();
-    const { canvasCourseId } = body;
+    const { canvasCourseId, courseName, courseCode } = body;
 
     if (!canvasCourseId) {
-      return c.json(
-        {
-          success: false,
-          error: { code: 'MISSING_FIELD', message: 'canvasCourseId is required' },
-        },
-        400
-      );
+      return c.json({
+        success: false,
+        error: { code: 'MISSING_FIELD', message: 'canvasCourseId is required' },
+      }, 400);
     }
 
-    // Find course info from Canvas
-    const availableCourses = await fetchAvailableCourses();
-    const courseInfo = availableCourses.find(
-      (c) => c.canvasCourseId === canvasCourseId
-    );
+    // If Canvas is connected, verify the course exists
+    let finalCourseName = courseName;
+    let finalCourseCode = courseCode;
 
-    if (!courseInfo) {
-      return c.json(
-        {
-          success: false,
-          error: { code: 'INVALID_COURSE', message: 'Course not found in Canvas' },
-        },
-        404
-      );
+    if (canvasClient && !courseName) {
+      const canvasCourses = await canvasClient.getCurrentCourses();
+      const courseInfo = canvasCourses.find(c => String(c.id) === canvasCourseId);
+      
+      if (courseInfo) {
+        finalCourseName = courseInfo.name;
+        finalCourseCode = courseInfo.course_code;
+      }
     }
 
     // Check if already enrolled
@@ -318,8 +264,8 @@ studyHelpCoursesRouter.post('/', async (c) => {
           course: {
             ...existing,
             isActive: true,
-            icon: courseInfo.icon,
-            color: courseInfo.color,
+            icon: getIconForCourse(existing.courseName || ''),
+            color: getColorForCourse(existing.courseName || ''),
           },
         },
       });
@@ -330,10 +276,10 @@ studyHelpCoursesRouter.post('/', async (c) => {
       .insert(studyHelpUserCourses)
       .values({
         userId: user.id,
-        canvasCourseId: courseInfo.canvasCourseId,
-        courseName: courseInfo.courseName,
-        courseCode: courseInfo.courseCode,
-        term: courseInfo.term,
+        canvasCourseId,
+        courseName: finalCourseName || 'Unknown Course',
+        courseCode: finalCourseCode || null,
+        term: getCurrentTerm(),
       })
       .returning();
 
@@ -342,39 +288,30 @@ studyHelpCoursesRouter.post('/', async (c) => {
       data: {
         course: {
           ...newCourse,
-          icon: courseInfo.icon,
-          color: courseInfo.color,
+          icon: getIconForCourse(newCourse.courseName || ''),
+          color: getColorForCourse(newCourse.courseName || ''),
         },
       },
     });
   } catch (error) {
     console.error('[Courses] Error adding course:', error);
-    return c.json(
-      {
-        success: false,
-        error: { code: 'ADD_ERROR', message: 'Failed to add course' },
-      },
-      500
-    );
+    return c.json({
+      success: false,
+      error: { code: 'ADD_ERROR', message: 'Failed to add course' },
+    }, 500);
   }
 });
 
 /**
  * POST /api/study-help/courses/bulk
- * Add multiple courses at once (for initial setup)
+ * Add multiple courses at once
  */
 studyHelpCoursesRouter.post('/bulk', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json(
-      {
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      },
-      401
-    );
+  if (error) {
+    return c.json({ success: false, error }, 401);
   }
 
   try {
@@ -382,26 +319,23 @@ studyHelpCoursesRouter.post('/bulk', async (c) => {
     const { canvasCourseIds } = body;
 
     if (!Array.isArray(canvasCourseIds) || canvasCourseIds.length === 0) {
-      return c.json(
-        {
-          success: false,
-          error: { code: 'MISSING_FIELD', message: 'canvasCourseIds array is required' },
-        },
-        400
-      );
+      return c.json({
+        success: false,
+        error: { code: 'MISSING_FIELD', message: 'canvasCourseIds array is required' },
+      }, 400);
+    }
+
+    // Fetch course info from Canvas if connected
+    let canvasCourses: any[] = [];
+    if (canvasClient) {
+      canvasCourses = await canvasClient.getCurrentCourses();
     }
 
     const addedCourses = [];
-    
-    // Fetch available courses from Canvas once
-    const availableCourses = await fetchAvailableCourses();
+    const currentTerm = getCurrentTerm();
 
     for (const canvasCourseId of canvasCourseIds) {
-      const courseInfo = availableCourses.find(
-        (c) => c.canvasCourseId === canvasCourseId
-      );
-
-      if (!courseInfo) continue;
+      const courseInfo = canvasCourses.find(c => String(c.id) === canvasCourseId);
 
       // Check if already enrolled
       const [existing] = await db
@@ -422,20 +356,32 @@ studyHelpCoursesRouter.post('/bulk', async (c) => {
             .set({ isActive: true, updatedAt: new Date() })
             .where(eq(studyHelpUserCourses.id, existing.id));
         }
-        addedCourses.push({ ...existing, isActive: true, icon: courseInfo.icon, color: courseInfo.color });
+        addedCourses.push({
+          ...existing,
+          isActive: true,
+          icon: getIconForCourse(existing.courseName || ''),
+          color: getColorForCourse(existing.courseName || ''),
+        });
       } else {
+        const courseName = courseInfo?.name || `Course ${canvasCourseId}`;
+        const courseCode = courseInfo?.course_code || null;
+
         const [newCourse] = await db
           .insert(studyHelpUserCourses)
           .values({
             userId: user.id,
-            canvasCourseId: courseInfo.canvasCourseId,
-            courseName: courseInfo.courseName,
-            courseCode: courseInfo.courseCode,
-            term: courseInfo.term,
+            canvasCourseId,
+            courseName,
+            courseCode,
+            term: currentTerm,
           })
           .returning();
 
-        addedCourses.push({ ...newCourse, icon: courseInfo.icon, color: courseInfo.color });
+        addedCourses.push({
+          ...newCourse,
+          icon: getIconForCourse(courseName),
+          color: getColorForCourse(courseName),
+        });
       }
     }
 
@@ -445,38 +391,28 @@ studyHelpCoursesRouter.post('/bulk', async (c) => {
     });
   } catch (error) {
     console.error('[Courses] Error adding courses:', error);
-    return c.json(
-      {
-        success: false,
-        error: { code: 'ADD_ERROR', message: 'Failed to add courses' },
-      },
-      500
-    );
+    return c.json({
+      success: false,
+      error: { code: 'ADD_ERROR', message: 'Failed to add courses' },
+    }, 500);
   }
 });
 
 /**
  * DELETE /api/study-help/courses/:courseId
- * Remove a course from user's enrollment (soft delete)
+ * Remove a course (soft delete)
  */
 studyHelpCoursesRouter.delete('/:courseId', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json(
-      {
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      },
-      401
-    );
+  if (error) {
+    return c.json({ success: false, error }, 401);
   }
 
   try {
     const courseId = c.req.param('courseId');
 
-    // Soft delete - set isActive to false
     const [updated] = await db
       .update(studyHelpUserCourses)
       .set({ isActive: false, updatedAt: new Date() })
@@ -489,13 +425,10 @@ studyHelpCoursesRouter.delete('/:courseId', async (c) => {
       .returning();
 
     if (!updated) {
-      return c.json(
-        {
-          success: false,
-          error: { code: 'NOT_FOUND', message: 'Course not found' },
-        },
-        404
-      );
+      return c.json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Course not found' },
+      }, 404);
     }
 
     return c.json({
@@ -504,38 +437,28 @@ studyHelpCoursesRouter.delete('/:courseId', async (c) => {
     });
   } catch (error) {
     console.error('[Courses] Error removing course:', error);
-    return c.json(
-      {
-        success: false,
-        error: { code: 'REMOVE_ERROR', message: 'Failed to remove course' },
-      },
-      500
-    );
+    return c.json({
+      success: false,
+      error: { code: 'REMOVE_ERROR', message: 'Failed to remove course' },
+    }, 500);
   }
 });
 
 /**
  * PATCH /api/study-help/courses/:courseId/pin
- * Toggle pin status for a course
+ * Toggle pin status
  */
 studyHelpCoursesRouter.patch('/:courseId/pin', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json(
-      {
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      },
-      401
-    );
+  if (error) {
+    return c.json({ success: false, error }, 401);
   }
 
   try {
     const courseId = c.req.param('courseId');
 
-    // Get current pin status
     const [course] = await db
       .select()
       .from(studyHelpUserCourses)
@@ -548,16 +471,12 @@ studyHelpCoursesRouter.patch('/:courseId/pin', async (c) => {
       .limit(1);
 
     if (!course) {
-      return c.json(
-        {
-          success: false,
-          error: { code: 'NOT_FOUND', message: 'Course not found' },
-        },
-        404
-      );
+      return c.json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Course not found' },
+      }, 404);
     }
 
-    // Toggle pin
     const [updated] = await db
       .update(studyHelpUserCourses)
       .set({ isPinned: !course.isPinned, updatedAt: new Date() })
@@ -570,78 +489,44 @@ studyHelpCoursesRouter.patch('/:courseId/pin', async (c) => {
     });
   } catch (error) {
     console.error('[Courses] Error toggling pin:', error);
-    return c.json(
-      {
-        success: false,
-        error: { code: 'PIN_ERROR', message: 'Failed to toggle pin' },
-      },
-      500
-    );
+    return c.json({
+      success: false,
+      error: { code: 'PIN_ERROR', message: 'Failed to toggle pin' },
+    }, 500);
   }
 });
 
 /**
  * POST /api/study-help/courses/sync
- * Sync courses from Canvas API - auto-detect current semester courses
+ * Sync courses from user's Canvas
  */
 studyHelpCoursesRouter.post('/sync', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json({ success: false, error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' } }, 401);
+  if (error) {
+    return c.json({ success: false, error }, 401);
+  }
+
+  if (!canvasClient) {
+    return c.json({
+      success: false,
+      error: { code: 'CANVAS_NOT_CONNECTED', message: 'Please connect your Canvas account first' },
+    }, 400);
   }
 
   try {
     console.log('[Courses] Starting Canvas sync for user:', user.id);
     
-    // Fetch courses from Canvas API
-    const canvasCourses = await canvasApi.getCourses();
-    
-    // Get current date to filter for current/upcoming terms
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    
-    // Determine current term based on month
-    let currentTerm = '';
-    if (currentMonth >= 0 && currentMonth <= 4) {
-      currentTerm = `Winter ${currentYear}`;
-    } else if (currentMonth >= 5 && currentMonth <= 7) {
-      currentTerm = `Summer ${currentYear}`;
-    } else {
-      currentTerm = `Fall ${currentYear}`;
-    }
-    
-    // Filter to current semester courses (by recent start date or not ended)
-    const currentCourses = canvasCourses.filter(course => {
-      if (course.workflow_state === 'deleted' || course.workflow_state === 'unpublished') {
-        return false;
-      }
-      // Include if course started within last 4 months or hasn't ended
-      if (course.start_at) {
-        const startDate = new Date(course.start_at);
-        const monthsAgo = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        if (monthsAgo >= 0 && monthsAgo <= 4) return true;
-      }
-      if (course.end_at) {
-        const endDate = new Date(course.end_at);
-        if (endDate > now) return true;
-      }
-      return false;
-    });
-    
-    console.log(`[Courses] Found ${currentCourses.length} current semester courses`);
-    
-    // Sync each course to user's enrollment
+    const canvasCourses = await canvasClient.getCurrentCourses();
+    const currentTerm = getCurrentTerm();
     const syncedCourses: any[] = [];
-    
-    for (const course of currentCourses) {
+
+    for (const course of canvasCourses) {
+      if (course.workflow_state !== 'available') continue;
+
       const canvasCourseId = String(course.id);
-      const courseName = course.name;
-      const courseCode = course.course_code || null;
-      
-      // Check if already exists
+
       const [existing] = await db
         .select()
         .from(studyHelpUserCourses)
@@ -650,65 +535,100 @@ studyHelpCoursesRouter.post('/sync', async (c) => {
           eq(studyHelpUserCourses.canvasCourseId, canvasCourseId)
         ))
         .limit(1);
-      
+
       if (existing) {
-        // Update if name/code changed or reactivate
         await db
           .update(studyHelpUserCourses)
-          .set({ courseName, courseCode, term: currentTerm, isActive: true, updatedAt: new Date() })
+          .set({
+            courseName: course.name,
+            courseCode: course.course_code,
+            term: currentTerm,
+            isActive: true,
+            updatedAt: new Date(),
+          })
           .where(eq(studyHelpUserCourses.id, existing.id));
-        
+
         syncedCourses.push({
-          ...existing, courseName, courseCode, term: currentTerm, isActive: true,
-          icon: getIconForCourse(courseName), color: getColorForCourse(courseName), source: 'canvas',
+          ...existing,
+          courseName: course.name,
+          courseCode: course.course_code,
+          term: currentTerm,
+          isActive: true,
+          icon: getIconForCourse(course.name),
+          color: getColorForCourse(course.name),
         });
       } else {
-        // Create new
         const [newCourse] = await db
           .insert(studyHelpUserCourses)
-          .values({ userId: user.id, canvasCourseId, courseName, courseCode, term: currentTerm })
+          .values({
+            userId: user.id,
+            canvasCourseId,
+            courseName: course.name,
+            courseCode: course.course_code,
+            term: currentTerm,
+          })
           .returning();
-        
+
         syncedCourses.push({
-          ...newCourse, icon: getIconForCourse(courseName), color: getColorForCourse(courseName), source: 'canvas',
+          ...newCourse,
+          icon: getIconForCourse(course.name),
+          color: getColorForCourse(course.name),
         });
       }
     }
-    
+
     console.log(`[Courses] Synced ${syncedCourses.length} courses for user ${user.id}`);
-    
+
     return c.json({
       success: true,
-      data: { courses: syncedCourses, syncedAt: new Date().toISOString(), totalFromCanvas: canvasCourses.length, currentSemester: currentTerm },
+      data: {
+        courses: syncedCourses,
+        syncedAt: new Date().toISOString(),
+        totalFromCanvas: canvasCourses.length,
+        currentSemester: currentTerm,
+      },
     });
   } catch (error) {
     console.error('[Courses] Error syncing from Canvas:', error);
-    return c.json({ success: false, error: { code: 'SYNC_ERROR', message: 'Failed to sync courses from Canvas' } }, 500);
+    return c.json({
+      success: false,
+      error: { code: 'SYNC_ERROR', message: 'Failed to sync courses from Canvas' },
+    }, 500);
   }
 });
 
 /**
  * GET /api/study-help/courses/canvas
- * Get courses directly from Canvas API (for preview/selection)
+ * Get courses directly from Canvas for preview
  */
 studyHelpCoursesRouter.get('/canvas', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json({ success: false, error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' } }, 401);
+  if (error) {
+    return c.json({ success: false, error }, 401);
+  }
+
+  if (!canvasClient) {
+    return c.json({
+      success: false,
+      error: { code: 'CANVAS_NOT_CONNECTED', message: 'Please connect your Canvas account first' },
+    }, 400);
   }
 
   try {
-    const canvasCourses = await canvasApi.getCourses();
-    
+    const canvasCourses = await canvasClient.getCourses();
+
     const userCourses = await db
       .select({ canvasCourseId: studyHelpUserCourses.canvasCourseId })
       .from(studyHelpUserCourses)
-      .where(and(eq(studyHelpUserCourses.userId, user.id), eq(studyHelpUserCourses.isActive, true)));
-    
+      .where(and(
+        eq(studyHelpUserCourses.userId, user.id),
+        eq(studyHelpUserCourses.isActive, true)
+      ));
+
     const userCourseIds = new Set(userCourses.map(c => c.canvasCourseId));
-    
+
     const courses = canvasCourses.map(course => ({
       canvasCourseId: String(course.id),
       courseName: course.name,
@@ -717,48 +637,70 @@ studyHelpCoursesRouter.get('/canvas', async (c) => {
       endDate: course.end_at,
       isEnrolled: userCourseIds.has(String(course.id)),
     }));
-    
+
     return c.json({ success: true, data: { courses } });
   } catch (error) {
     console.error('[Courses] Error fetching from Canvas:', error);
-    return c.json({ success: false, error: { code: 'CANVAS_ERROR', message: 'Failed to fetch courses from Canvas' } }, 500);
+    return c.json({
+      success: false,
+      error: { code: 'CANVAS_ERROR', message: 'Failed to fetch courses from Canvas' },
+    }, 500);
   }
 });
 
 /**
  * POST /api/study-help/courses/manual
- * Add a course manually (not from Canvas)
+ * Add a course manually (without Canvas)
  */
 studyHelpCoursesRouter.post('/manual', async (c) => {
   const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const { user, error } = await getUserCanvasClient(sessionToken);
 
-  if (!user) {
-    return c.json({ success: false, error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' } }, 401);
+  if (error) {
+    return c.json({ success: false, error }, 401);
   }
 
   try {
     const body = await c.req.json();
     const { courseName, courseCode, term, icon, color } = body;
-    
+
     if (!courseName) {
-      return c.json({ success: false, error: { code: 'MISSING_FIELD', message: 'courseName is required' } }, 400);
+      return c.json({
+        success: false,
+        error: { code: 'MISSING_FIELD', message: 'courseName is required' },
+      }, 400);
     }
-    
+
     const canvasCourseId = `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const [newCourse] = await db
       .insert(studyHelpUserCourses)
-      .values({ userId: user.id, canvasCourseId, courseName, courseCode: courseCode || null, term: term || null })
+      .values({
+        userId: user.id,
+        canvasCourseId,
+        courseName,
+        courseCode: courseCode || null,
+        term: term || getCurrentTerm(),
+      })
       .returning();
-    
+
     return c.json({
       success: true,
-      data: { course: { ...newCourse, icon: icon || '📚', color: color || 'gray', source: 'manual' } },
+      data: {
+        course: {
+          ...newCourse,
+          icon: icon || getIconForCourse(courseName),
+          color: color || getColorForCourse(courseName),
+          source: 'manual',
+        },
+      },
     });
   } catch (error) {
     console.error('[Courses] Error adding manual course:', error);
-    return c.json({ success: false, error: { code: 'ADD_ERROR', message: 'Failed to add course' } }, 500);
+    return c.json({
+      success: false,
+      error: { code: 'ADD_ERROR', message: 'Failed to add course' },
+    }, 500);
   }
 });
 

@@ -4041,3 +4041,146 @@ export const readHelpVideos = pgTable(
     index('read_help_videos_archived_idx').on(table.isArchived),
   ]
 );
+
+// ============================================
+// STUDY HELP - Multi-User System
+// ============================================
+
+/**
+ * Institutions table for multi-school support
+ * Each school can have its own Canvas configuration
+ */
+export const studyHelpInstitutions = pgTable(
+  'study_help_institutions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    domain: text('domain'), // e.g., 'byu.edu'
+    shortName: text('short_name'), // e.g., 'BYU'
+    logoUrl: text('logo_url'),
+    canvasBaseUrl: text('canvas_base_url'), // e.g., 'https://byu.instructure.com'
+    canvasClientId: text('canvas_client_id'), // For OAuth flow
+    canvasClientSecretEncrypted: text('canvas_client_secret_encrypted'),
+    enabled: boolean('enabled').default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  }
+);
+
+/**
+ * Users table for Study Help multi-user support
+ * Each user can connect their own Canvas account
+ */
+export const studyHelpUsers = pgTable(
+  'study_help_users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    
+    // Auth
+    email: text('email').notNull().unique(),
+    passwordHash: text('password_hash').notNull(),
+    name: text('name'),
+    
+    // Institution (school)
+    institutionId: uuid('institution_id').references(() => studyHelpInstitutions.id),
+    
+    // Canvas integration - encrypted tokens (OAuth or personal access token)
+    canvasAccessTokenEncrypted: text('canvas_access_token_encrypted'),
+    canvasRefreshTokenEncrypted: text('canvas_refresh_token_encrypted'),
+    canvasTokenExpiresAt: timestamp('canvas_token_expires_at', { withTimezone: true }),
+    canvasUserId: text('canvas_user_id'), // Canvas user ID for reference
+    
+    // Email verification
+    emailVerified: boolean('email_verified').default(false).notNull(),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    emailVerificationToken: text('email_verification_token'),
+    emailVerificationExpiresAt: timestamp('email_verification_expires_at', { withTimezone: true }),
+    
+    // Password reset
+    passwordResetToken: text('password_reset_token'),
+    passwordResetExpiresAt: timestamp('password_reset_expires_at', { withTimezone: true }),
+    
+    // Status
+    isActive: boolean('is_active').default(true).notNull(),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
+    
+    // Timestamps
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('study_help_users_email_idx').on(table.email),
+    index('study_help_users_active_idx').on(table.isActive),
+  ]
+);
+
+/**
+ * Sessions for Study Help authentication
+ * Cookie-based session management with device tracking
+ */
+export const studyHelpSessions = pgTable(
+  'study_help_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => studyHelpUsers.id, { onDelete: 'cascade' })
+      .notNull(),
+    
+    // Session token (hashed)
+    tokenHash: text('token_hash').notNull().unique(),
+    
+    // Expiration
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    
+    // Device/browser info for security
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    deviceType: text('device_type'), // 'desktop', 'mobile', 'tablet'
+    
+    // Activity tracking
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('study_help_sessions_user_idx').on(table.userId),
+    index('study_help_sessions_token_idx').on(table.tokenHash),
+    index('study_help_sessions_expires_idx').on(table.expiresAt),
+  ]
+);
+
+/**
+ * User-specific course enrollment
+ * Each user selects which Canvas courses to track
+ */
+export const studyHelpUserCourses = pgTable(
+  'study_help_user_courses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => studyHelpUsers.id, { onDelete: 'cascade' })
+      .notNull(),
+    
+    // Canvas course info
+    canvasCourseId: text('canvas_course_id').notNull(),
+    courseName: text('course_name'),
+    courseCode: text('course_code'),
+    term: text('term'), // e.g., 'Winter 2026'
+    
+    // Status
+    isActive: boolean('is_active').default(true).notNull(),
+    isPinned: boolean('is_pinned').default(false).notNull(),
+    
+    // Sync tracking
+    lastContentSyncAt: timestamp('last_content_sync_at', { withTimezone: true }),
+    lastTaskSyncAt: timestamp('last_task_sync_at', { withTimezone: true }),
+    
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('study_help_user_courses_user_idx').on(table.userId),
+    index('study_help_user_courses_canvas_idx').on(table.canvasCourseId),
+    index('study_help_user_courses_active_idx').on(table.isActive),
+  ]
+);

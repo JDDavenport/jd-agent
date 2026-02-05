@@ -1,0 +1,33 @@
+{
+  "name": "study-aide-sync-service",
+  "version": "1.0.0",
+  "description": "Sync service for Study Aide - pulls Canvas, Plaud, Remarkable data",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "pull": "tsx src/index.ts pull",
+    "push": "tsx src/index.ts push",
+    "verify": "tsx src/index.ts verify",
+    "sync": "tsx src/index.ts sync",
+    "daemon": "tsx src/daemon.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.1",
+    "node-cron": "^3.0.3",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "date-fns": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
+  }
+}

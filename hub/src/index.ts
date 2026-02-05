@@ -104,6 +104,8 @@ import { productivityRouter } from './api/routes/productivity';
 import { garmin } from './api/routes/garmin';
 import { classesRouter } from './api/routes/classes';
 import readHelpRouter from './api/routes/read-help';
+import { studyHelpAuthRouter } from './api/routes/study-help-auth';
+import { studyHelpCoursesRouter } from './api/routes/study-help-courses';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -267,6 +269,8 @@ app.route('/api/productivity', productivityRouter);
 app.route('/api/garmin', garmin);
 app.route('/api/classes', classesRouter);
 app.route('/api/read-help', readHelpRouter);
+app.route('/api/study-help/auth', studyHelpAuthRouter);
+app.route('/api/study-help/courses', studyHelpCoursesRouter);
 
 // Web UI
 app.route('/setup', setupUI);

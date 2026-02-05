@@ -5,8 +5,20 @@
  * This script syncs ALL published assignments from ALL courses,
  * not just upcoming ones. Run this to fix missing assignments.
  * 
- * Usage: bun run scripts/sync-all-canvas-assignments.ts
+ * Usage: bun run scripts/sync-all-canvas-assignments.ts --prod
  */
+
+// Parse args
+const isProd = process.argv.includes('--prod');
+
+// For production, override DATABASE_URL BEFORE any imports
+if (isProd) {
+  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_1sErAP7pOVvt@ep-round-frog-ah8req8z-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+  process.env.DATABASE_SSL = 'true';
+  console.log('[Database] Using Production (Neon)');
+} else {
+  console.log('[Database] Using local database (add --prod for production)');
+}
 
 import { db } from '../src/db/client';
 import { tasks } from '../src/db/schema';

@@ -113,6 +113,105 @@ classesRouter.get('/', async (c) => {
 });
 
 /**
+ * GET /api/classes/stats
+ * Get statistics about class notes
+ */
+classesRouter.get('/stats', async (c) => {
+  const stats = await remarkableService.getSyncStats();
+  const summaries = await remarkableService.getClassSummaries();
+
+  return c.json({
+    success: true,
+    data: {
+      ...stats,
+      classes: summaries,
+    },
+  });
+});
+
+/**
+ * GET /api/classes/with-canvas-ids
+ * Get all classes that have Canvas course IDs for sync service mapping
+ */
+classesRouter.get('/with-canvas-ids', async (c) => {
+  const allClasses = await db
+    .select({
+      id: classes.id,
+      name: classes.name,
+      code: classes.code,
+      canvasCourseId: classes.canvasCourseId,
+      semester: classes.semester,
+    })
+    .from(classes)
+    .where(sql`${classes.canvasCourseId} IS NOT NULL`);
+
+  return c.json({
+    success: true,
+    data: allClasses,
+    count: allClasses.length,
+  });
+});
+
+/**
+ * POST /api/classes
+ * Create a new class (for sync service)
+ */
+classesRouter.post('/', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { name, code, canvasCourseId, semester, status, professor } = body;
+
+    if (!name) {
+      return c.json({
+        success: false,
+        error: { code: 'MISSING_NAME', message: 'name is required' },
+      }, 400);
+    }
+
+    // Check if class with same Canvas ID already exists
+    if (canvasCourseId) {
+      const [existing] = await db
+        .select()
+        .from(classes)
+        .where(eq(classes.canvasCourseId, canvasCourseId))
+        .limit(1);
+
+      if (existing) {
+        return c.json({
+          success: true,
+          data: existing,
+          message: 'Class already exists',
+        });
+      }
+    }
+
+    // Create new class
+    const [newClass] = await db
+      .insert(classes)
+      .values({
+        name,
+        code,
+        canvasCourseId,
+        semester: semester || 'Winter 2026',
+        status: status || 'active',
+        professor: professor || null,
+      })
+      .returning();
+
+    return c.json({
+      success: true,
+      data: newClass,
+    }, 201);
+  } catch (error) {
+    console.error('[Classes] Error creating class:', error);
+    return c.json({
+      success: false,
+      error: { code: 'CREATE_ERROR', message: String(error) },
+    }, 500);
+  }
+});
+
+/**
  * GET /api/classes/:code
  * Get class details with all class days
  */
@@ -289,23 +388,6 @@ classesRouter.post('/combine-all', async (c) => {
       errors: result.errors,
     },
     message: `Merged ${result.merged} class days`,
-  });
-});
-
-/**
- * GET /api/classes/stats
- * Get statistics about class notes
- */
-classesRouter.get('/stats', async (c) => {
-  const stats = await remarkableService.getSyncStats();
-  const summaries = await remarkableService.getClassSummaries();
-
-  return c.json({
-    success: true,
-    data: {
-      ...stats,
-      classes: summaries,
-    },
   });
 });
 

@@ -1,7 +1,7 @@
 # JD Agent - Current Features & Capabilities
 
-> **Last Updated:** January 27, 2026
-> **Version:** 0.3.14
+> **Last Updated:** February 5, 2026
+> **Version:** 0.3.15
 > **Phase:** Phase 3 - Verify & Coach
 
 > **For Agents:** See [CLAUDE.md](/CLAUDE.md) for development rules and workflow requirements.
@@ -1972,6 +1972,16 @@ See `CLAUDE.md` for full documentation requirements.
 ---
 
 ## Changelog
+
+### February 5, 2026 - Sync Service Push Validation Fix
+- **BUG FIX**: Fixed sync-service push failing with 400 VALIDATION_ERROR
+  - Root cause 1: `status: 'todo'` invalid - changed to `'inbox'` (valid GTD status)
+  - Root cause 2: `sourceId` not in schema - changed to `sourceRef`
+  - Root cause 3: `url` field not in createTaskSchema - removed from payload
+  - Root cause 4: `dueDate: null` invalid (expects datetime or undefined) - conditionally omit
+  - Root cause 5: Hub prod URL had `/api` suffix causing double `/api/api/` paths - fixed config
+- **RESULT**: 148 Canvas tasks now sync successfully to production
+- Files: `apps/sync-service/src/push.ts`, `apps/sync-service/src/config.ts`
 
 ### January 26, 2026 - Read Help Integration
 - **NEW**: Integrated Read Help app into JD Agent ecosystem
