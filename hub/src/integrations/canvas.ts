@@ -787,6 +787,9 @@ export class CanvasIntegration {
   /**
    * Get upcoming assignments across all current courses
    */
+  /**
+   * Get all assignments (upcoming only - for dashboard views)
+   */
   async getUpcomingAssignments(): Promise<Array<CanvasAssignment & { courseName: string }>> {
     const courses = await this.getCourses();
     const now = new Date();
@@ -821,6 +824,47 @@ export class CanvasIntegration {
 
     // Sort by due date
     assignments.sort((a, b) => {
+      if (!a.due_at) return 1;
+      if (!b.due_at) return -1;
+      return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+    });
+
+    return assignments;
+  }
+
+  /**
+   * Get ALL assignments across all courses (including past due dates and no due dates)
+   * Used for comprehensive sync to Study Aide
+   */
+  async getAllAssignments(): Promise<Array<CanvasAssignment & { courseName: string }>> {
+    const courses = await this.getCourses();
+    const assignments: Array<CanvasAssignment & { courseName: string }> = [];
+
+    for (const course of courses) {
+      if (course.workflow_state !== 'available') continue;
+      
+      this.courseCache.set(course.id, course);
+      
+      try {
+        const courseAssignments = await this.getAssignments(course.id);
+        
+        for (const assignment of courseAssignments) {
+          if (!assignment.published) continue;
+          
+          // Include ALL published assignments regardless of due date
+          assignments.push({
+            ...assignment,
+            courseName: course.name,
+          });
+        }
+      } catch (error) {
+        console.error(`[Canvas] Failed to fetch assignments for ${course.name}:`, error);
+      }
+    }
+
+    // Sort by due date (assignments without due dates at the end)
+    assignments.sort((a, b) => {
+      if (!a.due_at && !b.due_at) return 0;
       if (!a.due_at) return 1;
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
@@ -926,7 +970,8 @@ export class CanvasIntegration {
     const result = { created: 0, updated: 0, errors: [] as string[] };
 
     try {
-      const assignments = await this.getUpcomingAssignments();
+      // Use getAllAssignments to sync ALL assignments, not just upcoming ones
+      const assignments = await this.getAllAssignments();
 
       for (const assignment of assignments) {
         const sourceRef = `canvas:assignment:${assignment.id}`;
@@ -955,8 +1000,9 @@ export class CanvasIntegration {
               result.updated++;
             }
           } else {
-            // Create new task
-            const courseName = this.extractClassName(assignment.courseName);
+            // Create new task - use FULL course name for context matching
+            // This ensures Study Aide can filter by course patterns like "MBA 580"
+            const courseName = assignment.courseName; // Keep full name for better filtering
             
             // Determine priority based on points and type
             let priority = 2; // Medium default
