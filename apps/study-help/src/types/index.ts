@@ -1,6 +1,9 @@
 // Re-export courses
 export * from './courses';
 
+// Re-export lecture types
+export * from './lecture';
+
 // Task types (from tasks app)
 export type TaskStatus = 'inbox' | 'today' | 'upcoming' | 'waiting' | 'someday' | 'done' | 'archived';
 export type TaskSource = 'manual' | 'email' | 'canvas' | 'meeting' | 'recording' | 'chat';

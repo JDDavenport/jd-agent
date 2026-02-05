@@ -16,10 +16,11 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
-import { useSchoolTasks, useBooks, useCompleteTask, useDueFlashcards, useVideos } from '../hooks/useStudy';
+import { useSchoolTasks, useBooks, useCompleteTask, useDueFlashcards, useVideos, useMaterialsByCanvasCourseId } from '../hooks/useStudy';
 import { getCourseById, matchCourse, CANVAS_COURSE_IDS } from '../types/courses';
 import { TaskDetailModal } from '../components/TaskDetailModal';
 import type { Task, Book, Video } from '../types';
+import type { CourseMaterial } from '../api';
 
 type TabId = 'overview' | 'tasks' | 'readings' | 'calendar';
 
@@ -35,6 +36,7 @@ export function CourseView() {
   const { data: allTasks, isLoading: tasksLoading } = useSchoolTasks();
   const { data: allBooks, isLoading: booksLoading } = useBooks();
   const { data: allVideos, isLoading: videosLoading } = useVideos(canvasCourseId);
+  const { data: canvasMaterials, isLoading: materialsLoading } = useMaterialsByCanvasCourseId(canvasCourseId);
   const { data: allFlashcards } = useDueFlashcards();
   const completeTask = useCompleteTask();
 
@@ -96,9 +98,10 @@ export function CourseView() {
       dueSoon: dueSoonTasks.length,
       readings: courseBooks.length,
       videos: courseVideos.length,
+      materials: canvasMaterials?.length || 0,
       estimatedHours: Math.round(totalMinutes / 60 * 10) / 10,
     };
-  }, [courseTasks, courseBooks, courseVideos]);
+  }, [courseTasks, courseBooks, courseVideos, canvasMaterials]);
 
   const handleCompleteTask = useCallback(async (taskId: string) => {
     await completeTask.mutateAsync(taskId);
@@ -115,7 +118,7 @@ export function CourseView() {
     );
   }
 
-  if (tasksLoading || booksLoading || videosLoading) {
+  if (tasksLoading || booksLoading || videosLoading || materialsLoading) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
         <div className="animate-pulse space-y-4">
@@ -130,7 +133,7 @@ export function CourseView() {
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: 'Tasks', count: stats.active },
-    { id: 'readings', label: 'Materials', count: stats.readings + stats.videos },
+    { id: 'readings', label: 'Materials', count: stats.readings + stats.videos + stats.materials },
     { id: 'calendar', label: 'Calendar' },
   ];
 
@@ -238,7 +241,7 @@ export function CourseView() {
             />
           )}
           {activeTab === 'readings' && (
-            <ReadingsTab course={course} books={courseBooks} videos={courseVideos} />
+            <ReadingsTab course={course} books={courseBooks} videos={courseVideos} materials={canvasMaterials || []} />
           )}
           {activeTab === 'calendar' && (
             <CalendarTab course={course} tasks={courseTasks} onTaskClick={setSelectedTask} />
@@ -665,15 +668,27 @@ interface ReadingsTabProps {
   course: ReturnType<typeof getCourseById>;
   books: Book[];
   videos: Video[];
+  materials: CourseMaterial[];
 }
 
-function ReadingsTab({ course, books, videos }: ReadingsTabProps) {
+function ReadingsTab({ course, books, videos, materials }: ReadingsTabProps) {
   const readyBooks = books.filter((b) => b.status === 'ready');
   const processingBooks = books.filter((b) => b.status === 'processing');
   const readyVideos = videos.filter((v) => v.status === 'ready');
   const processingVideos = videos.filter((v) => v.status === 'pending' || v.status === 'processing');
 
-  const hasContent = readyBooks.length > 0 || readyVideos.length > 0;
+  // Group materials by module
+  const materialsByModule = useMemo(() => {
+    const grouped: Record<string, CourseMaterial[]> = {};
+    for (const m of materials) {
+      const key = m.moduleName || 'Other Materials';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(m);
+    }
+    return Object.entries(grouped);
+  }, [materials]);
+
+  const hasContent = readyBooks.length > 0 || readyVideos.length > 0 || materials.length > 0;
   const hasProcessing = processingBooks.length > 0 || processingVideos.length > 0;
 
   return (
@@ -685,6 +700,30 @@ function ReadingsTab({ course, books, videos }: ReadingsTabProps) {
             {processingBooks.length > 0 && processingVideos.length > 0 && ' • '}
             {processingVideos.length > 0 && `${processingVideos.length} video(s) processing`}
           </p>
+        </div>
+      )}
+
+      {/* Canvas Materials Section */}
+      {materials.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <BookOpenIcon className="w-5 h-5 text-orange-500" />
+            Course Materials ({materials.length})
+          </h3>
+          <div className="space-y-4">
+            {materialsByModule.map(([moduleName, moduleItems]) => (
+              <div key={moduleName} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700">{moduleName}</h4>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {moduleItems.map((material) => (
+                    <MaterialRow key={material.id} material={material} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -708,7 +747,7 @@ function ReadingsTab({ course, books, videos }: ReadingsTabProps) {
         <div>
           <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
             <BookOpenIcon className="w-5 h-5 text-blue-500" />
-            Readings ({readyBooks.length})
+            Uploaded PDFs ({readyBooks.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {readyBooks.map((book) => (
@@ -728,6 +767,42 @@ function ReadingsTab({ course, books, videos }: ReadingsTabProps) {
         </div>
       )}
     </div>
+  );
+}
+
+function MaterialRow({ material }: { material: CourseMaterial }) {
+  const getTypeIcon = (type: string) => {
+    if (type.includes('pdf') || type.includes('doc')) return '📄';
+    if (type.includes('ppt') || type.includes('slide')) return '📊';
+    if (type.includes('page')) return '📝';
+    if (type.includes('video')) return '🎬';
+    if (type.includes('link')) return '🔗';
+    return '📁';
+  };
+
+  return (
+    <a
+      href={material.canvasUrl || material.downloadUrl || '#'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors"
+    >
+      <span className="text-lg">{getTypeIcon(material.fileType)}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 truncate">
+          {material.displayName || material.fileName}
+        </p>
+        {material.materialType && (
+          <span className="text-xs text-gray-500 capitalize">{material.materialType}</span>
+        )}
+      </div>
+      {material.readStatus === 'completed' ? (
+        <CheckCircleSolid className="w-5 h-5 text-green-500 flex-shrink-0" />
+      ) : material.readProgress > 0 ? (
+        <span className="text-xs text-orange-600">{material.readProgress}%</span>
+      ) : null}
+      <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+    </a>
   );
 }
 

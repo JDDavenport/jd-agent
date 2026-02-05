@@ -6,3 +6,7 @@ export { ReadingDetailView } from './ReadingDetailView';
 export { CalendarView } from './CalendarView';
 export { PomodoroView } from './PomodoroView';
 export { FlashcardsView } from './FlashcardsView';
+export { CanvasView } from './CanvasView';
+export { LectureDetailView } from './LectureDetailView';
+export { ThisWeekView } from './ThisWeekView';
+export { VideoDetailView } from './VideoDetailView';

@@ -267,6 +267,53 @@ export async function searchBooks(
 }
 
 // ============================================
+// Course Materials API (Canvas)
+// ============================================
+
+export interface CourseMaterial {
+  id: string;
+  courseId: string;
+  fileName: string;
+  displayName: string | null;
+  fileType: string;
+  materialType: string | null;
+  moduleName: string | null;
+  canvasUrl: string | null;
+  downloadUrl: string | null;
+  readStatus: string;
+  readProgress: number;
+  aiSummary: string | null;
+}
+
+export async function getCourseMaterials(courseId: string): Promise<CourseMaterial[]> {
+  try {
+    // The by-course endpoint returns materials grouped by module name
+    const grouped = await fetchApi<Record<string, CourseMaterial[]>>(`${API_BASE}/canvas-materials/by-course/${courseId}`);
+    // Flatten into array
+    return Object.values(grouped).flat();
+  } catch {
+    return [];
+  }
+}
+
+export async function getMaterialsByCanvasCourseId(canvasCourseId: string): Promise<CourseMaterial[]> {
+  try {
+    // First get the class UUID from canvas course ID
+    const classesResponse = await fetch(`${API_BASE}/classes/with-canvas-ids`);
+    const classesData = await classesResponse.json();
+    
+    if (!classesData.success) return [];
+    
+    const cls = classesData.data?.find((c: any) => c.canvasCourseId === canvasCourseId);
+    if (!cls) return [];
+    
+    return getCourseMaterials(cls.id);
+  } catch {
+    return [];
+  }
+}
+
+// ============================================
 // Video API
 // ============================================
 
@@ -332,4 +379,76 @@ export async function updateVideo(
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
+}
+
+// ============================================
+// Lectures API
+// ============================================
+
+import type { Lecture, LectureDetail } from './types/lecture';
+
+export async function getLectures(courseId: string): Promise<Lecture[]> {
+  return fetchApi<Lecture[]>(`${API_BASE}/lectures/${courseId}`);
+}
+
+export async function getLecture(courseId: string, lectureId: string): Promise<LectureDetail> {
+  return fetchApi<LectureDetail>(`${API_BASE}/lectures/${courseId}/${lectureId}`);
+}
+
+export function getLectureAudioUrl(courseId: string, lectureId: string): string {
+  return `${API_BASE}/lectures/${courseId}/${lectureId}/audio`;
+}
+
+// ============================================
+// Course AI Chat API
+// ============================================
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  response: string;
+  sources: string[];
+  model: string;
+}
+
+export async function sendCourseChat(
+  courseId: string,
+  message: string,
+  history?: ChatMessage[]
+): Promise<ChatResponse> {
+  return fetchApi<ChatResponse>(`${API_BASE}/courses/${courseId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ message, history }),
+  });
+}
+
+// ============================================
+// Remarkable Notes API
+// ============================================
+
+export interface RemarkableNote {
+  id: string;
+  name: string;
+  pages: number;
+  preview: string;
+  ocrText: string;
+}
+
+export async function getRemarkableNotes(courseId: string): Promise<RemarkableNote[]> {
+  return fetchApi<RemarkableNote[]>(`${API_BASE}/courses/${courseId}/remarkable`);
+}
+
+export function getRemarkablePdfUrl(courseId: string, noteId: string): string {
+  return `${API_BASE}/courses/${courseId}/remarkable/${noteId}/pdf`;
+}
+
+// ============================================
+// Tasks API (additional functions)
+// ============================================
+
+export async function reopenTask(taskId: string): Promise<Task> {
+  return fetchApi<Task>(`${API_BASE}/tasks/${taskId}/reopen`, { method: 'POST' });
 }

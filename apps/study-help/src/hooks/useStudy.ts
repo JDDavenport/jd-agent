@@ -288,6 +288,34 @@ export function useSearch(query: string, bookId?: string) {
 }
 
 // ============================================
+// Course Materials Hooks (Canvas)
+// ============================================
+
+export function useCourseMaterials(courseId?: string) {
+  return useQuery({
+    queryKey: ['courseMaterials', courseId],
+    queryFn: async () => {
+      if (!courseId) return [];
+      return await api.getCourseMaterials(courseId);
+    },
+    enabled: !!courseId,
+    retry: false,
+  });
+}
+
+export function useMaterialsByCanvasCourseId(canvasCourseId?: string) {
+  return useQuery({
+    queryKey: ['courseMaterials', 'canvas', canvasCourseId],
+    queryFn: async () => {
+      if (!canvasCourseId) return [];
+      return await api.getMaterialsByCanvasCourseId(canvasCourseId);
+    },
+    enabled: !!canvasCourseId,
+    retry: false,
+  });
+}
+
+// ============================================
 // Video Hooks
 // ============================================
 
@@ -348,6 +376,54 @@ export function useReprocessVideo() {
     onSuccess: (_, videoId) => {
       queryClient.invalidateQueries({ queryKey: ['video', videoId] });
       queryClient.invalidateQueries({ queryKey: ['videos'] });
+    },
+  });
+}
+
+// ============================================
+// Lecture Hooks
+// ============================================
+
+export function useLectures(courseId: string) {
+  return useQuery({
+    queryKey: ['lectures', courseId],
+    queryFn: () => api.getLectures(courseId),
+    enabled: !!courseId,
+    retry: false,
+  });
+}
+
+export function useLecture(courseId: string, lectureId: string) {
+  return useQuery({
+    queryKey: ['lecture', courseId, lectureId],
+    queryFn: () => api.getLecture(courseId, lectureId),
+    enabled: !!courseId && !!lectureId,
+  });
+}
+
+// ============================================
+// Remarkable Notes Hooks
+// ============================================
+
+export function useRemarkableNotes(courseId: string) {
+  return useQuery({
+    queryKey: ['remarkable', courseId],
+    queryFn: () => api.getRemarkableNotes(courseId),
+    enabled: !!courseId,
+    retry: false,
+  });
+}
+
+// ============================================
+// Tasks Hooks (additional)
+// ============================================
+
+export function useReopenTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.reopenTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 }
