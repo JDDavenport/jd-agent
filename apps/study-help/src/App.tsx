@@ -23,6 +23,7 @@ import { ReadingDetailView } from './views/ReadingDetailView';
 import { VideoDetailView } from './views/VideoDetailView';
 import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -118,19 +119,21 @@ export default function App() {
 
         {/* Page content */}
         <main className="flex-1 overflow-auto">
-          <Routes>
-            <Route path="/" element={<DashboardView />} />
-            <Route path="/course/:courseId" element={<CourseView />} />
-            <Route path="/course/:courseId/readings/:bookId" element={<ReadingDetailView />} />
-            <Route path="/course/:courseId/readings/:bookId/chapters/:chapterId" element={<ReadingDetailView />} />
-            <Route path="/course/:courseId/videos/:videoId" element={<VideoDetailView />} />
-            <Route path="/readings/:bookId" element={<ReadingDetailView />} />
-            <Route path="/readings/:bookId/chapters/:chapterId" element={<ReadingDetailView />} />
-            <Route path="/videos/:videoId" element={<VideoDetailView />} />
-            <Route path="/this-week" element={<ThisWeekView />} />
-            <Route path="/timer" element={<PomodoroView />} />
-            <Route path="/flashcards" element={<FlashcardsView />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<ErrorBoundary><DashboardView /></ErrorBoundary>} />
+              <Route path="/course/:courseId" element={<ErrorBoundary><CourseView /></ErrorBoundary>} />
+              <Route path="/course/:courseId/readings/:bookId" element={<ErrorBoundary><ReadingDetailView /></ErrorBoundary>} />
+              <Route path="/course/:courseId/readings/:bookId/chapters/:chapterId" element={<ErrorBoundary><ReadingDetailView /></ErrorBoundary>} />
+              <Route path="/course/:courseId/videos/:videoId" element={<ErrorBoundary><VideoDetailView /></ErrorBoundary>} />
+              <Route path="/readings/:bookId" element={<ErrorBoundary><ReadingDetailView /></ErrorBoundary>} />
+              <Route path="/readings/:bookId/chapters/:chapterId" element={<ErrorBoundary><ReadingDetailView /></ErrorBoundary>} />
+              <Route path="/videos/:videoId" element={<ErrorBoundary><VideoDetailView /></ErrorBoundary>} />
+              <Route path="/this-week" element={<ErrorBoundary><ThisWeekView /></ErrorBoundary>} />
+              <Route path="/timer" element={<ErrorBoundary><PomodoroView /></ErrorBoundary>} />
+              <Route path="/flashcards" element={<ErrorBoundary><FlashcardsView /></ErrorBoundary>} />
+            </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </div>
