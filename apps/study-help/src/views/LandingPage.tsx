@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   AcademicCapIcon,
   ClipboardDocumentListIcon,
@@ -54,8 +54,11 @@ export function LandingPage() {
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
-    localStorage.setItem('studyaide_authenticated', 'true');
-    navigate('/app');
+    navigate('/sign-up');
+  };
+
+  const handleSignIn = () => {
+    navigate('/sign-in');
   };
 
   return (
@@ -68,7 +71,7 @@ export function LandingPage() {
             <span className="text-lg font-semibold tracking-tight">Study Aide</span>
           </div>
           <button
-            onClick={handleGetStarted}
+            onClick={handleSignIn}
             className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             Sign in

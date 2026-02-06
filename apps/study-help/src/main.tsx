@@ -2,11 +2,16 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ClerkProvider } from '@clerk/clerk-react';
 import { ErrorBoundary } from './ErrorBoundary';
 import App from './App';
 import './index.css';
 
-console.log('=== STUDY-HELP LOADING ===');
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY environment variable');
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,29 +23,20 @@ const queryClient = new QueryClient({
 });
 
 const rootEl = document.getElementById('root');
-console.log('Root element:', rootEl);
 
 if (rootEl) {
-  try {
-    console.log('Creating React root...');
-    const root = ReactDOM.createRoot(rootEl);
-    console.log('Rendering app...');
-    root.render(
-      <React.StrictMode>
-        <ErrorBoundary>
+  const root = ReactDOM.createRoot(rootEl);
+  root.render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
           <QueryClientProvider client={queryClient}>
             <BrowserRouter>
               <App />
             </BrowserRouter>
           </QueryClientProvider>
-        </ErrorBoundary>
-      </React.StrictMode>
-    );
-    console.log('Render called successfully');
-  } catch (e) {
-    console.error('FATAL RENDER ERROR:', e);
-    rootEl.innerHTML = '<pre style="color:red">RENDER ERROR: ' + String(e) + '</pre>';
-  }
-} else {
-  console.error('ROOT ELEMENT NOT FOUND!');
+        </ClerkProvider>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
 }

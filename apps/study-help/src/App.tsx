@@ -1,5 +1,12 @@
-import { Routes, Route, NavLink, useLocation, useParams, Navigate } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
+import {
+  SignedIn,
+  SignedOut,
+  SignIn,
+  SignUp,
+  UserButton,
+} from '@clerk/clerk-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -25,19 +32,38 @@ import { VideoDetailView } from './views/VideoDetailView';
 import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
 import { ErrorBoundary } from './ErrorBoundary';
-
-function isAuthenticated() {
-  return localStorage.getItem('studyaide_authenticated') === 'true';
-}
+import { ClerkTokenProvider } from './components/ClerkTokenProvider';
 
 export default function App() {
+  return (
+    <>
+      <SignedOut>
+        <Routes>
+          <Route path="/sign-in/*" element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+            </div>
+          } />
+          <Route path="/sign-up/*" element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+            </div>
+          } />
+          <Route path="*" element={<LandingPage />} />
+        </Routes>
+      </SignedOut>
+      <SignedIn>
+        <ClerkTokenProvider>
+          <AuthenticatedApp />
+        </ClerkTokenProvider>
+      </SignedIn>
+    </>
+  );
+}
+
+function AuthenticatedApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-
-  // Landing page for unauthenticated users
-  if (location.pathname === '/' && !isAuthenticated()) {
-    return <LandingPage />;
-  }
   const { data: tasks } = useSchoolTasks();
 
   // Count tasks per course
@@ -104,9 +130,12 @@ export default function App() {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
         <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
-          <div className="flex h-16 items-center px-4 border-b border-gray-200">
-            <AcademicCapIcon className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-xl font-bold text-gray-900">Study Help</span>
+          <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
+            <div className="flex items-center">
+              <AcademicCapIcon className="h-8 w-8 text-blue-600" />
+              <span className="ml-2 text-xl font-bold text-gray-900">Study Help</span>
+            </div>
+            <UserButton afterSignOutUrl="/" />
           </div>
           <div className="flex-1 overflow-y-auto">
             <SidebarContent taskCounts={taskCounts} />
@@ -117,14 +146,17 @@ export default function App() {
       {/* Main content */}
       <div className="flex flex-1 flex-col lg:pl-72">
         {/* Mobile header */}
-        <div className="sticky top-0 z-10 flex h-16 items-center gap-4 bg-white border-b border-gray-200 px-4 lg:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <Bars3Icon className="h-6 w-6" />
-          </button>
-          <span className="text-lg font-semibold text-gray-900">{getPageTitle()}</span>
+        <div className="sticky top-0 z-10 flex h-16 items-center justify-between bg-white border-b border-gray-200 px-4 lg:hidden">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <Bars3Icon className="h-6 w-6" />
+            </button>
+            <span className="text-lg font-semibold text-gray-900">{getPageTitle()}</span>
+          </div>
+          <UserButton afterSignOutUrl="/" />
         </div>
 
         {/* Page content */}
@@ -142,6 +174,9 @@ export default function App() {
               <Route path="/this-week" element={<ErrorBoundary><ThisWeekView /></ErrorBoundary>} />
               <Route path="/timer" element={<ErrorBoundary><PomodoroView /></ErrorBoundary>} />
               <Route path="/flashcards" element={<ErrorBoundary><FlashcardsView /></ErrorBoundary>} />
+              {/* Redirect sign-in/sign-up to home when already authenticated */}
+              <Route path="/sign-in/*" element={<Navigate to="/" replace />} />
+              <Route path="/sign-up/*" element={<Navigate to="/" replace />} />
             </Routes>
           </ErrorBoundary>
         </main>
