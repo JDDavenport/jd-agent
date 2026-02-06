@@ -8,6 +8,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronRightIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSchoolTasks } from './hooks/useStudy';
