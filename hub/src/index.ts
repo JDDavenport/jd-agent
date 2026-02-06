@@ -108,6 +108,7 @@ import { studyHelpAuthRouter } from './api/routes/study-help-auth';
 import { studyHelpCoursesRouter } from './api/routes/study-help-courses';
 import { studyHelpChatRouter } from './api/routes/study-help-chat';
 import { studyHelpSyncRouter } from './api/routes/study-help-sync';
+import { canvasConnectRouter } from './api/routes/canvas-connect';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -278,6 +279,7 @@ app.route('/api/study-help/auth', studyHelpAuthRouter);
 app.route('/api/study-help/courses', studyHelpCoursesRouter);
 app.route('/api/study-help/chat', studyHelpChatRouter);
 app.route('/api/study-help/sync', studyHelpSyncRouter);
+app.route('/api/canvas', canvasConnectRouter);
 app.route('/api/plaud', plaudDashboardRouter);
 
 // Web UI

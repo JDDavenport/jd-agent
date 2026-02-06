@@ -16,6 +16,7 @@ import {
   XMarkIcon,
   ChevronRightIcon,
   CalendarDaysIcon,
+  LinkIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSchoolTasks } from './hooks/useStudy';
@@ -33,6 +34,7 @@ import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ClerkTokenProvider } from './components/ClerkTokenProvider';
+import { CanvasConnectView } from './views/CanvasConnectView';
 
 export default function App() {
   return (
@@ -174,6 +176,7 @@ function AuthenticatedApp() {
               <Route path="/this-week" element={<ErrorBoundary><ThisWeekView /></ErrorBoundary>} />
               <Route path="/timer" element={<ErrorBoundary><PomodoroView /></ErrorBoundary>} />
               <Route path="/flashcards" element={<ErrorBoundary><FlashcardsView /></ErrorBoundary>} />
+              <Route path="/canvas/connect" element={<ErrorBoundary><CanvasConnectView /></ErrorBoundary>} />
               {/* Redirect sign-in/sign-up to home when already authenticated */}
               <Route path="/sign-in/*" element={<Navigate to="/" replace />} />
               <Route path="/sign-up/*" element={<Navigate to="/" replace />} />
@@ -282,6 +285,30 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
         >
           <AcademicCapIcon className="h-5 w-5" />
           All Flashcards
+        </NavLink>
+      </div>
+
+      {/* Canvas connect */}
+      <div className="px-3 mt-6 mb-2">
+        <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Settings
+        </h3>
+      </div>
+      <div className="px-3 space-y-1">
+        <NavLink
+          to="/canvas/connect"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            )
+          }
+        >
+          <LinkIcon className="h-5 w-5" />
+          Connect Canvas
         </NavLink>
       </div>
 
