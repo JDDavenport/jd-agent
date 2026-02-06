@@ -1,3 +1,4 @@
+export { LandingPage } from './LandingPage';
 export { DashboardView } from './DashboardView';
 export { CourseView } from './CourseView';
 export { TasksView } from './TasksView';

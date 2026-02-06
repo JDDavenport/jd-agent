@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation, useParams, Navigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import {
   HomeIcon,
@@ -16,6 +16,7 @@ import { COURSES, getCourseById, matchCourse } from './types/courses';
 import type { Course } from './types/courses';
 
 // Views
+import { LandingPage } from './views/LandingPage';
 import { DashboardView } from './views/DashboardView';
 import { ThisWeekView } from './views/ThisWeekView';
 import { CourseView } from './views/CourseView';
@@ -25,9 +26,18 @@ import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
 import { ErrorBoundary } from './ErrorBoundary';
 
+function isAuthenticated() {
+  return localStorage.getItem('studyaide_authenticated') === 'true';
+}
+
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+
+  // Landing page for unauthenticated users
+  if (location.pathname === '/' && !isAuthenticated()) {
+    return <LandingPage />;
+  }
   const { data: tasks } = useSchoolTasks();
 
   // Count tasks per course
