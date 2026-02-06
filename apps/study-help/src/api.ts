@@ -47,6 +47,7 @@ export async function getTasks(filters?: {
 }): Promise<Task[]> {
   const params = new URLSearchParams();
   params.set('limit', '500'); // Get enough tasks
+  params.set('includeCompleted', 'true'); // Include done/archived for progress tracking
   if (filters?.status) params.set('status', filters.status);
   if (filters?.context) params.set('context', filters.context);
   if (filters?.source) params.set('source', filters.source);
