@@ -100,13 +100,42 @@ async function pushTasks(tasks: Task[], hubUrl: string, classMappings: Map<strin
   let success = 0;
   const errors: string[] = [];
 
+  // Fetch existing Canvas tasks to deduplicate by sourceRef
+  const existingSourceRefs = new Set<string>();
+  try {
+    const response = await fetch(`${hubUrl}/api/tasks?source=canvas&includeCompleted=true&limit=1000`);
+    if (response.ok) {
+      const result = await response.json();
+      const existingTasks = result.data || [];
+      for (const t of existingTasks) {
+        if (t.sourceRef) {
+          existingSourceRefs.add(t.sourceRef);
+        }
+      }
+      console.log(`  Found ${existingSourceRefs.size} existing Canvas tasks (dedup)`);
+    }
+  } catch (e) {
+    console.log('  Warning: Could not fetch existing tasks for dedup, will push all');
+  }
+
+  // Filter out tasks that already exist
+  const newTasks = tasks.filter(t => !existingSourceRefs.has(t.rawId));
+  const skipped = tasks.length - newTasks.length;
+  if (skipped > 0) {
+    console.log(`  Skipping ${skipped} duplicate tasks, pushing ${newTasks.length} new`);
+  }
+
+  if (newTasks.length === 0) {
+    return { success: skipped, errors: [] };
+  }
+
   // Try batch push first
   try {
     const response = await fetch(`${hubUrl}/api/ingestion/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tasks: tasks.map(t => {
+        tasks: newTasks.map(t => {
           const cls = classMappings.get(t.courseId);
           return {
             title: t.title,
@@ -125,14 +154,14 @@ async function pushTasks(tasks: Task[], hubUrl: string, classMappings: Map<strin
 
     if (response.ok) {
       const result = await response.json();
-      return { success: result.data?.created || tasks.length, errors: [] };
+      return { success: (result.data?.created || newTasks.length) + skipped, errors: [] };
     }
   } catch (e) {
     console.log('  Batch push failed, falling back to individual');
   }
 
   // Fallback to individual pushes
-  for (const task of tasks) {
+  for (const task of newTasks) {
     try {
       const cls = classMappings.get(task.courseId);
       const response = await fetch(`${hubUrl}/api/tasks`, {
@@ -166,7 +195,7 @@ async function pushTasks(tasks: Task[], hubUrl: string, classMappings: Map<strin
     }
   }
 
-  return { success, errors };
+  return { success: success + skipped, errors };
 }
 
 /**
