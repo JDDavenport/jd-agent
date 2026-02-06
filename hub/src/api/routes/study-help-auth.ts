@@ -223,8 +223,8 @@ studyHelpAuthRouter.post('/register', async (c) => {
     // Set cookie
     setCookie(c, COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax',
+      secure: true,
+      sameSite: 'None',
       path: '/',
       maxAge: SESSION_DURATION_DAYS * 24 * 60 * 60,
     });
@@ -308,8 +308,8 @@ studyHelpAuthRouter.post('/login', async (c) => {
     // Set cookie
     setCookie(c, COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax',
+      secure: true,
+      sameSite: 'None',
       path: '/',
       maxAge: SESSION_DURATION_DAYS * 24 * 60 * 60,
     });

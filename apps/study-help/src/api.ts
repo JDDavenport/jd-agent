@@ -20,6 +20,7 @@ interface ApiResponse<T> {
 async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
@@ -479,6 +480,7 @@ export async function streamClassGPTMessage(
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/study-help/chat`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ canvasCourseId, message, courseName, stream: true }),
   });

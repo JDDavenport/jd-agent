@@ -107,6 +107,7 @@ import readHelpRouter from './api/routes/read-help';
 import { studyHelpAuthRouter } from './api/routes/study-help-auth';
 import { studyHelpCoursesRouter } from './api/routes/study-help-courses';
 import { studyHelpChatRouter } from './api/routes/study-help-chat';
+import { studyHelpSyncRouter } from './api/routes/study-help-sync';
 import { errorHandler, requestLogger, AppError } from './api/middleware/error-handler';
 import { getTelegramBot } from './integrations/telegram-bot';
 import { MasterAgent } from './agents/master-agent';
@@ -128,6 +129,8 @@ app.use('*', cors({
     if (origin?.endsWith('.vercel.app')) return origin;
     // Allow specific production domains
     if (origin === 'https://jdagent.app' || origin === 'https://www.jdagent.app') return origin;
+    // Allow Study Aide domains
+    if (origin === 'https://studyaide.app' || origin === 'https://www.studyaide.app') return origin;
     // Allow Cloudflare tunnel domain (api.jdagent.dev or custom)
     if (origin?.endsWith('.jdagent.dev')) return origin;
     // Allow additional origins from environment (for custom tunnel domains)
@@ -274,6 +277,7 @@ app.route('/api/read-help', readHelpRouter);
 app.route('/api/study-help/auth', studyHelpAuthRouter);
 app.route('/api/study-help/courses', studyHelpCoursesRouter);
 app.route('/api/study-help/chat', studyHelpChatRouter);
+app.route('/api/study-help/sync', studyHelpSyncRouter);
 app.route('/api/plaud', plaudDashboardRouter);
 
 // Web UI
