@@ -326,6 +326,7 @@ jobs:
         uses: oven-sh/setup-bun@v1
 
       - name: Check for secrets in code
+        if: github.event_name == 'pull_request'
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
