@@ -4,13 +4,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Environment types
-export type Environment = 'development' | 'staging' | 'production';
+export type Environment = 'development' | 'staging' | 'production' | 'test';
 
 // Zod schema for environment variables
 const envSchema = z.object({
   // Core settings
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
-  APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
+  APP_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
   PORT: z.string().transform(Number).default('3000'),
 
   // Database - Neon PostgreSQL
