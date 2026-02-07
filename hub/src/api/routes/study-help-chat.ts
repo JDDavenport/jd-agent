@@ -7,7 +7,6 @@
  */
 
 import { Hono } from 'hono';
-import { getCookie } from 'hono/cookie';
 import { streamSSE } from 'hono/streaming';
 import { db } from '../../db/client';
 import {
@@ -19,12 +18,16 @@ import {
   transcripts,
 } from '../../db/schema';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
-import { getUserFromSession } from './study-help-auth';
+import { requireClerkAuth } from '../middleware/clerk-auth';
+import { resolveUser, getUserId } from '../middleware/resolve-user';
 import Anthropic from '@anthropic-ai/sdk';
 
-const studyHelpChatRouter = new Hono();
+type Env = { Variables: { clerkUserId: string; userId: string } };
+const studyHelpChatRouter = new Hono<Env>();
 
-const COOKIE_NAME = 'study_help_session';
+// Apply Clerk auth to all chat routes
+studyHelpChatRouter.use('*', requireClerkAuth);
+studyHelpChatRouter.use('*', resolveUser);
 const MAX_CONTEXT_CHARS = 80_000; // Leave room for system prompt + conversation
 const MAX_HISTORY_MESSAGES = 20; // Last N messages to include in conversation
 const MAX_MATERIAL_SNIPPETS = 15; // Max materials to include as context
@@ -203,15 +206,7 @@ INSTRUCTIONS:
  * Supports streaming via SSE.
  */
 studyHelpChatRouter.post('/', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
-
-  if (!user) {
-    return c.json({
-      success: false,
-      error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-    }, 401);
-  }
+  const userId = getUserId(c);
 
   try {
     const body = await c.req.json();
@@ -230,7 +225,7 @@ studyHelpChatRouter.post('/', async (c) => {
       .from(studyHelpUserCourses)
       .where(
         and(
-          eq(studyHelpUserCourses.userId, user.id),
+          eq(studyHelpUserCourses.userId, userId),
           eq(studyHelpUserCourses.canvasCourseId, canvasCourseId),
           eq(studyHelpUserCourses.isActive, true)
         )
@@ -242,7 +237,7 @@ studyHelpChatRouter.post('/', async (c) => {
 
     // Save the user message
     await db.insert(studyHelpChatMessages).values({
-      userId: user.id,
+      userId: userId,
       canvasCourseId,
       role: 'user',
       content: message,
@@ -254,7 +249,7 @@ studyHelpChatRouter.post('/', async (c) => {
       .from(studyHelpChatMessages)
       .where(
         and(
-          eq(studyHelpChatMessages.userId, user.id),
+          eq(studyHelpChatMessages.userId, userId),
           eq(studyHelpChatMessages.canvasCourseId, canvasCourseId)
         )
       )
@@ -307,7 +302,7 @@ studyHelpChatRouter.post('/', async (c) => {
 
           // Save the assistant response
           await db.insert(studyHelpChatMessages).values({
-            userId: user.id,
+            userId: userId,
             canvasCourseId,
             role: 'assistant',
             content: fullResponse,
@@ -352,7 +347,7 @@ studyHelpChatRouter.post('/', async (c) => {
 
     // Save the assistant response
     await db.insert(studyHelpChatMessages).values({
-      userId: user.id,
+      userId: userId,
       canvasCourseId,
       role: 'assistant',
       content: assistantContent,
@@ -385,15 +380,7 @@ studyHelpChatRouter.post('/', async (c) => {
  * Get chat history for a course
  */
 studyHelpChatRouter.get('/history/:canvasCourseId', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
-
-  if (!user) {
-    return c.json({
-      success: false,
-      error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-    }, 401);
-  }
+  const userId = getUserId(c);
 
   try {
     const canvasCourseId = c.req.param('canvasCourseId');
@@ -404,7 +391,7 @@ studyHelpChatRouter.get('/history/:canvasCourseId', async (c) => {
       .from(studyHelpChatMessages)
       .where(
         and(
-          eq(studyHelpChatMessages.userId, user.id),
+          eq(studyHelpChatMessages.userId, userId),
           eq(studyHelpChatMessages.canvasCourseId, canvasCourseId)
         )
       )
@@ -437,15 +424,7 @@ studyHelpChatRouter.get('/history/:canvasCourseId', async (c) => {
  * Clear chat history for a course
  */
 studyHelpChatRouter.delete('/history/:canvasCourseId', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
-
-  if (!user) {
-    return c.json({
-      success: false,
-      error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-    }, 401);
-  }
+  const userId = getUserId(c);
 
   try {
     const canvasCourseId = c.req.param('canvasCourseId');
@@ -454,7 +433,7 @@ studyHelpChatRouter.delete('/history/:canvasCourseId', async (c) => {
       .delete(studyHelpChatMessages)
       .where(
         and(
-          eq(studyHelpChatMessages.userId, user.id),
+          eq(studyHelpChatMessages.userId, userId),
           eq(studyHelpChatMessages.canvasCourseId, canvasCourseId)
         )
       );
@@ -477,15 +456,7 @@ studyHelpChatRouter.delete('/history/:canvasCourseId', async (c) => {
  * Get available context sources for a course (for UI display)
  */
 studyHelpChatRouter.get('/sources/:canvasCourseId', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
-
-  if (!user) {
-    return c.json({
-      success: false,
-      error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-    }, 401);
-  }
+  const userId = getUserId(c);
 
   try {
     const canvasCourseId = c.req.param('canvasCourseId');

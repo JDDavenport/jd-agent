@@ -158,7 +158,7 @@ export class ReadHelpService {
   async uploadBook(
     file: File | Buffer,
     filename: string,
-    metadata?: { title?: string; author?: string; tags?: string[] }
+    metadata?: { title?: string; author?: string; tags?: string[]; userId?: string }
   ): Promise<Book> {
     // Generate file hash for deduplication
     const buffer = file instanceof File ? Buffer.from(await file.arrayBuffer()) : file;
@@ -182,6 +182,7 @@ export class ReadHelpService {
       .values({
         title,
         author: metadata?.author || null,
+        userId: metadata?.userId || null,
         filePath: '', // Will update after saving file
         fileHash,
         fileSizeBytes: buffer.length,
@@ -830,15 +831,24 @@ export class ReadHelpService {
   /**
    * Get all books
    */
-  async listBooks(options?: { archived?: boolean; search?: string }): Promise<Book[]> {
-    let query = db.select().from(readHelpBooks);
+  async listBooks(options?: { archived?: boolean; search?: string; userId?: string }): Promise<Book[]> {
+    const conditions: any[] = [];
+
+    if (options?.userId) {
+      conditions.push(eq(readHelpBooks.userId, options.userId));
+    }
 
     if (options?.archived !== undefined) {
-      query = query.where(eq(readHelpBooks.isArchived, options.archived)) as typeof query;
+      conditions.push(eq(readHelpBooks.isArchived, options.archived));
     }
 
     if (options?.search) {
-      query = query.where(ilike(readHelpBooks.title, `%${options.search}%`)) as typeof query;
+      conditions.push(ilike(readHelpBooks.title, `%${options.search}%`));
+    }
+
+    let query = db.select().from(readHelpBooks);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     const books = await query.orderBy(desc(readHelpBooks.lastReadAt), desc(readHelpBooks.createdAt));

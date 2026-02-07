@@ -11,8 +11,15 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { videoService, extractYouTubeId } from '../../services/video-service';
+import { requireClerkAuth } from '../middleware/clerk-auth';
+import { resolveUser, getUserId } from '../middleware/resolve-user';
 
-const videosRouter = new Hono();
+type Env = { Variables: { clerkUserId: string; userId: string } };
+const videosRouter = new Hono<Env>();
+
+// Apply auth to all video routes
+videosRouter.use('*', requireClerkAuth);
+videosRouter.use('*', resolveUser);
 
 // ============================================
 // Video Management

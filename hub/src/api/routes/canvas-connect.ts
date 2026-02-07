@@ -101,20 +101,38 @@ function guessMaterialType(title: string, type: string): string {
 // ============================================
 
 async function getOrCreateUser(clerkUserId: string) {
-  // Check if user exists
+  // Check by clerk_id first
   let [user] = await db
     .select()
     .from(studyHelpUsers)
-    .where(eq(studyHelpUsers.email, `clerk:${clerkUserId}`))
+    .where(eq(studyHelpUsers.clerkId, clerkUserId))
     .limit(1);
 
+  // Fallback: check legacy email pattern
   if (!user) {
-    // Create a placeholder user linked to Clerk ID
+    [user] = await db
+      .select()
+      .from(studyHelpUsers)
+      .where(eq(studyHelpUsers.email, `clerk:${clerkUserId}`))
+      .limit(1);
+
+    // Backfill clerk_id
+    if (user) {
+      await db
+        .update(studyHelpUsers)
+        .set({ clerkId: clerkUserId })
+        .where(eq(studyHelpUsers.id, user.id));
+    }
+  }
+
+  if (!user) {
+    // Create a new user linked to Clerk ID
     [user] = await db
       .insert(studyHelpUsers)
       .values({
+        clerkId: clerkUserId,
         email: `clerk:${clerkUserId}`,
-        passwordHash: 'clerk-auth', // Not used — Clerk handles auth
+        passwordHash: 'clerk-auth',
         name: null,
         isActive: true,
       })

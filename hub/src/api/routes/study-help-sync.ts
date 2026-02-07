@@ -5,30 +5,36 @@
  */
 
 import { Hono } from 'hono';
-import { getCookie } from 'hono/cookie';
-import { getUserFromSession } from './study-help-auth';
+import { db } from '../../db/client';
+import { studyHelpUsers } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+import { requireClerkAuth } from '../middleware/clerk-auth';
+import { resolveUser, getUserId } from '../middleware/resolve-user';
 import { syncUserCanvas, syncAllUsers } from '../../services/study-help-sync';
 
-const studyHelpSyncRouter = new Hono();
+type Env = { Variables: { clerkUserId: string; userId: string } };
+const studyHelpSyncRouter = new Hono<Env>();
 
-const COOKIE_NAME = 'study_help_session';
+// Apply Clerk auth to user-facing sync routes
+studyHelpSyncRouter.use('/trigger', requireClerkAuth);
+studyHelpSyncRouter.use('/trigger', resolveUser);
+studyHelpSyncRouter.use('/status', requireClerkAuth);
+studyHelpSyncRouter.use('/status', resolveUser);
 
 /**
  * POST /api/study-help/sync/trigger
  * Trigger a full Canvas sync for the authenticated user
  */
 studyHelpSyncRouter.post('/trigger', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const user = await getUserFromSession(sessionToken);
+  const userId = getUserId(c);
 
-  if (!user) {
-    return c.json({
-      success: false,
-      error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-    }, 401);
-  }
+  const [user] = await db
+    .select()
+    .from(studyHelpUsers)
+    .where(eq(studyHelpUsers.id, userId))
+    .limit(1);
 
-  if (!user.canvasAccessTokenEncrypted) {
+  if (!user?.canvasAccessTokenEncrypted) {
     return c.json({
       success: false,
       error: { code: 'CANVAS_NOT_CONNECTED', message: 'Please connect your Canvas account first' },
@@ -36,9 +42,9 @@ studyHelpSyncRouter.post('/trigger', async (c) => {
   }
 
   try {
-    console.log(`[StudyHelpSync] Manual sync triggered for user ${user.email}`);
+    console.log(`[StudyHelpSync] Manual sync triggered for user ${userId}`);
     
-    const result = await syncUserCanvas(user.id);
+    const result = await syncUserCanvas(userId);
 
     return c.json({
       success: result.success,
@@ -65,22 +71,20 @@ studyHelpSyncRouter.post('/trigger', async (c) => {
  */
 studyHelpSyncRouter.get('/status', async (c) => {
   try {
-    const sessionToken = getCookie(c, COOKIE_NAME);
-    const user = await getUserFromSession(sessionToken);
+    const userId = getUserId(c);
 
-    if (!user) {
-      return c.json({
-        success: false,
-        error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' },
-      }, 401);
-    }
+    const [user] = await db
+      .select()
+      .from(studyHelpUsers)
+      .where(eq(studyHelpUsers.id, userId))
+      .limit(1);
 
     return c.json({
       success: true,
       data: {
-        canvasConnected: !!user.canvasAccessTokenEncrypted,
-        lastSyncAt: user.lastSyncAt?.toISOString() || null,
-        canvasUserId: user.canvasUserId,
+        canvasConnected: !!user?.canvasAccessTokenEncrypted,
+        lastSyncAt: user?.lastSyncAt?.toISOString() || null,
+        canvasUserId: user?.canvasUserId,
       },
     });
   } catch (error) {
@@ -97,7 +101,6 @@ studyHelpSyncRouter.get('/status', async (c) => {
  * Admin endpoint: Sync all users (requires admin check in production)
  */
 studyHelpSyncRouter.post('/all', async (c) => {
-  // In production, add admin authentication check here
   const adminKey = c.req.header('X-Admin-Key');
   const expectedKey = process.env.ADMIN_API_KEY;
   

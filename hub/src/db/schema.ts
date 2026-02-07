@@ -3680,6 +3680,9 @@ export const readHelpBooks = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
 
+    // User scoping
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
+
     // Core metadata
     title: text('title').notNull(),
     author: text('author'),
@@ -3720,6 +3723,7 @@ export const readHelpBooks = pgTable(
     index('read_help_books_title_idx').on(table.title),
     index('read_help_books_author_idx').on(table.author),
     index('read_help_books_archived_idx').on(table.isArchived),
+    index('read_help_books_user_id_idx').on(table.userId),
   ]
 );
 
@@ -3795,6 +3799,7 @@ export const readHelpConversations = pgTable(
   'read_help_conversations',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
     bookId: uuid('book_id')
       .references(() => readHelpBooks.id, { onDelete: 'cascade' })
       .notNull(),
@@ -3817,6 +3822,7 @@ export const readHelpConversations = pgTable(
   (table) => [
     index('read_help_conv_book_idx').on(table.bookId),
     index('read_help_conv_chapter_idx').on(table.chapterId),
+    index('read_help_conversations_user_id_idx').on(table.userId),
   ]
 );
 
@@ -3824,6 +3830,7 @@ export const readHelpHighlights = pgTable(
   'read_help_highlights',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
     bookId: uuid('book_id')
       .references(() => readHelpBooks.id, { onDelete: 'cascade' })
       .notNull(),
@@ -3852,6 +3859,7 @@ export const readHelpHighlights = pgTable(
     index('read_help_highlights_book_idx').on(table.bookId),
     index('read_help_highlights_chapter_idx').on(table.chapterId),
     index('read_help_highlights_page_idx').on(table.pageNumber),
+    index('read_help_highlights_user_id_idx').on(table.userId),
   ]
 );
 
@@ -3859,6 +3867,7 @@ export const readHelpQuizzes = pgTable(
   'read_help_quizzes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
     bookId: uuid('book_id')
       .references(() => readHelpBooks.id, { onDelete: 'cascade' })
       .notNull(),
@@ -3888,6 +3897,7 @@ export const readHelpQuizzes = pgTable(
     index('read_help_quizzes_book_idx').on(table.bookId),
     index('read_help_quizzes_chapter_idx').on(table.chapterId),
     index('read_help_quizzes_review_idx').on(table.nextReviewAt),
+    index('read_help_quizzes_user_id_idx').on(table.userId),
   ]
 );
 
@@ -3895,6 +3905,7 @@ export const readHelpProgress = pgTable(
   'read_help_progress',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
     bookId: uuid('book_id')
       .references(() => readHelpBooks.id, { onDelete: 'cascade' })
       .notNull()
@@ -3928,6 +3939,7 @@ export const readHelpProgress = pgTable(
   (table) => [
     index('read_help_progress_book_idx').on(table.bookId),
     index('read_help_progress_last_read_idx').on(table.lastReadAt),
+    index('read_help_progress_user_id_idx').on(table.userId),
   ]
 );
 
@@ -3936,6 +3948,7 @@ export const readHelpFlashcards = pgTable(
   'read_help_flashcards',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
     bookId: uuid('book_id')
       .references(() => readHelpBooks.id, { onDelete: 'cascade' })
       .notNull(),
@@ -3973,6 +3986,7 @@ export const readHelpFlashcards = pgTable(
     index('read_help_flashcards_chapter_idx').on(table.chapterId),
     index('read_help_flashcards_review_idx').on(table.nextReviewAt),
     index('read_help_flashcards_archived_idx').on(table.isArchived),
+    index('read_help_flashcards_user_id_idx').on(table.userId),
   ]
 );
 
@@ -3984,6 +3998,9 @@ export const readHelpVideos = pgTable(
   'read_help_videos',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+
+    // User scoping
+    userId: uuid('user_id').references(() => studyHelpUsers.id, { onDelete: 'cascade' }),
 
     // YouTube info
     youtubeId: text('youtube_id').notNull().unique(),
@@ -4039,6 +4056,7 @@ export const readHelpVideos = pgTable(
     index('read_help_videos_status_idx').on(table.status),
     index('read_help_videos_canvas_course_idx').on(table.canvasCourseId),
     index('read_help_videos_archived_idx').on(table.isArchived),
+    index('read_help_videos_user_id_idx').on(table.userId),
   ]
 );
 
@@ -4077,6 +4095,7 @@ export const studyHelpUsers = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     
     // Auth
+    clerkId: text('clerk_id').unique(),
     email: text('email').notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     name: text('name'),
@@ -4111,6 +4130,7 @@ export const studyHelpUsers = pgTable(
   },
   (table) => [
     index('study_help_users_email_idx').on(table.email),
+    index('study_help_users_clerk_id_idx').on(table.clerkId),
     index('study_help_users_active_idx').on(table.isActive),
   ]
 );

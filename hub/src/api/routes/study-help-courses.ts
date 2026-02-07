@@ -6,16 +6,20 @@
  */
 
 import { Hono } from 'hono';
-import { getCookie } from 'hono/cookie';
 import { db } from '../../db/client';
-import { studyHelpUserCourses } from '../../db/schema';
+import { studyHelpUsers, studyHelpUserCourses } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getUserFromSession, getDecryptedCanvasToken, getInstitutionForUser } from './study-help-auth';
+import { getDecryptedCanvasToken, getInstitutionForUser } from './study-help-auth';
 import { createUserCanvasClient, UserCanvasClient } from '../../integrations/canvas-user';
+import { requireClerkAuth } from '../middleware/clerk-auth';
+import { resolveUser, getUserId } from '../middleware/resolve-user';
 
-const studyHelpCoursesRouter = new Hono();
+type Env = { Variables: { clerkUserId: string; userId: string } };
+const studyHelpCoursesRouter = new Hono<Env>();
 
-const COOKIE_NAME = 'study_help_session';
+// Apply Clerk auth to all courses routes
+studyHelpCoursesRouter.use('*', requireClerkAuth);
+studyHelpCoursesRouter.use('*', resolveUser);
 
 // ============================================
 // Helper functions
@@ -62,16 +66,19 @@ function getCurrentTerm(): string {
 /**
  * Get Canvas client for the authenticated user
  */
-async function getUserCanvasClient(sessionToken: string | undefined): Promise<{
+async function getUserCanvasClient(userId: string): Promise<{
   user: any;
   canvasClient: UserCanvasClient | null;
   institution: any;
-  error?: { code: string; message: string };
 }> {
-  const user = await getUserFromSession(sessionToken);
-  
+  const [user] = await db
+    .select()
+    .from(studyHelpUsers)
+    .where(eq(studyHelpUsers.id, userId))
+    .limit(1);
+
   if (!user) {
-    return { user: null, canvasClient: null, institution: null, error: { code: 'NOT_AUTHENTICATED', message: 'Please log in' } };
+    return { user: null, canvasClient: null, institution: null };
   }
 
   // Get institution for Canvas URL
@@ -94,12 +101,8 @@ async function getUserCanvasClient(sessionToken: string | undefined): Promise<{
  * Get current user's enrolled courses
  */
 studyHelpCoursesRouter.get('/', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user } = await getUserCanvasClient(userId);
 
   try {
     const courses = await db
@@ -144,12 +147,8 @@ studyHelpCoursesRouter.get('/', async (c) => {
  * Get list of available courses from user's Canvas (for adding)
  */
 studyHelpCoursesRouter.get('/available', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user, canvasClient } = await getUserCanvasClient(userId);
 
   if (!canvasClient) {
     return c.json({
@@ -205,12 +204,8 @@ studyHelpCoursesRouter.get('/available', async (c) => {
  * Add a course to user's enrollment
  */
 studyHelpCoursesRouter.post('/', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user, canvasClient } = await getUserCanvasClient(userId);
 
   try {
     const body = await c.req.json();
@@ -307,12 +302,8 @@ studyHelpCoursesRouter.post('/', async (c) => {
  * Add multiple courses at once
  */
 studyHelpCoursesRouter.post('/bulk', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user, canvasClient } = await getUserCanvasClient(userId);
 
   try {
     const body = await c.req.json();
@@ -403,12 +394,8 @@ studyHelpCoursesRouter.post('/bulk', async (c) => {
  * Remove a course (soft delete)
  */
 studyHelpCoursesRouter.delete('/:courseId', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user } = await getUserCanvasClient(userId);
 
   try {
     const courseId = c.req.param('courseId');
@@ -449,12 +436,8 @@ studyHelpCoursesRouter.delete('/:courseId', async (c) => {
  * Toggle pin status
  */
 studyHelpCoursesRouter.patch('/:courseId/pin', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user } = await getUserCanvasClient(userId);
 
   try {
     const courseId = c.req.param('courseId');
@@ -501,12 +484,8 @@ studyHelpCoursesRouter.patch('/:courseId/pin', async (c) => {
  * Sync courses from user's Canvas
  */
 studyHelpCoursesRouter.post('/sync', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user, canvasClient } = await getUserCanvasClient(userId);
 
   if (!canvasClient) {
     return c.json({
@@ -602,12 +581,8 @@ studyHelpCoursesRouter.post('/sync', async (c) => {
  * Get courses directly from Canvas for preview
  */
 studyHelpCoursesRouter.get('/canvas', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, canvasClient, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user, canvasClient } = await getUserCanvasClient(userId);
 
   if (!canvasClient) {
     return c.json({
@@ -653,12 +628,8 @@ studyHelpCoursesRouter.get('/canvas', async (c) => {
  * Add a course manually (without Canvas)
  */
 studyHelpCoursesRouter.post('/manual', async (c) => {
-  const sessionToken = getCookie(c, COOKIE_NAME);
-  const { user, error } = await getUserCanvasClient(sessionToken);
-
-  if (error) {
-    return c.json({ success: false, error }, 401);
-  }
+  const userId = getUserId(c);
+  const { user } = await getUserCanvasClient(userId);
 
   try {
     const body = await c.req.json();

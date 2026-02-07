@@ -15,8 +15,15 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { readHelpService } from '../../services/read-help-service';
 import { videosRouter } from './videos';
+import { requireClerkAuth } from '../middleware/clerk-auth';
+import { resolveUser, getUserId } from '../middleware/resolve-user';
 
-const readHelpRouter = new Hono();
+type Env = { Variables: { clerkUserId: string; userId: string } };
+const readHelpRouter = new Hono<Env>();
+
+// Apply auth to all read-help routes
+readHelpRouter.use('*', requireClerkAuth);
+readHelpRouter.use('*', resolveUser);
 
 // Mount videos sub-router
 readHelpRouter.route('/videos', videosRouter);
@@ -53,10 +60,12 @@ readHelpRouter.post('/books', async (c) => {
 
     const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()) : undefined;
 
+    const userId = getUserId(c);
     const book = await readHelpService.uploadBook(file, file.name, {
       title: title || undefined,
       author: author || undefined,
       tags,
+      userId,
     });
 
     return c.json({ success: true, data: book }, 201);
@@ -88,9 +97,11 @@ readHelpRouter.get('/books', async (c) => {
     const archived = c.req.query('archived');
     const search = c.req.query('search');
 
+    const userId = getUserId(c);
     const books = await readHelpService.listBooks({
       archived: archived === 'true' ? true : archived === 'false' ? false : undefined,
       search: search || undefined,
+      userId,
     });
 
     return c.json({ success: true, data: books });
