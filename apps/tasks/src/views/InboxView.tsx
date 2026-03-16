@@ -38,13 +38,13 @@ export function InboxView() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div data-testid="inbox-view" className="max-w-3xl mx-auto">
       {/* Info banner */}
-      <div className="px-6 py-4 bg-blue-50 border-b border-blue-100">
+      <div data-testid="inbox-banner" className="px-6 py-4 bg-blue-50 border-b border-blue-100">
         <div className="flex items-start gap-3">
           <InboxIcon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm text-blue-800">
+            <p data-testid="inbox-count" className="text-sm text-blue-800">
               <strong>{tasks.length} items</strong> waiting to be processed.
             </p>
             <p className="text-xs text-blue-600 mt-1">
@@ -55,9 +55,9 @@ export function InboxView() {
       </div>
 
       {/* Task list */}
-      <div>
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+      <div data-testid="inbox-task-list">
+        {tasks.map((task, index) => (
+          <TaskCard key={task.id} task={task} index={index} onComplete={handleComplete} />
         ))}
         <InlineAddTask
           status="inbox"

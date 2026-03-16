@@ -45,35 +45,35 @@ function Habits() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div data-testid="habits-page" className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent">
+          <h1 data-testid="habits-title" className="text-3xl font-bold bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent">
             Habits
           </h1>
           <p className="text-text-muted mt-1">Build consistency with daily habits</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>+ New Habit</Button>
+        <Button data-testid="habits-create-button" onClick={() => setShowCreateModal(true)}>+ New Habit</Button>
       </div>
 
       {/* Today's Progress */}
-      <Card className="bg-gradient-to-r from-accent/10 to-accent-light/10 border-accent/30">
+      <Card data-testid="habits-progress-card" className="bg-gradient-to-r from-accent/10 to-accent-light/10 border-accent/30">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Today's Progress</h2>
-            <p className="text-3xl font-bold mt-1">
+            <p data-testid="habits-progress-count" className="text-3xl font-bold mt-1">
               {completedCount} / {totalCount}
               <span className="text-lg text-text-muted ml-2">habits completed</span>
             </p>
           </div>
           <div className="text-right">
-            <div className="text-4xl font-bold text-accent">{completionRate}%</div>
+            <div data-testid="habits-completion-rate" className="text-4xl font-bold text-accent">{completionRate}%</div>
             <p className="text-sm text-text-muted">completion rate</p>
           </div>
         </div>
         {/* Progress Bar */}
-        <div className="mt-4 h-3 bg-dark-bg rounded-full overflow-hidden">
+        <div data-testid="habits-progress-bar" className="mt-4 h-3 bg-dark-bg rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-accent to-accent-light rounded-full transition-all"
             style={{ width: `${completionRate}%` }}
@@ -83,14 +83,15 @@ function Habits() {
 
       {/* Top Streaks */}
       {streaks && streaks.length > 0 && (
-        <Card>
+        <Card data-testid="habits-streaks-card">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <span>🔥</span> Top Streaks
           </h3>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {streaks.map(s => (
+          <div data-testid="habits-streaks-list" className="flex gap-4 overflow-x-auto pb-2">
+            {streaks.map((s, index) => (
               <div
                 key={s.habitId}
+                data-testid={`habit-streak-${index}`}
                 className="flex-shrink-0 p-3 bg-dark-bg rounded-lg text-center min-w-[120px]"
               >
                 <div className="text-2xl mb-1">{s.lifeArea ? LIFE_AREAS[s.lifeArea]?.icon : '🔄'}</div>
@@ -104,9 +105,10 @@ function Habits() {
       )}
 
       {/* View Toggle & Filters */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div data-testid="habits-view-toggle" className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex gap-2">
           <button
+            data-testid="habits-view-today"
             onClick={() => setViewMode('today')}
             className={`px-4 py-2 rounded-lg transition-all ${
               viewMode === 'today' ? 'bg-accent text-white' : 'bg-dark-card hover:bg-dark-card-hover'
@@ -115,6 +117,7 @@ function Habits() {
             Today
           </button>
           <button
+            data-testid="habits-view-all"
             onClick={() => setViewMode('all')}
             className={`px-4 py-2 rounded-lg transition-all ${
               viewMode === 'all' ? 'bg-accent text-white' : 'bg-dark-card hover:bg-dark-card-hover'
@@ -125,8 +128,9 @@ function Habits() {
         </div>
 
         {viewMode === 'all' && (
-          <div className="flex gap-2 flex-wrap">
+          <div data-testid="habits-area-filter" className="flex gap-2 flex-wrap">
             <button
+              data-testid="habits-area-all"
               onClick={() => setSelectedArea(undefined)}
               className={`px-3 py-1 rounded-full text-sm ${
                 !selectedArea ? 'bg-accent text-white' : 'bg-dark-card text-text-muted'
@@ -137,6 +141,7 @@ function Habits() {
             {Object.values(LIFE_AREAS).map(area => (
               <button
                 key={area.key}
+                data-testid={`habits-area-${area.key}`}
                 onClick={() => setSelectedArea(area.key)}
                 className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
                   selectedArea === area.key ? 'bg-accent text-white' : 'bg-dark-card text-text-muted'
@@ -152,19 +157,20 @@ function Habits() {
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Habits List */}
-        <div className="lg:col-span-2 space-y-3">
+        <div data-testid="habits-list" className="lg:col-span-2 space-y-3">
           {!habits || habits.length === 0 ? (
             <EmptyState
               icon="🔄"
               title={viewMode === 'today' ? "No habits for today" : "No habits yet"}
               description="Create habits to build consistency"
-              action={<Button onClick={() => setShowCreateModal(true)}>Create Habit</Button>}
+              action={<Button data-testid="habits-empty-create" onClick={() => setShowCreateModal(true)}>Create Habit</Button>}
             />
           ) : (
-            habits.map(habit => (
+            habits.map((habit, index) => (
               <HabitCard
                 key={habit.id}
                 habit={habit}
+                index={index}
                 isSelected={habit.id === selectedHabitId}
                 onClick={() => setSelectedHabitId(habit.id === selectedHabitId ? undefined : habit.id)}
                 onComplete={() => completeHabit.mutate({ id: habit.id })}
@@ -211,12 +217,14 @@ function Habits() {
 // Habit Card Component
 function HabitCard({
   habit,
+  index,
   isSelected,
   onClick,
   onComplete,
   isCompleting,
 }: {
   habit: Habit;
+  index: number;
   isSelected: boolean;
   onClick: () => void;
   onComplete: () => void;
@@ -226,12 +234,14 @@ function HabitCard({
 
   return (
     <Card
+      data-testid={`habit-card-${index}`}
       className={`cursor-pointer transition-all ${isSelected ? 'ring-2 ring-accent' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-4">
         {/* Complete Button */}
         <button
+          data-testid={`habit-complete-${index}`}
           onClick={(e) => {
             e.stopPropagation();
             if (!habit.completedToday) onComplete();
@@ -439,15 +449,16 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div data-testid="modal-create-habit" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-dark-card border border-dark-border rounded-xl max-w-lg w-full p-6 animate-slide-up">
-        <h2 className="text-xl font-bold mb-4">Create New Habit</h2>
+        <h2 data-testid="modal-create-habit-title" className="text-xl font-bold mb-4">Create New Habit</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form data-testid="habit-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-text-muted mb-1">Title</label>
             <input
               type="text"
+              data-testid="habit-input-title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -481,6 +492,7 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-sm text-text-muted mb-1">Frequency</label>
               <select
+                data-testid="habit-select-frequency"
                 value={formData.frequency}
                 onChange={(e) => setFormData({ ...formData, frequency: e.target.value as HabitFrequency })}
                 className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -494,6 +506,7 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-sm text-text-muted mb-1">Time of Day</label>
               <select
+                data-testid="habit-select-time"
                 value={formData.timeOfDay}
                 onChange={(e) => setFormData({ ...formData, timeOfDay: e.target.value as any })}
                 className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -509,6 +522,7 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="block text-sm text-text-muted mb-1">Description (optional)</label>
             <textarea
+              data-testid="habit-input-description"
               value={formData.description || ''}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2"
@@ -517,10 +531,10 @@ function CreateHabitModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="submit" disabled={createHabit.isPending || !formData.title.trim()}>
+            <Button data-testid="habit-submit" type="submit" disabled={createHabit.isPending || !formData.title.trim()}>
               {createHabit.isPending ? 'Creating...' : 'Create Habit'}
             </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
+            <Button data-testid="habit-cancel" type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
           </div>

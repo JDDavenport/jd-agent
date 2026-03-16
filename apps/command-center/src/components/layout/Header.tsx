@@ -5,30 +5,31 @@ function Header() {
   const { isHealthy, isLoading } = useSystemHealth();
 
   return (
-    <header className="bg-dark-card border-b border-dark-border sticky top-0 z-50">
+    <header data-testid="header" className="bg-dark-card border-b border-dark-border sticky top-0 z-50">
       <div className="px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent">
+          <h1 data-testid="header-logo" className="text-2xl font-bold bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent">
             JD Agent
           </h1>
-          <div className="flex items-center space-x-2">
+          <div data-testid="header-status" className="flex items-center space-x-2">
             {isLoading ? (
-              <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
+              <div data-testid="header-status-loading" className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
             ) : (
               <div
+                data-testid="header-status-indicator"
                 className={`w-2 h-2 rounded-full ${
                   isHealthy ? 'bg-success animate-pulse-glow' : 'bg-error'
                 }`}
               />
             )}
-            <span className="text-sm text-text-muted">
+            <span data-testid="header-status-text" className="text-sm text-text-muted">
               {isLoading ? 'Checking...' : isHealthy ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="text-sm text-text-muted">
+          <div data-testid="header-time" className="text-sm text-text-muted">
             {new Date().toLocaleTimeString('en-US', {
               hour: 'numeric',
               minute: '2-digit',
@@ -37,6 +38,7 @@ function Header() {
           </div>
           <Link
             to="/settings"
+            data-testid="header-settings-link"
             className="p-2 hover:bg-dark-card-hover rounded-lg transition-colors"
             title="Settings"
           >

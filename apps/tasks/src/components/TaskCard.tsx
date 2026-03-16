@@ -13,6 +13,7 @@ import type { Task } from '@jd-agent/types';
 
 interface TaskCardProps {
   task: Task;
+  index?: number;
   onComplete: (id: string) => void;
   onSelect?: (task: Task) => void;
   onSchedule?: (task: Task) => void;
@@ -38,6 +39,7 @@ const contextColors: Record<string, { bg: string; text: string }> = {
 
 export function TaskCard({
   task,
+  index,
   onComplete,
   onSelect,
   onSchedule,
@@ -68,6 +70,7 @@ export function TaskCard({
 
   return (
     <div
+      data-testid={index !== undefined ? `task-card-${index}` : `task-card-${task.id}`}
       className={clsx(
         'group flex items-start gap-3 px-4 py-3 border-b border-gray-100 transition-all',
         isCompleted ? 'opacity-50' : 'hover:bg-gray-50',
@@ -79,6 +82,7 @@ export function TaskCard({
       {/* Priority Flag + Checkbox */}
       <div className="flex items-center gap-1 pt-0.5">
         <button
+          data-testid={index !== undefined ? `task-complete-${index}` : `task-complete-${task.id}`}
           onClick={() => onComplete(task.id)}
           className={clsx(
             'flex-shrink-0 transition-colors rounded-full',

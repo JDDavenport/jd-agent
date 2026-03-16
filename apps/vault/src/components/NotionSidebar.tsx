@@ -136,8 +136,9 @@ export function NotionSidebar({
 
   if (isCollapsed) {
     return (
-      <aside className="w-0 relative">
+      <aside data-testid="vault-sidebar-collapsed" className="w-0 relative">
         <button
+          data-testid="vault-sidebar-expand"
           onClick={onToggleCollapse}
           className="absolute top-4 left-2 p-1.5 rounded hover:bg-gray-200 transition-colors z-10"
           title="Expand sidebar"
@@ -149,14 +150,15 @@ export function NotionSidebar({
   }
 
   return (
-    <aside className="w-64 bg-[#f7f7f5] border-r border-gray-200 h-screen flex flex-col">
+    <aside data-testid="vault-sidebar" className="w-64 bg-[#f7f7f5] border-r border-gray-200 h-screen flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/60">
-        <div className="flex items-center gap-2">
+        <div data-testid="vault-sidebar-logo" className="flex items-center gap-2">
           <span className="text-lg">📚</span>
           <span className="font-semibold text-gray-900">Vault</span>
         </div>
         <button
+          data-testid="vault-sidebar-collapse"
           onClick={onToggleCollapse}
           className="p-1 rounded hover:bg-gray-200 transition-colors"
           title="Collapse sidebar"
@@ -168,6 +170,7 @@ export function NotionSidebar({
       {/* Search */}
       <div className="px-3 py-2">
         <button
+          data-testid="vault-search-button"
           onClick={onOpenSearch}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
         >
@@ -178,14 +181,15 @@ export function NotionSidebar({
       </div>
 
       {/* Tree content */}
-      <div className="flex-1 overflow-y-auto">
+      <div data-testid="vault-tree" className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="px-4 py-8 text-center text-sm text-gray-400">Loading...</div>
+          <div data-testid="vault-tree-loading" className="px-4 py-8 text-center text-sm text-gray-400">Loading...</div>
         ) : legacyTree.length === 0 && pageTree.length === 0 ? (
-          <div className="px-4 py-8 text-center">
+          <div data-testid="vault-tree-empty" className="px-4 py-8 text-center">
             <DocumentTextIcon className="w-8 h-8 mx-auto text-gray-300 mb-2" />
             <p className="text-sm text-gray-500">No entries yet</p>
             <button
+              data-testid="vault-create-first"
               onClick={() => onCreateEntry?.()}
               className="mt-2 text-sm text-blue-600 hover:text-blue-700"
             >
@@ -236,6 +240,7 @@ export function NotionSidebar({
       {/* New Entry Button */}
       <div className="p-3 border-t border-gray-200">
         <button
+          data-testid="vault-new-entry-button"
           onClick={() => onCreateEntry?.()}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
         >
