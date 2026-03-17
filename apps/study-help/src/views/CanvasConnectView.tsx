@@ -9,9 +9,9 @@
  * 5. Sync progress + completion
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   AcademicCapIcon,
   CheckCircleIcon,
@@ -31,18 +31,14 @@ import {
   type CanvasProfile,
   type SyncResult,
 } from '../api/canvas';
-import { setCanvasTokenGetter } from '../api/canvas';
+// Canvas API uses cookies via Better Auth — no token getter needed
 
 type Step = 'url' | 'instructions' | 'token' | 'courses' | 'syncing' | 'done';
 
 export function CanvasConnectView() {
-  const { getToken } = useAuth();
   const navigate = useNavigate();
 
-  // Wire up the token getter for canvas API calls
-  useEffect(() => {
-    setCanvasTokenGetter(() => getToken());
-  }, [getToken]);
+  // Better Auth uses cookies — no token getter needed
 
   const [step, setStep] = useState<Step>('url');
   const [canvasUrl, setCanvasUrl] = useState('');

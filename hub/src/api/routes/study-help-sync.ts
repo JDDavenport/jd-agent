@@ -8,18 +8,15 @@ import { Hono } from 'hono';
 import { db } from '../../db/client';
 import { studyHelpUsers } from '../../db/schema';
 import { eq } from 'drizzle-orm';
-import { requireClerkAuth } from '../middleware/clerk-auth';
-import { resolveUser, getUserId } from '../middleware/resolve-user';
+import { requireAuth, getUserId } from '../middleware/auth';
 import { syncUserCanvas, syncAllUsers } from '../../services/study-help-sync';
 
-type Env = { Variables: { clerkUserId: string; userId: string } };
+type Env = { Variables: { userId: string } };
 const studyHelpSyncRouter = new Hono<Env>();
 
-// Apply Clerk auth to user-facing sync routes
-studyHelpSyncRouter.use('/trigger', requireClerkAuth);
-studyHelpSyncRouter.use('/trigger', resolveUser);
-studyHelpSyncRouter.use('/status', requireClerkAuth);
-studyHelpSyncRouter.use('/status', resolveUser);
+// Apply auth to user-facing sync routes
+studyHelpSyncRouter.use('/trigger', requireAuth);
+studyHelpSyncRouter.use('/status', requireAuth);
 
 /**
  * POST /api/study-help/sync/trigger

@@ -18,16 +18,14 @@ import {
   transcripts,
 } from '../../db/schema';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
-import { requireClerkAuth } from '../middleware/clerk-auth';
-import { resolveUser, getUserId } from '../middleware/resolve-user';
+import { requireAuth, getUserId } from '../middleware/auth';
 import Anthropic from '@anthropic-ai/sdk';
 
-type Env = { Variables: { clerkUserId: string; userId: string } };
+type Env = { Variables: { userId: string } };
 const studyHelpChatRouter = new Hono<Env>();
 
 // Apply Clerk auth to all chat routes
-studyHelpChatRouter.use('*', requireClerkAuth);
-studyHelpChatRouter.use('*', resolveUser);
+studyHelpChatRouter.use('*', requireAuth);
 const MAX_CONTEXT_CHARS = 80_000; // Leave room for system prompt + conversation
 const MAX_HISTORY_MESSAGES = 20; // Last N messages to include in conversation
 const MAX_MATERIAL_SNIPPETS = 15; // Max materials to include as context

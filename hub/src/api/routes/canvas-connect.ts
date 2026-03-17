@@ -12,7 +12,7 @@
 
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { requireClerkAuth } from '../middleware/clerk-auth';
+import { requireAuth, getUserId as getAuthUserId } from '../middleware/auth';
 import { db } from '../../db/client';
 import {
   studyHelpUsers,
@@ -28,7 +28,7 @@ import { eq, and } from 'drizzle-orm';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { UserCanvasClient, createUserCanvasClient } from '../../integrations/canvas-user';
 
-type Env = { Variables: { clerkUserId: string } };
+type Env = { Variables: { userId: string; authUser: any } };
 const canvasConnectRouter = new Hono<Env>();
 
 const ENCRYPTION_KEY = process.env.STUDY_HELP_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || 'default-key-change-me-32-chars!!';
@@ -97,48 +97,15 @@ function guessMaterialType(title: string, type: string): string {
 }
 
 // ============================================
-// Helper: get or create user row from Clerk ID
+// Helper: get user row from userId (set by auth middleware)
 // ============================================
 
-async function getOrCreateUser(clerkUserId: string) {
-  // Check by clerk_id first
-  let [user] = await db
+async function getUserById(userId: string) {
+  const [user] = await db
     .select()
     .from(studyHelpUsers)
-    .where(eq(studyHelpUsers.clerkId, clerkUserId))
+    .where(eq(studyHelpUsers.id, userId))
     .limit(1);
-
-  // Fallback: check legacy email pattern
-  if (!user) {
-    [user] = await db
-      .select()
-      .from(studyHelpUsers)
-      .where(eq(studyHelpUsers.email, `clerk:${clerkUserId}`))
-      .limit(1);
-
-    // Backfill clerk_id
-    if (user) {
-      await db
-        .update(studyHelpUsers)
-        .set({ clerkId: clerkUserId })
-        .where(eq(studyHelpUsers.id, user.id));
-    }
-  }
-
-  if (!user) {
-    // Create a new user linked to Clerk ID
-    [user] = await db
-      .insert(studyHelpUsers)
-      .values({
-        clerkId: clerkUserId,
-        email: `clerk:${clerkUserId}`,
-        passwordHash: 'clerk-auth',
-        name: null,
-        isActive: true,
-      })
-      .returning();
-  }
-
   return user;
 }
 
@@ -175,7 +142,7 @@ async function getCanvasClient(user: any): Promise<{ client: UserCanvasClient | 
 // Apply Clerk auth to all routes
 // ============================================
 
-canvasConnectRouter.use('*', requireClerkAuth);
+canvasConnectRouter.use('*', requireAuth);
 
 // ============================================
 // POST /api/canvas/connect
@@ -183,8 +150,8 @@ canvasConnectRouter.use('*', requireClerkAuth);
 // ============================================
 
 canvasConnectRouter.post('/connect', async (c) => {
-  const clerkUserId = c.get('clerkUserId') as string;
-  const user = await getOrCreateUser(clerkUserId);
+  const userId = getAuthUserId(c);
+  const user = await getUserById(userId);
 
   try {
     const { canvasUrl, canvasToken } = await c.req.json();
@@ -296,8 +263,8 @@ canvasConnectRouter.post('/connect', async (c) => {
 // ============================================
 
 canvasConnectRouter.get('/status', async (c) => {
-  const clerkUserId = c.get('clerkUserId') as string;
-  const user = await getOrCreateUser(clerkUserId);
+  const userId = getAuthUserId(c);
+  const user = await getUserById(userId);
 
   const connected = !!user.canvasAccessTokenEncrypted;
 
@@ -330,8 +297,8 @@ canvasConnectRouter.get('/status', async (c) => {
 // ============================================
 
 canvasConnectRouter.get('/courses', async (c) => {
-  const clerkUserId = c.get('clerkUserId') as string;
-  const user = await getOrCreateUser(clerkUserId);
+  const userId = getAuthUserId(c);
+  const user = await getUserById(userId);
 
   const courses = await db
     .select()
@@ -364,8 +331,8 @@ canvasConnectRouter.get('/courses', async (c) => {
 // ============================================
 
 canvasConnectRouter.post('/sync', async (c) => {
-  const clerkUserId = c.get('clerkUserId') as string;
-  const user = await getOrCreateUser(clerkUserId);
+  const userId = getAuthUserId(c);
+  const user = await getUserById(userId);
 
   const { client, canvasUrl } = await getCanvasClient(user);
   if (!client) {
@@ -391,7 +358,7 @@ canvasConnectRouter.post('/sync', async (c) => {
   };
 
   try {
-    console.log(`[CanvasSync] Starting comprehensive sync for clerk:${clerkUserId}`);
+    console.log(`[CanvasSync] Starting comprehensive sync for user:${userId}`);
 
     // 1. Fetch all current courses from Canvas
     const canvasCourses = await client.getCurrentCourses();
@@ -704,8 +671,8 @@ canvasConnectRouter.post('/sync', async (c) => {
 // ============================================
 
 canvasConnectRouter.get('/sync/status', async (c) => {
-  const clerkUserId = c.get('clerkUserId') as string;
-  const user = await getOrCreateUser(clerkUserId);
+  const userId = getAuthUserId(c);
+  const user = await getUserById(userId);
 
   const courses = await db
     .select()
@@ -735,8 +702,8 @@ canvasConnectRouter.get('/sync/status', async (c) => {
 // ============================================
 
 canvasConnectRouter.delete('/disconnect', async (c) => {
-  const clerkUserId = c.get('clerkUserId') as string;
-  const user = await getOrCreateUser(clerkUserId);
+  const userId = getAuthUserId(c);
+  const user = await getUserById(userId);
 
   await db.update(studyHelpUsers).set({
     canvasAccessTokenEncrypted: null,

@@ -11,13 +11,6 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
-// Clerk token getter - set by ClerkTokenProvider or useAuth hook
-let _getClerkToken: (() => Promise<string | null>) | null = null;
-
-export function setClerkTokenGetter(getter: () => Promise<string | null>) {
-  _getClerkToken = getter;
-}
-
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -30,14 +23,7 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as Record<string, string>),
   };
 
-  // Attach Clerk bearer token if available
-  if (_getClerkToken) {
-    const token = await _getClerkToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
-
+  // Better Auth uses cookies — just ensure credentials are included
   const response = await fetch(url, {
     ...options,
     credentials: 'include',

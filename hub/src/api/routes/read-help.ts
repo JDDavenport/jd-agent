@@ -15,15 +15,13 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { readHelpService } from '../../services/read-help-service';
 import { videosRouter } from './videos';
-import { requireClerkAuth } from '../middleware/clerk-auth';
-import { resolveUser, getUserId } from '../middleware/resolve-user';
+import { requireAuth, getUserId } from '../middleware/auth';
 
-type Env = { Variables: { clerkUserId: string; userId: string } };
+type Env = { Variables: { userId: string } };
 const readHelpRouter = new Hono<Env>();
 
 // Apply auth to all read-help routes
-readHelpRouter.use('*', requireClerkAuth);
-readHelpRouter.use('*', resolveUser);
+readHelpRouter.use('*', requireAuth);
 
 // Mount videos sub-router
 readHelpRouter.route('/videos', videosRouter);

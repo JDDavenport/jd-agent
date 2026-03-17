@@ -4096,6 +4096,7 @@ export const studyHelpUsers = pgTable(
     
     // Auth
     clerkId: text('clerk_id').unique(),
+    betterAuthUserId: text('better_auth_user_id').unique(),
     email: text('email').notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     name: text('name'),
@@ -4131,6 +4132,7 @@ export const studyHelpUsers = pgTable(
   (table) => [
     index('study_help_users_email_idx').on(table.email),
     index('study_help_users_clerk_id_idx').on(table.clerkId),
+    index('study_help_users_ba_id_idx').on(table.betterAuthUserId),
     index('study_help_users_active_idx').on(table.isActive),
   ]
 );

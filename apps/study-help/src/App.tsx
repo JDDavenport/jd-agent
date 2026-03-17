@@ -1,12 +1,7 @@
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
-import {
-  SignedIn,
-  SignedOut,
-  SignIn,
-  SignUp,
-  UserButton,
-} from '@clerk/clerk-react';
+import { useAuth } from './contexts/AuthContext';
+import { UserMenu } from './components/UserMenu';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -17,6 +12,7 @@ import {
   ChevronRightIcon,
   CalendarDaysIcon,
   LinkIcon,
+  CreditCardIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSchoolTasks } from './hooks/useStudy';
@@ -25,6 +21,9 @@ import type { Course } from './types/courses';
 
 // Views
 import { LandingPage } from './views/LandingPage';
+import { LoginView } from './views/LoginView';
+import { SignupView } from './views/SignupView';
+import { PricingView } from './views/PricingView';
 import { DashboardView } from './views/DashboardView';
 import { ThisWeekView } from './views/ThisWeekView';
 import { CourseView } from './views/CourseView';
@@ -33,34 +32,31 @@ import { VideoDetailView } from './views/VideoDetailView';
 import { PomodoroView } from './views/PomodoroView';
 import { FlashcardsView } from './views/FlashcardsView';
 import { ErrorBoundary } from './ErrorBoundary';
-import { ClerkTokenProvider } from './components/ClerkTokenProvider';
 import { CanvasConnectView } from './views/CanvasConnectView';
 
 export default function App() {
-  return (
-    <>
-      <SignedOut>
-        <Routes>
-          <Route path="/sign-in/*" element={
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-              <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
-            </div>
-          } />
-          <Route path="/sign-up/*" element={
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-              <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
-            </div>
-          } />
-          <Route path="*" element={<LandingPage />} />
-        </Routes>
-      </SignedOut>
-      <SignedIn>
-        <ClerkTokenProvider>
-          <AuthenticatedApp />
-        </ClerkTokenProvider>
-      </SignedIn>
-    </>
-  );
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="/sign-in" element={<LoginView />} />
+        <Route path="/sign-up" element={<SignupView />} />
+        <Route path="/pricing" element={<PricingView />} />
+        <Route path="*" element={<LandingPage />} />
+      </Routes>
+    );
+  }
+
+  return <AuthenticatedApp />;
 }
 
 function AuthenticatedApp() {
@@ -94,6 +90,7 @@ function AuthenticatedApp() {
     if (path.startsWith('/readings/')) return 'Reading';
     if (path === '/timer') return 'Study Timer';
     if (path === '/flashcards') return 'Flashcards';
+    if (path === '/pricing') return 'Subscription';
     return 'Study Help';
   };
 
@@ -137,7 +134,7 @@ function AuthenticatedApp() {
               <AcademicCapIcon className="h-8 w-8 text-blue-600" />
               <span className="ml-2 text-xl font-bold text-gray-900">Study Help</span>
             </div>
-            <UserButton afterSignOutUrl="/" />
+            <UserMenu />
           </div>
           <div className="flex-1 overflow-y-auto">
             <SidebarContent taskCounts={taskCounts} />
@@ -158,7 +155,7 @@ function AuthenticatedApp() {
             </button>
             <span className="text-lg font-semibold text-gray-900">{getPageTitle()}</span>
           </div>
-          <UserButton afterSignOutUrl="/" />
+          <UserMenu />
         </div>
 
         {/* Page content */}
@@ -176,10 +173,11 @@ function AuthenticatedApp() {
               <Route path="/this-week" element={<ErrorBoundary><ThisWeekView /></ErrorBoundary>} />
               <Route path="/timer" element={<ErrorBoundary><PomodoroView /></ErrorBoundary>} />
               <Route path="/flashcards" element={<ErrorBoundary><FlashcardsView /></ErrorBoundary>} />
+              <Route path="/pricing" element={<ErrorBoundary><PricingView /></ErrorBoundary>} />
               <Route path="/canvas/connect" element={<ErrorBoundary><CanvasConnectView /></ErrorBoundary>} />
-              {/* Redirect sign-in/sign-up to home when already authenticated */}
-              <Route path="/sign-in/*" element={<Navigate to="/" replace />} />
-              <Route path="/sign-up/*" element={<Navigate to="/" replace />} />
+              {/* Redirect auth pages to home when authenticated */}
+              <Route path="/sign-in" element={<Navigate to="/" replace />} />
+              <Route path="/sign-up" element={<Navigate to="/" replace />} />
             </Routes>
           </ErrorBoundary>
         </main>
@@ -288,7 +286,7 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
         </NavLink>
       </div>
 
-      {/* Canvas connect */}
+      {/* Settings */}
       <div className="px-3 mt-6 mb-2">
         <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
           Settings
@@ -309,6 +307,21 @@ function SidebarContent({ taskCounts, onNavigate }: SidebarContentProps) {
         >
           <LinkIcon className="h-5 w-5" />
           Connect Canvas
+        </NavLink>
+        <NavLink
+          to="/pricing"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            )
+          }
+        >
+          <CreditCardIcon className="h-5 w-5" />
+          Subscription
         </NavLink>
       </div>
 

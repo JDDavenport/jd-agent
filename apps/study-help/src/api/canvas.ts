@@ -1,26 +1,9 @@
 /**
  * Canvas API client for onboarding + sync
+ * Uses Better Auth cookies for authentication (credentials: 'include')
  */
 
-import { setClerkTokenGetter } from '../api';
-
 const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
-
-let _getClerkToken: (() => Promise<string | null>) | null = null;
-
-// Re-use the token getter from the main api module
-export function setCanvasTokenGetter(getter: () => Promise<string | null>) {
-  _getClerkToken = getter;
-}
-
-async function getHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (_getClerkToken) {
-    const token = await _getClerkToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-}
 
 interface ApiResponse<T> {
   success: boolean;
@@ -29,11 +12,15 @@ interface ApiResponse<T> {
 }
 
 async function fetchCanvas<T>(url: string, options?: RequestInit): Promise<T> {
-  const headers = await getHeaders();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  };
+
   const response = await fetch(url, {
     ...options,
     credentials: 'include',
-    headers: { ...headers, ...(options?.headers as Record<string, string>) },
+    headers,
   });
   const json: ApiResponse<T> = await response.json();
   if (!json.success) {

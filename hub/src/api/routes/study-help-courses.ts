@@ -11,15 +11,15 @@ import { studyHelpUsers, studyHelpUserCourses } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getDecryptedCanvasToken, getInstitutionForUser } from './study-help-auth';
 import { createUserCanvasClient, UserCanvasClient } from '../../integrations/canvas-user';
-import { requireClerkAuth } from '../middleware/clerk-auth';
-import { resolveUser, getUserId } from '../middleware/resolve-user';
+import { requireAuth, getUserId } from '../middleware/auth';
+import { checkSubscription } from '../middleware/subscription';
 
-type Env = { Variables: { clerkUserId: string; userId: string } };
+type Env = { Variables: { userId: string } };
 const studyHelpCoursesRouter = new Hono<Env>();
 
-// Apply Clerk auth to all courses routes
-studyHelpCoursesRouter.use('*', requireClerkAuth);
-studyHelpCoursesRouter.use('*', resolveUser);
+// Apply auth to all courses routes
+studyHelpCoursesRouter.use('*', requireAuth);
+studyHelpCoursesRouter.use('*', checkSubscription);
 
 // ============================================
 // Helper functions
